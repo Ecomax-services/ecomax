@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-ink-50 font-sans text-ink-900 antialiased;
+    margin: 0;
+  }
+
+  /* Faixa decorativa de fundo (line-art) aproximando o padrão do Figma. */
+  .auth-pattern {
+    background-image: radial-gradient(
+        circle at 20% 90%,
+        rgba(255, 255, 255, 0.06) 0,
+        transparent 45%
+      ),
+      radial-gradient(circle at 85% 100%, rgba(255, 255, 255, 0.05) 0, transparent 40%);
+  }
+}
+
+@layer utilities {
+  .focus-ring {
+    @apply outline-none ring-2 ring-forest-500/40 ring-offset-0;
+  }
+}

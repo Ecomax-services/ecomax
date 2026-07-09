@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-backoffice",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/web-backoffice", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "web-portal-cliente",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/web-portal-cliente", "run", "dev"],
+      "port": 5174
+    },
+    {
+      "name": "mobile-operador-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/mobile-operador", "run", "web"],
+      "port": 8082
+    }
+  ]
+}
