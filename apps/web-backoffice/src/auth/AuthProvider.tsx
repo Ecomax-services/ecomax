@@ -21,6 +21,8 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   /** O usuário logado pode `action` no `module`? Admin sempre pode. */
   can: (module: ModuleKey, action?: PermAction) => boolean;
+  /** Recarrega profile + permissões do usuário atual (ex.: após alterar foto/permissões). */
+  reload: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -127,8 +129,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPermissions({});
   }, []);
 
+  const reload = useCallback(async () => {
+    const { data } = await supabase.auth.getUser();
+    if (data.user) await loadFor(data.user.id);
+  }, [loadFor]);
+
   return (
-    <AuthContext.Provider value={{ session, profile, permissions, loading, signIn, signOut, can }}>
+    <AuthContext.Provider value={{ session, profile, permissions, loading, signIn, signOut, can, reload }}>
       {children}
     </AuthContext.Provider>
   );

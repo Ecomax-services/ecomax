@@ -19,7 +19,6 @@ import {
   listAuditoria,
   listPerfisAcesso,
   listGestores,
-  distinctValues,
   resetSenha,
   setBloqueioLogin,
   alterarPerfilAcesso,
@@ -28,6 +27,7 @@ import {
   type FuncionarioRow,
   type AuditoriaRow,
 } from '@/lib/funcionarios';
+import { listCatalogoAtivos } from '@/lib/configuracoes';
 
 interface DocUrls {
   avatar: string | null;
@@ -359,8 +359,8 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
 
   useEffect(() => {
     listGestores().then((g) => setGestores(g.filter((x) => x.id !== row.id)));
-    distinctValues('cargo').then(setCargos);
-    distinctValues('setor').then(setSetores);
+    listCatalogoAtivos('cargos').then((v) => v.length && setCargos(v)).catch(() => {});
+    listCatalogoAtivos('setores').then((v) => v.length && setSetores(v)).catch(() => {});
   }, [row.id]);
 
   const save = async () => {

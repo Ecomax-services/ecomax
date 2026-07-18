@@ -55,7 +55,8 @@ export type ModuleKey =
   | 'relatorios'
   | 'financeiro'
   | 'gestao_usuarios'
-  | 'configuracoes';
+  | 'configuracoes'
+  | 'notificacoes';
 
 export type PermAction = 'ler' | 'criar' | 'editar' | 'excluir';
 

@@ -55,7 +55,7 @@ const items: NavItem[] = [
   { label: 'Financeiro', icon: Wallet, to: '/financeiro', disabled: true, module: 'financeiro' },
   { label: 'Gestão de Usuários', icon: UserCog, to: '/usuarios', module: 'gestao_usuarios' },
   { label: 'Notificações', icon: Bell, to: '/notificacoes', badge: 2 },
-  { label: 'Configurações', icon: Settings, to: '/configuracoes', disabled: true, module: 'configuracoes' },
+  { label: 'Configurações', icon: Settings, to: '/configuracoes', module: 'configuracoes' },
 ];
 
 /** Sidebar do Backoffice (Figma node 148:331). 240px, fundo verde escuro. */
