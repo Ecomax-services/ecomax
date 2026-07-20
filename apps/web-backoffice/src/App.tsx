@@ -17,6 +17,10 @@ import { Requisicoes } from '@/pages/estoque/Requisicoes';
 import { Fornecedores } from '@/pages/estoque/Fornecedores';
 import { Bases } from '@/pages/estoque/Bases';
 import { EstoqueSaldo } from '@/pages/estoque/EstoqueSaldo';
+import { Configuracoes } from '@/pages/configuracoes/Configuracoes';
+import { CadastrosAuxiliares } from '@/pages/configuracoes/CadastrosAuxiliares';
+import { MeuPerfil } from '@/pages/configuracoes/MeuPerfil';
+import { Permissoes } from '@/pages/configuracoes/Permissoes';
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
@@ -51,6 +55,15 @@ export const router = createBrowserRouter([
               { path: '/estoque/saldo', element: <EstoqueSaldo /> },
             ],
           },
+        ],
+      },
+      {
+        element: <RequireModule module="configuracoes" />,
+        children: [
+          { path: '/configuracoes', element: <Configuracoes /> },
+          { path: '/configuracoes/cadastros', element: <CadastrosAuxiliares /> },
+          { path: '/configuracoes/perfil', element: <MeuPerfil /> },
+          { path: '/configuracoes/permissoes', element: <Permissoes /> },
         ],
       },
     ],

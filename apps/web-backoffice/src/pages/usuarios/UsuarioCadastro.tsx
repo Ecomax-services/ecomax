@@ -8,7 +8,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
-import { cpfExists, criarFuncionario, distinctValues, listGestores, listPerfisAcesso, uploadFuncionarioFile } from '@/lib/funcionarios';
+import { cpfExists, criarFuncionario, listGestores, listPerfisAcesso, uploadFuncionarioFile } from '@/lib/funcionarios';
+import { listCatalogoAtivos } from '@/lib/configuracoes';
 
 const steps = [
   { n: 1, label: 'Dados pessoais' },
@@ -71,8 +72,8 @@ export function UsuarioCadastro() {
     r.readAsDataURL(f);
   };
 
-  const [cargos, setCargos] = useState<string[]>([]);
-  const [setores, setSetores] = useState<string[]>([]);
+  const [cargos, setCargos] = useState<string[]>(['Técnico de Campo', 'Supervisora', 'Analista Admin.', 'Almoxarife']);
+  const [setores, setSetores] = useState<string[]>(['Operações', 'Comercial', 'Administrativo', 'Almoxarifado']);
   const [gestores, setGestores] = useState<{ id: string; nome: string }[]>([]);
   const [perfis, setPerfis] = useState<{ id: string; nome: string }[]>([]);
 
@@ -80,8 +81,8 @@ export function UsuarioCadastro() {
   const dirty = JSON.stringify(form) !== JSON.stringify(empty);
 
   useEffect(() => {
-    distinctValues('cargo').then((v) => setCargos(v.length ? v : ['Técnico de Campo', 'Supervisor', 'Analista Admin.', 'Almoxarife']));
-    distinctValues('setor').then((v) => setSetores(v.length ? v : ['Operações', 'Comercial', 'Administrativo', 'Almoxarifado']));
+    listCatalogoAtivos('cargos').then((v) => v.length && setCargos(v)).catch(() => {});
+    listCatalogoAtivos('setores').then((v) => v.length && setSetores(v)).catch(() => {});
     listGestores().then(setGestores);
     listPerfisAcesso().then((p) => {
       setPerfis(p);
