@@ -15,6 +15,7 @@ import {
   reqStatusTone, reqStatusText, type ReqRow, type ReqStatus, type Produto,
 } from '@/lib/estoque';
 import { listGestores } from '@/lib/funcionarios';
+import { maskInt } from '@/lib/masks';
 
 const STATUS_OPTS: { value: string; label: string }[] = [
   { value: 'todos', label: 'Todos os status' },
@@ -187,7 +188,7 @@ export function Requisicoes() {
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-[2fr_1fr] gap-3.5">
             <SelectField label="Produto" required value={form.produto_id} onChange={(e) => up('produto_id', e.target.value)} options={[{ value: '', label: 'Selecione…' }, ...produtos.map((p) => ({ value: p.id, label: p.name }))]} />
-            <TextField label="Qtd" required value={form.quantidade} onChange={(e) => up('quantidade', e.target.value)} placeholder="0" />
+            <TextField label="Qtd" required inputMode="numeric" value={form.quantidade} onChange={(e) => up('quantidade', maskInt(e.target.value))} placeholder="0" />
           </div>
           <SelectField label="Fornecedor" value={form.fornecedor_id} onChange={(e) => up('fornecedor_id', e.target.value)} options={[{ value: '', label: 'A definir' }, ...forns.map((f) => ({ value: f.id, label: f.nome }))]} />
           <SelectField label="Aprovador (nível 2)" required value={form.aprovador_id} onChange={(e) => up('aprovador_id', e.target.value)} options={[{ value: '', label: 'Selecione…' }, ...gestores.map((g) => ({ value: g.id, label: g.nome }))]} />
@@ -271,7 +272,7 @@ function ReceberModal({
       <div className="flex flex-col gap-3.5 px-7 py-6">
         <SelectField label="Base de destino" value={baseId} onChange={(e) => setBaseId(e.target.value)} options={bases.map((b) => ({ value: b.id, label: b.nome }))} />
         <div className="grid grid-cols-2 gap-3.5">
-          <TextField label="Quantidade recebida" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
+          <TextField label="Quantidade recebida" inputMode="numeric" value={qtd} onChange={(e) => setQtd(maskInt(e.target.value))} placeholder="0" />
           <TextField label="Lote" value={lote} onChange={(e) => setLote(e.target.value)} placeholder="Lote recebido" />
         </div>
         <TextField label="Validade" value={validade} onChange={(e) => setValidade(e.target.value)} placeholder="mm/aaaa" />

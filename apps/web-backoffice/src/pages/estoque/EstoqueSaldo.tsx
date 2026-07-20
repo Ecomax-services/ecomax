@@ -17,6 +17,7 @@ import {
   type StockRow, type MovRow, type Produto, type NivelRow, type Inventario, type InventarioItem,
 } from '@/lib/estoque';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
+import { maskInt } from '@/lib/masks';
 
 type Tab = 'estoque' | 'mov' | 'inv';
 const MOTIVOS_FALLBACK = ['Correção de contagem', 'Perda / avaria', 'Vencimento', 'Devolução'];
@@ -248,7 +249,7 @@ function AjusteModal({
         <SelectField label="Localização" required value={baseId} onChange={(e) => setBaseId(e.target.value)} options={bases.map((b) => ({ value: b.id, label: b.nome }))} />
         <div className="grid grid-cols-2 gap-3.5">
           <SelectField label="Tipo" value={tipo} onChange={(e) => setTipo(e.target.value as 'entrada' | 'saida')} options={[{ value: 'entrada', label: 'Entrada (+)' }, { value: 'saida', label: 'Saída (−)' }]} />
-          <TextField label="Quantidade" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
+          <TextField label="Quantidade" inputMode="numeric" value={qtd} onChange={(e) => setQtd(maskInt(e.target.value))} placeholder="0" />
         </div>
         <SelectField label="Motivo" required value={motivo} onChange={(e) => setMotivo(e.target.value)} options={motivos.map((m) => ({ value: m, label: m }))} />
         <TextareaField label="Observação" value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Detalhe o ajuste" />
@@ -285,7 +286,8 @@ function NiveisModal({
   }, [baseId, showToast]);
 
   const setCell = (id: string, key: 'min' | 'max', v: string) => {
-    const num = v === '' ? (key === 'max' ? null : 0) : Number(v);
+    const digits = maskInt(v);
+    const num = digits === '' ? (key === 'max' ? null : 0) : Number(digits);
     setRows((rs) => rs.map((r) => (r.produto_id === id ? { ...r, [key]: num } : r)));
   };
 
@@ -335,10 +337,10 @@ function NiveisModal({
                   {r.custom && <span className="ml-2 rounded-full bg-primary50 px-2 py-0.5 text-[11px] font-semibold text-forest-700">personalizado</span>}
                 </td>
                 <td className="px-3 py-2 text-center">
-                  <input value={r.min} onChange={(e) => setCell(r.produto_id, 'min', e.target.value)} className="w-20 rounded-lg border border-ink-200 px-2 py-1.5 text-center text-sm outline-none" />
+                  <input value={r.min} inputMode="numeric" onChange={(e) => setCell(r.produto_id, 'min', e.target.value)} className="w-20 rounded-lg border border-ink-200 px-2 py-1.5 text-center text-sm outline-none" />
                 </td>
                 <td className="px-3 py-2 text-center">
-                  <input value={r.max ?? ''} onChange={(e) => setCell(r.produto_id, 'max', e.target.value)} placeholder="—" className="w-20 rounded-lg border border-ink-200 px-2 py-1.5 text-center text-sm outline-none" />
+                  <input value={r.max ?? ''} inputMode="numeric" onChange={(e) => setCell(r.produto_id, 'max', e.target.value)} placeholder="—" className="w-20 rounded-lg border border-ink-200 px-2 py-1.5 text-center text-sm outline-none" />
                 </td>
               </tr>
             ))}
@@ -521,8 +523,9 @@ function InventarioFisicoTab({
                   <td className="px-4 py-3 text-center">
                     <input
                       value={conta[i.id] ?? ''}
-                      onChange={(e) => setConta((c) => ({ ...c, [i.id]: e.target.value }))}
+                      onChange={(e) => setConta((c) => ({ ...c, [i.id]: maskInt(e.target.value) }))}
                       disabled={!canWrite}
+                      inputMode="numeric"
                       placeholder="—"
                       className="w-24 rounded-lg border border-ink-200 px-2 py-1.5 text-center text-sm outline-none"
                     />

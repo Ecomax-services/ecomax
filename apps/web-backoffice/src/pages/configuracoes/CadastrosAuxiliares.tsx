@@ -14,6 +14,7 @@ import {
   CATALOGOS, listCatalogoItens, createCatalogoItem, updateCatalogoItem,
   setCatalogoItemAtivo, deleteCatalogoItem, type CatalogoItem, type CatalogoMeta,
 } from '@/lib/configuracoes';
+import { maskInt } from '@/lib/masks';
 
 const PALETA: { bg: string; fg: string; nome: string }[] = [
   { bg: '#d3f7d3', fg: '#155015', nome: 'Verde' },
@@ -224,7 +225,7 @@ export function CadastrosAuxiliares() {
 
           {meta.servico && (
             <div className="grid grid-cols-[1fr_120px] gap-3.5">
-              <TextField label="Prazo padrão (dias)" value={form.prazo_padrao} onChange={(e) => up('prazo_padrao', e.target.value)} placeholder="Ex.: 7" />
+              <TextField label="Prazo padrão (dias)" inputMode="numeric" value={form.prazo_padrao} onChange={(e) => up('prazo_padrao', maskInt(e.target.value))} placeholder="Ex.: 7" />
               <div />
             </div>
           )}

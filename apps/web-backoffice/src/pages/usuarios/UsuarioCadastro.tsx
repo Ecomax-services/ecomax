@@ -10,6 +10,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { cpfExists, criarFuncionario, listGestores, listPerfisAcesso, uploadFuncionarioFile } from '@/lib/funcionarios';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
+import { maskCPF, maskRG, maskDate, maskPhone, maskCEP } from '@/lib/masks';
 
 const steps = [
   { n: 1, label: 'Dados pessoais' },
@@ -204,11 +205,11 @@ export function UsuarioCadastro() {
               </div>
               <div className="grid grid-cols-2 gap-[18px]">
                 <TextField label="Nome completo" required placeholder="Nome do funcionário" value={form.nome} onChange={(e) => up('nome', e.target.value)} />
-                <TextField label="CPF" required placeholder="000.000.000-00" value={form.cpf} onChange={(e) => up('cpf', e.target.value)} onBlur={validateCpf} error={cpfErr || undefined} />
-                <TextField label="RG" placeholder="00.000.000-0" value={form.rg} onChange={(e) => up('rg', e.target.value)} />
-                <TextField label="Data de nascimento" placeholder="dd/mm/aaaa" value={form.nascimento} onChange={(e) => up('nascimento', e.target.value)} />
-                <TextField label="Telefone" placeholder="(00) 00000-0000" value={form.telefone} onChange={(e) => up('telefone', e.target.value)} />
-                <TextField label="CEP" placeholder="00000-000" value={form.cep} onChange={(e) => up('cep', e.target.value)} />
+                <TextField label="CPF" required placeholder="000.000.000-00" inputMode="numeric" value={form.cpf} onChange={(e) => up('cpf', maskCPF(e.target.value))} onBlur={validateCpf} error={cpfErr || undefined} />
+                <TextField label="RG" placeholder="00.000.000-0" inputMode="numeric" value={form.rg} onChange={(e) => up('rg', maskRG(e.target.value))} />
+                <TextField label="Data de nascimento" placeholder="dd/mm/aaaa" inputMode="numeric" value={form.nascimento} onChange={(e) => up('nascimento', maskDate(e.target.value))} />
+                <TextField label="Telefone" placeholder="(00) 00000-0000" inputMode="numeric" value={form.telefone} onChange={(e) => up('telefone', maskPhone(e.target.value))} />
+                <TextField label="CEP" placeholder="00000-000" inputMode="numeric" value={form.cep} onChange={(e) => up('cep', maskCEP(e.target.value))} />
               </div>
             </>
           )}
@@ -223,7 +224,7 @@ export function UsuarioCadastro() {
                   options={[{ value: '', label: 'Selecione…' }, ...setores.map((c) => ({ value: c, label: c }))]} />
                 <SelectField label="Gestor" value={form.gestorId} onChange={(e) => up('gestorId', e.target.value)}
                   options={[{ value: '', label: 'Sem gestor' }, ...gestores.map((g) => ({ value: g.id, label: g.nome }))]} />
-                <TextField label="Data de admissão" placeholder="dd/mm/aaaa" value={form.admissao} onChange={(e) => up('admissao', e.target.value)} />
+                <TextField label="Data de admissão" placeholder="dd/mm/aaaa" inputMode="numeric" value={form.admissao} onChange={(e) => up('admissao', maskDate(e.target.value))} />
               </div>
               <div className="mt-[18px] grid grid-cols-2 gap-[18px]">
                 <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50 p-[18px]">

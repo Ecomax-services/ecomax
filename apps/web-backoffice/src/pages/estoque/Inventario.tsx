@@ -16,6 +16,7 @@ import {
   confirmarRecebimentoTransferencia, cancelarTransferencia,
   type StockRow, type TransferenciaRow,
 } from '@/lib/estoque';
+import { maskInt } from '@/lib/masks';
 
 type Mode = 'base' | 'operador';
 
@@ -225,7 +226,7 @@ function TransferModal({
           onChange={(e) => setLoteKey(e.target.value)}
           options={[{ value: '', label: origemLotes.length ? 'Selecione…' : 'Sem estoque na origem' }, ...origemLotes.map((l) => ({ value: l.id, label: `${l.prod} · ${l.lote} (${l.qtd})` }))]}
         />
-        <TextField label="Quantidade" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
+        <TextField label="Quantidade" inputMode="numeric" value={qtd} onChange={(e) => setQtd(maskInt(e.target.value))} placeholder="0" />
         <TextareaField label="Motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Descreva o motivo da transferência" />
         <p className="flex items-center gap-1.5 text-[13px] text-ink-400">
           <Info className="h-[17px] w-[17px]" />
@@ -271,7 +272,7 @@ function ReceberTransferenciaModal({
       <div className="flex flex-col gap-3.5 px-7 py-6">
         <div className="grid grid-cols-2 gap-3.5">
           <TextField label="Quantidade enviada" value={String(transf.enviada)} disabled />
-          <TextField label="Quantidade recebida" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
+          <TextField label="Quantidade recebida" inputMode="numeric" value={qtd} onChange={(e) => setQtd(maskInt(e.target.value))} placeholder="0" />
         </div>
         {divergente && (
           <>

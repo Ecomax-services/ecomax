@@ -11,6 +11,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { listBases, createBase, updateBase, inativarBase, listLotes, type BaseRow, type StockRow } from '@/lib/estoque';
 import { listGestores } from '@/lib/funcionarios';
+import { maskCEP } from '@/lib/masks';
 
 type DetailTab = 'dados' | 'estoque' | 'hist' | 'ops';
 const emptyForm = { nome: '', cidade: '', uf: '', responsavel_id: '', cep: '', logradouro: '', numero: '', complemento: '', bairro: '' };
@@ -146,7 +147,7 @@ export function Bases() {
           <SelectField label="Responsável" value={form.responsavel_id} onChange={(e) => up('responsavel_id', e.target.value)} options={[{ value: '', label: 'Sem responsável' }, ...resps.map((r) => ({ value: r.id, label: r.nome }))]} />
           <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">Endereço</p>
           <div className="grid grid-cols-[1fr_2fr] gap-3.5">
-            <TextField label="CEP" value={form.cep} onChange={(e) => up('cep', e.target.value)} placeholder="00000-000" />
+            <TextField label="CEP" inputMode="numeric" value={form.cep} onChange={(e) => up('cep', maskCEP(e.target.value))} placeholder="00000-000" />
             <TextField label="Logradouro" value={form.logradouro} onChange={(e) => up('logradouro', e.target.value)} placeholder="Rua / Av." />
           </div>
           <div className="grid grid-cols-[1fr_2fr] gap-3.5">
