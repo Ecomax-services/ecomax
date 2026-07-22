@@ -17,6 +17,8 @@ import { Requisicoes } from '@/pages/estoque/Requisicoes';
 import { Fornecedores } from '@/pages/estoque/Fornecedores';
 import { Bases } from '@/pages/estoque/Bases';
 import { EstoqueSaldo } from '@/pages/estoque/EstoqueSaldo';
+import { ClientesList } from '@/pages/clientes/ClientesList';
+import { ClienteDetalhe } from '@/pages/clientes/ClienteDetalhe';
 import { Configuracoes } from '@/pages/configuracoes/Configuracoes';
 import { CadastrosAuxiliares } from '@/pages/configuracoes/CadastrosAuxiliares';
 import { MeuPerfil } from '@/pages/configuracoes/MeuPerfil';
@@ -32,6 +34,13 @@ export const router = createBrowserRouter([
     element: <RequireAuth />,
     children: [
       { path: '/notificacoes', element: <Notifications /> },
+      {
+        element: <RequireModule module="gestao_clientes" />,
+        children: [
+          { path: '/clientes', element: <ClientesList /> },
+          { path: '/clientes/:id', element: <ClienteDetalhe /> },
+        ],
+      },
       {
         element: <RequireModule module="gestao_usuarios" />,
         children: [

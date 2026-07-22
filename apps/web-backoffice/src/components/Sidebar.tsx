@@ -47,7 +47,7 @@ interface NavItem {
 
 const items: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard', disabled: true, module: 'dashboard' },
-  { label: 'Gestão de Clientes', icon: Users, to: '/clientes', disabled: true, module: 'gestao_clientes' },
+  { label: 'Gestão de Clientes', icon: Users, to: '/clientes', module: 'gestao_clientes' },
   { label: 'Operacional', icon: ClipboardList, to: '/operacional', disabled: true, module: 'operacional' },
   { label: 'Comercial', icon: Briefcase, to: '/comercial', disabled: true, module: 'comercial' },
   { label: 'Estoque e Produtos', icon: Package, to: '/estoque', module: 'estoque' },
