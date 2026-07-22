@@ -13,6 +13,7 @@ import {
   listContatos, addContato, deleteContato, listFornProdutos, vincularProduto, desvincularProduto, listProdutosParaVincular,
   type FornRow, type FornContato, type FornProduto,
 } from '@/lib/estoque';
+import { maskCNPJ, maskPhone } from '@/lib/masks';
 
 type SortKey = 'razao' | 'aval';
 type DetailTab = 'dados' | 'contatos' | 'produtos';
@@ -164,12 +165,12 @@ export function Fornecedores() {
         <div className="flex flex-col gap-4">
           <TextField label="Razão social" required value={form.razao_social} onChange={(e) => up('razao_social', e.target.value)} placeholder="Razão social" />
           <div className="grid grid-cols-2 gap-3.5">
-            <TextField label="CNPJ" value={form.cnpj} onChange={(e) => up('cnpj', e.target.value)} placeholder="00.000.000/0000-00" />
+            <TextField label="CNPJ" inputMode="numeric" value={form.cnpj} onChange={(e) => up('cnpj', maskCNPJ(e.target.value))} placeholder="00.000.000/0000-00" />
             <SelectField label="Categoria" value={form.categoria} onChange={(e) => up('categoria', e.target.value)} options={CATEGORIAS.map((c) => ({ value: c, label: c }))} />
           </div>
           <div className="grid grid-cols-2 gap-3.5">
             <TextField label="E-mail" value={form.email} onChange={(e) => up('email', e.target.value)} placeholder="contato@fornecedor.com" />
-            <TextField label="Telefone" value={form.telefone} onChange={(e) => up('telefone', e.target.value)} placeholder="(00) 0000-0000" />
+            <TextField label="Telefone" inputMode="numeric" value={form.telefone} onChange={(e) => up('telefone', maskPhone(e.target.value))} placeholder="(00) 0000-0000" />
           </div>
         </div>
       </Drawer>
@@ -256,7 +257,7 @@ function ContatosTab({ fornecedorId, canEdit, showToast }: { fornecedorId: strin
           <TextField label="Nome" required value={form.nome} onChange={(e) => up('nome', e.target.value)} placeholder="Nome do contato" />
           <div className="grid grid-cols-2 gap-3">
             <TextField label="Cargo" value={form.cargo} onChange={(e) => up('cargo', e.target.value)} placeholder="Ex.: Vendedor" />
-            <TextField label="Telefone" value={form.telefone} onChange={(e) => up('telefone', e.target.value)} placeholder="(00) 0000-0000" />
+            <TextField label="Telefone" inputMode="numeric" value={form.telefone} onChange={(e) => up('telefone', maskPhone(e.target.value))} placeholder="(00) 0000-0000" />
           </div>
           <TextField label="E-mail" value={form.email} onChange={(e) => up('email', e.target.value)} placeholder="contato@fornecedor.com" />
           <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" checked={form.principal} onChange={(e) => up('principal', e.target.checked)} className="h-4 w-4 accent-forest-600" />Contato principal</label>

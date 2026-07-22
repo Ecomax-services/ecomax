@@ -28,6 +28,7 @@ import {
   type AuditoriaRow,
 } from '@/lib/funcionarios';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
+import { maskRG, maskDate, maskPhone, maskCEP } from '@/lib/masks';
 
 interface DocUrls {
   avatar: string | null;
@@ -415,10 +416,10 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
           <div className="grid grid-cols-2 gap-4">
             <TextField className="col-span-2" label="Nome completo" value={f.nome_completo} onChange={(e) => up('nome_completo', e.target.value)} />
             <TextField label="CPF" value={row.cpf} disabled hint="Não editável após cadastro." />
-            <TextField label="RG" value={f.rg} onChange={(e) => up('rg', e.target.value)} />
-            <TextField label="Nascimento" placeholder="dd/mm/aaaa" value={f.nascimento} onChange={(e) => up('nascimento', e.target.value)} />
-            <TextField label="Telefone" value={f.telefone} onChange={(e) => up('telefone', e.target.value)} />
-            <TextField label="CEP" value={f.cep} onChange={(e) => up('cep', e.target.value)} />
+            <TextField label="RG" inputMode="numeric" value={f.rg} onChange={(e) => up('rg', maskRG(e.target.value))} />
+            <TextField label="Nascimento" placeholder="dd/mm/aaaa" inputMode="numeric" value={f.nascimento} onChange={(e) => up('nascimento', maskDate(e.target.value))} />
+            <TextField label="Telefone" inputMode="numeric" value={f.telefone} onChange={(e) => up('telefone', maskPhone(e.target.value))} />
+            <TextField label="CEP" inputMode="numeric" value={f.cep} onChange={(e) => up('cep', maskCEP(e.target.value))} />
           </div>
         </div>
         <div className="rounded-2xl border border-ink-100 bg-white px-7 py-6">

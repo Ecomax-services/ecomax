@@ -27,6 +27,7 @@ import {
   listFornecedorOptions, type Produto, type ProdutoKpis,
 } from '@/lib/estoque';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
+import { maskInt } from '@/lib/masks';
 
 type SortKey = 'name' | 'cat' | 'stock' | 'status';
 // Fallbacks caso o catálogo ainda não tenha sido carregado.
@@ -262,8 +263,8 @@ export function Produtos() {
               <SelectField label="Unidade" value={form.unidade} onChange={(e) => up('unidade', e.target.value)} options={unidades.map((u) => ({ value: u, label: u }))} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <TextField label="Estoque mínimo" value={form.min} onChange={(e) => up('min', e.target.value)} placeholder="0" />
-              <TextField label="Estoque máximo" value={form.max} onChange={(e) => up('max', e.target.value)} placeholder="0" />
+              <TextField label="Estoque mínimo" inputMode="numeric" value={form.min} onChange={(e) => up('min', maskInt(e.target.value))} placeholder="0" />
+              <TextField label="Estoque máximo" inputMode="numeric" value={form.max} onChange={(e) => up('max', maskInt(e.target.value))} placeholder="0" />
             </div>
             <SelectField label="Fornecedor principal" value={form.fornecedor_id} onChange={(e) => up('fornecedor_id', e.target.value)} options={[{ value: '', label: 'Sem fornecedor' }, ...fornOpts.map((f) => ({ value: f.id, label: f.nome }))]} />
             <TextareaField label="Observações" placeholder="Notas internas" />

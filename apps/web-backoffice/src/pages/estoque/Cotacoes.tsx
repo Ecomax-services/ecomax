@@ -14,6 +14,7 @@ import {
   listProdutos, listFornecedorOptions,
   type CotacaoRow, type CotacaoResposta, type Produto,
 } from '@/lib/estoque';
+import { maskInt, maskDecimal } from '@/lib/masks';
 
 const STATUS_OPTS = [
   { value: 'todos', label: 'Todos os status' },
@@ -136,7 +137,7 @@ export function Cotacoes() {
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-[2fr_1fr] gap-3.5">
             <SelectField label="Produto" required value={form.produto_id} onChange={(e) => up('produto_id', e.target.value)} options={[{ value: '', label: 'Selecione…' }, ...produtos.map((p) => ({ value: p.id, label: p.name }))]} />
-            <TextField label="Qtd" required value={form.quantidade} onChange={(e) => up('quantidade', e.target.value)} placeholder="0" />
+            <TextField label="Qtd" required inputMode="numeric" value={form.quantidade} onChange={(e) => up('quantidade', maskInt(e.target.value))} placeholder="0" />
           </div>
           <div>
             <FieldLabel>Fornecedores</FieldLabel>
@@ -248,7 +249,7 @@ function CotacaoModal({
             <div className="flex flex-col gap-3">
               <SelectField label="Fornecedor" value={fornId} onChange={(e) => setFornId(e.target.value)} options={fornOpts} />
               <div className="grid grid-cols-2 gap-3">
-                <TextField label="Valor" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="R$ 0,00" />
+                <TextField label="Valor" inputMode="decimal" value={valor} onChange={(e) => setValor(maskDecimal(e.target.value))} placeholder="R$ 0,00" />
                 <TextField label="Prazo de entrega" value={prazo} onChange={(e) => setPrazo(e.target.value)} placeholder="Ex.: 5 dias" />
               </div>
               <TextField label="Condições" value={cond} onChange={(e) => setCond(e.target.value)} placeholder="Ex.: 30 dias" />
