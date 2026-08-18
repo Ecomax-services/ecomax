@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import type { Json } from '@/lib/database.types';
 import type { ModuleKey } from '@/lib/supabase';
 
 // ============================================================
@@ -51,7 +52,7 @@ async function actorId(): Promise<string | null> {
 }
 
 /** Registra auditoria do módulo Configurações. */
-async function audit(acao: string, detalhes?: unknown): Promise<void> {
+async function audit(acao: string, detalhes?: Json): Promise<void> {
   await supabase.from('auditoria').insert({
     actor_id: await actorId(),
     funcionario_id: null,
@@ -65,8 +66,14 @@ async function audit(acao: string, detalhes?: unknown): Promise<void> {
  * Contagem de uso por item de um catálogo, a partir dos consumidores reais.
  * Catálogos sem consumidor implementado retornam mapa vazio (uso 0).
  */
+/** Tabelas e colunas que este contador percorre. Literais, para o client tipado
+ *  conferir os nomes em vez de aceitar qualquer string. */
+type Consumidor =
+  | ['produtos', 'categoria' | 'unidade']
+  | ['funcionarios', 'setor' | 'cargo'];
+
 async function catalogoUso(catalogo: string): Promise<Record<string, number>> {
-  const countBy = async (table: string, col: string) => {
+  const countBy = async (...[table, col]: Consumidor) => {
     const { data } = await supabase.from(table).select(col);
     const map: Record<string, number> = {};
     (data as Record<string, string | null>[] | null)?.forEach((r) => {
@@ -102,7 +109,9 @@ export async function listCatalogoItens(catalogo: string): Promise<CatalogoItem[
     catalogoUso(catalogo),
   ]);
   if (error) throw new Error(error.message);
-  return (data as CatalogoItem[]).map((it) => ({ ...it, uso: uso[it.nome] ?? 0 }));
+  // `uso` é calculado, não é coluna — por isso o cast direto para CatalogoItem
+  // não vale. Monta-se o objeto, e aí a linha do banco confere campo a campo.
+  return (data ?? []).map((it) => ({ ...it, uso: uso[it.nome] ?? 0 }));
 }
 
 /** Nomes ativos de um catálogo — para popular selects nos demais módulos. */

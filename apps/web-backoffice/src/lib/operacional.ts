@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import type { Json } from '@/lib/database.types';
 import type { BadgeTone } from '@/components/ui/Badge';
 import { listProdutos, listBases, type Produto } from '@/lib/estoque';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
@@ -13,7 +14,7 @@ async function actorId(): Promise<string | null> {
 }
 
 /** Auditoria do módulo Operacional (trilha administrativa, reusa a tabela `auditoria`). */
-async function audit(acao: string, detalhes?: unknown): Promise<void> {
+async function audit(acao: string, detalhes?: Json): Promise<void> {
   await supabase.from('auditoria').insert({
     actor_id: await actorId(), funcionario_id: null, modulo: 'operacional', acao, detalhes: detalhes ?? null,
   });
@@ -23,7 +24,7 @@ async function audit(acao: string, detalhes?: unknown): Promise<void> {
  * Notificação (stub). A infra de push/e-mail/portal é adiada (mesma política do módulo Clientes):
  * registramos o evento na auditoria e devolvemos o texto para exibição via toast.
  */
-export async function notify(evento: string, detalhe?: unknown): Promise<void> {
+export async function notify(evento: string, detalhe?: Json): Promise<void> {
   await audit(`notificacao:${evento}`, detalhe);
 }
 

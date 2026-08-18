@@ -7,10 +7,12 @@ import { supabase } from '@/lib/supabase';
  * precisa acompanhar a pessoa entre navegadores e aparelhos, e o servidor
  * precisa enxergá-la para respeitar o "não quero e-mail" na hora de disparar.
  */
-export interface Preferencias {
+// `type`, e não `interface`: só um alias de tipo é aceito onde a coluna é jsonb.
+// Interface não recebe assinatura de índice implícita, e o client tipado recusa.
+export type Preferencias = {
   notif_portal: boolean;
   notif_email: boolean;
-}
+};
 
 /** Usado quando a pessoa nunca escolheu (coluna nula). */
 export const PADRAO: Preferencias = { notif_portal: true, notif_email: false };
