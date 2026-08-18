@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { Button } from '@/components/Button';
 import { LogoutSheet } from '@/components/LogoutSheet';
 import { useAuth } from '@/auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
+import { getMeuPerfil, type MeuPerfil, type DocState } from '@/lib/perfil';
 import { colors, fonts, radius } from '@/theme';
 import type { ConfigStackParamList } from '@/navigation/types';
 
@@ -22,8 +23,13 @@ function initialsOf(name: string): string {
 export function ProfileScreen({ navigation }: Props) {
   const { profile, session, signOut } = useAuth();
   const [logout, setLogout] = useState(false);
+  const [dados, setDados] = useState<MeuPerfil | null>(null);
   const nome = profile?.nome_completo ?? 'Operador';
   const email = session?.user.email ?? '—';
+
+  useEffect(() => {
+    getMeuPerfil().then(setDados).catch(() => setDados(null));
+  }, []);
 
   async function handleChangePassword() {
     if (!session?.user.email) return;
@@ -51,14 +57,23 @@ export function ProfileScreen({ navigation }: Props) {
             <Divider />
             <Field label="E-mail (não editável)" value={email} />
             <Divider />
-            <Field label="Nível de acesso" value="Técnico de Campo" />
+            <Field label="Cargo" value={dados?.cargo ?? '—'} />
             <Divider />
-            <Field label="Tipo de usuário" value="Operador" last />
+            <Field label="Setor" value={dados?.setor ?? '—'} />
+            <Divider />
+            <Field label="Tipo de usuário" value={roleLabel(profile?.role)} last />
           </View>
 
           <Text style={styles.section}>DOCUMENTOS</Text>
-          <DocRow icon="check-circle" color={colors.primary} title="CNH" sub="Válido até 15/08/2026" />
-          <DocRow icon="warning" color={colors.danger} title="ASO" sub="Válido até 03/01/2025" subDanger />
+          {dados === null && <Text style={styles.docEmpty}>Carregando…</Text>}
+          {dados?.semCadastro && (
+            <Text style={styles.docEmpty}>
+              Seu login ainda não está vinculado a um cadastro de funcionário. Fale com o administrador.
+            </Text>
+          )}
+          {dados?.documentos.map((d) => (
+            <DocRow key={d.tipo} titulo={d.tipo} validade={d.validade} estado={d.estado} />
+          ))}
 
           <Button label="Alterar senha" variant="outlineGreen" style={{ height: 48, marginTop: 24 }} onPress={handleChangePassword} />
           <Button
@@ -96,25 +111,36 @@ function Divider() {
   return <View style={styles.fieldDivider} />;
 }
 
-function DocRow({
-  icon,
-  color,
-  title,
-  sub,
-  subDanger,
-}: {
-  icon: keyof typeof MaterialIcons.glyphMap;
-  color: string;
-  title: string;
-  sub: string;
-  subDanger?: boolean;
-}) {
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Administrador',
+  gestor: 'Gestor',
+  operacional: 'Operacional',
+  operador: 'Operador',
+  almoxarifado: 'Almoxarifado',
+  comercial: 'Comercial',
+  financeiro: 'Financeiro',
+  rh: 'RH',
+  cliente: 'Cliente',
+};
+const roleLabel = (r?: string) => (r ? ROLE_LABEL[r] ?? r : '—');
+
+/** Aparência de cada estado de documento. */
+const DOC_META: Record<DocState, { icon: keyof typeof MaterialIcons.glyphMap; color: string; texto: (v: string) => string }> = {
+  ok: { icon: 'check-circle', color: colors.primary, texto: (v) => `Válido até ${v}` },
+  soon: { icon: 'schedule', color: colors.warnFg, texto: (v) => `Vence em ${v}` },
+  expired: { icon: 'warning', color: colors.danger, texto: (v) => `Vencido em ${v}` },
+  na: { icon: 'remove-circle-outline', color: colors.neutral400, texto: () => 'Não se aplica' },
+};
+
+function DocRow({ titulo, validade, estado }: { titulo: string; validade: string; estado: DocState }) {
+  const meta = DOC_META[estado];
+  const alerta = estado === 'expired' || estado === 'soon';
   return (
     <View style={styles.docRow}>
-      <MaterialIcons name={icon} size={18} color={color} />
+      <MaterialIcons name={meta.icon} size={18} color={meta.color} />
       <View>
-        <Text style={styles.docTitle}>{title}</Text>
-        <Text style={[styles.docSub, subDanger && { color: colors.danger }]}>{sub}</Text>
+        <Text style={styles.docTitle}>{titulo}</Text>
+        <Text style={[styles.docSub, alerta && { color: meta.color }]}>{meta.texto(validade)}</Text>
       </View>
     </View>
   );
@@ -136,4 +162,5 @@ const styles = StyleSheet.create({
   docRow: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.white, borderRadius: radius.md, height: 56, paddingHorizontal: 16, marginBottom: 12 },
   docTitle: { fontFamily: fonts.medium, fontSize: 14, color: colors.ink },
   docSub: { fontFamily: fonts.regular, fontSize: 12, color: colors.neutral500, marginTop: 2 },
+  docEmpty: { fontFamily: fonts.regular, fontSize: 13, color: colors.neutral500, paddingHorizontal: 16, paddingVertical: 12, lineHeight: 19 },
 });
