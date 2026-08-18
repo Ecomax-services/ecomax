@@ -40,8 +40,8 @@ begin
      'rls-cliente@teste.local', '', now(), '{"provider":"email"}', '{"role":"cliente"}', now(), now());
 
   -- Um cliente e duas OS dele.
-  insert into public.clientes (razao_social, nome_fantasia, cnpj)
-  values ('[RLS] Cliente de Teste', '[RLS] Teste', '00000000000191')
+  insert into public.clientes (nome, razao_social, cnpj)
+  values ('[RLS] Teste', '[RLS] Cliente de Teste', '00000000000191')
   returning id into v_cliente;
 
   insert into public.ordens_servico (cliente_id, status) values (v_cliente, 'em_andamento')
@@ -50,15 +50,15 @@ begin
   returning id into v_os_b;
 
   -- Cada operador escalado na sua OS.
-  insert into public.funcionarios (id, nome, profile_id) values
-    (v_func_a, '[RLS] Operador A', v_op_a),
-    (v_func_b, '[RLS] Operador B', v_op_b);
+  insert into public.funcionarios (id, nome_completo, cpf, cargo, setor, profile_id) values
+    (v_func_a, '[RLS] Operador A', '00000000001', 'Operador', 'Operacional', v_op_a),
+    (v_func_b, '[RLS] Operador B', '00000000002', 'Operador', 'Operacional', v_op_b);
   insert into public.os_funcionarios (os_id, funcionario_id) values
     (v_os_a, v_func_a), (v_os_b, v_func_b);
 
   -- O usuário do portal, ligado por e-mail (é assim que o convite funciona).
-  insert into public.cliente_portal_usuarios (cliente_id, email, status)
-  values (v_cliente, 'rls-cliente@teste.local', 'ativo');
+  insert into public.cliente_portal_usuarios (cliente_id, nome, email, status)
+  values (v_cliente, '[RLS] Portal', 'rls-cliente@teste.local', 'ativo');
 
   insert into t_ids values
     ('op_a', v_op_a), ('op_b', v_op_b), ('cli', v_cli),
