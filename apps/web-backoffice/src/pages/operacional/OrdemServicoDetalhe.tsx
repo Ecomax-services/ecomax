@@ -24,7 +24,7 @@ import {
   listOsAnexos, addAnexo, removerAnexo, anexoTipoLabel,
   listOsHistorico, listHistoricoAutores,
   listFuncionarioOptions, listProdutoOptions, listEquipamentoOptions, listTiposServico, listPragas,
-  osStatusTone, osStatusLabel, recorrenciaLabel, isReadOnly, fmtDateTime,
+  osStatusTone, osStatusLabel, recorrenciaLabel, isReadOnly, fmtDateTime, urlAssinadaOperacional,
   type OrdemServicoDetail, type OsStatus, type Recorrencia,
   type OsFuncionarioRow, type OsProdutoRow, type OsEquipamentoRow, type OsRelatorioRow, type OsAnexoRow,
   type HistoricoRow, type AnexoTipo, type FuncionarioOption,
@@ -269,6 +269,8 @@ function DadosGeraisTab({ os, editable, editing, setEditing, onSaved }: { os: Or
 // Aba b — Execução
 // ============================================================
 function ExecucaoTab({ os, editable }: { os: OrdemServicoDetail; editable: boolean }) {
+  // null enquanto carrega, para não piscar "Nenhuma" antes de saber.
+  const [fotos, setFotos] = useState<number | null>(null);
   const { showToast } = useToast();
   const [rows, setRows] = useState<OsFuncionarioRow[]>([]);
   const [prodDiverg, setProdDiverg] = useState(false);
@@ -280,6 +282,7 @@ function ExecucaoTab({ os, editable }: { os: OrdemServicoDetail; editable: boole
   const load = useCallback(() => {
     listOsFuncionarios(os.id).then(setRows).catch((e) => showToast((e as Error).message));
     listOsProdutos(os.id).then((p) => setProdDiverg(p.some((x) => x.divergente))).catch(() => {});
+    listOsAnexos(os.id).then((a) => setFotos(a.filter((x) => x.tipo === 'foto').length)).catch(() => setFotos(0));
   }, [os.id, showToast]);
   useEffect(() => { load(); }, [load]);
 
@@ -321,8 +324,11 @@ function ExecucaoTab({ os, editable }: { os: OrdemServicoDetail; editable: boole
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Capture icon={MapPin} label="Check-in" value={fmtDateTime(os.check_in_at)} />
           <Capture icon={MapPin} label="Check-out" value={fmtDateTime(os.check_out_at)} />
-          <Capture icon={PenLine} label="Assinatura do cliente" value={os.assinatura_url ? 'Coletada' : 'Pendente'} ok={!!os.assinatura_url} />
-          <Capture icon={Camera} label="Fotos anexadas" value={os.assinatura_url ? 'Ver na aba Anexos' : '—'} />
+          <CaptureAssinatura caminho={os.assinatura_url} />
+          {/* Contava fotos olhando `assinatura_url` — campo errado: sem assinatura
+              dizia "—" mesmo com fotos anexadas, e com assinatura mandava para a
+              aba de anexos mesmo sem foto nenhuma. */}
+          <Capture icon={Camera} label="Fotos anexadas" value={fotos === null ? '…' : fotos === 0 ? 'Nenhuma' : `${fotos} · ver em Anexos`} ok={!!fotos} />
         </div>
         {!os.assinatura_url && <p className="mt-3 text-[13px] text-ink-400">A assinatura do cliente é obrigatória para marcar a OS como executada.</p>}
       </Card>
@@ -621,6 +627,35 @@ function Card({ title, subtitle, action, flush, children }: { title: string; sub
 }
 function Info({ label, children, span }: { label: string; children: React.ReactNode; span?: boolean }) {
   return (<div className={cn(span && 'col-span-2 md:col-span-3')}><p className="text-[11px] font-bold uppercase text-ink-400">{label}</p><p className="mt-0.5 text-sm text-ink-800">{children}</p></div>);
+}
+/**
+ * Mostra a assinatura coletada em campo, e não só a palavra "Coletada".
+ *
+ * A imagem vive num bucket privado, então precisa de URL assinada — pedida sob
+ * demanda, ao abrir, em vez de para toda OS da lista.
+ */
+function CaptureAssinatura({ caminho }: { caminho: string | null }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [erro, setErro] = useState(false);
+
+  useEffect(() => {
+    if (!caminho) return;
+    urlAssinadaOperacional(caminho).then((u) => (u ? setUrl(u) : setErro(true)));
+  }, [caminho]);
+
+  return (
+    <div className="rounded-xl border border-ink-100 px-3.5 py-3">
+      <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase text-ink-400"><PenLine className="h-3.5 w-3.5" />Assinatura do cliente</p>
+      {!caminho && <p className="mt-1 text-sm font-semibold text-ink-700">Pendente</p>}
+      {caminho && !url && !erro && <p className="mt-1 text-sm font-semibold text-ink-400">Carregando…</p>}
+      {caminho && erro && <p className="mt-1 text-sm font-semibold text-ink-700">Coletada (arquivo indisponível)</p>}
+      {url && (
+        <a href={url} target="_blank" rel="noreferrer" className="mt-1.5 block">
+          <img src={url} alt="Assinatura do cliente" className="h-14 w-full rounded-md border border-ink-100 bg-white object-contain" />
+        </a>
+      )}
+    </div>
+  );
 }
 function Capture({ icon: Icon, label, value, ok }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; ok?: boolean }) {
   return (

@@ -520,6 +520,20 @@ export type AnexoTipo = 'foto' | 'comprovante' | 'autorizacao' | 'extra' | 'outr
 export const anexoTipoLabel: Record<AnexoTipo, string> = {
   foto: 'Foto', comprovante: 'Comprovante', autorizacao: 'Autorização', extra: 'Extra', outro: 'Outro',
 };
+/**
+ * URL temporária para abrir um documento do bucket `operacional-docs`.
+ *
+ * O bucket é privado — quem autoriza é a policy de SELECT, avaliada no momento
+ * da assinatura da URL. Devolve null em vez de lançar porque a falha aqui é
+ * sempre local a um arquivo (caminho antigo, objeto removido) e não deve
+ * derrubar a tela inteira.
+ */
+export async function urlAssinadaOperacional(caminho: string, segundos = 60 * 60): Promise<string | null> {
+  if (!caminho) return null;
+  const { data } = await supabase.storage.from('operacional-docs').createSignedUrl(caminho, segundos);
+  return data?.signedUrl ?? null;
+}
+
 export interface OsAnexoRow { id: string; nome: string; tipo: AnexoTipo; tipoLabel: string; arquivoUrl: string | null; criadoEm: string; }
 export async function listOsAnexos(osId: string): Promise<OsAnexoRow[]> {
   const { data, error } = await supabase.from('os_anexos').select('*').eq('os_id', osId).order('created_at', { ascending: false });

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { caminhoOs, enviarBase64, enviarArquivoLocal } from '@/lib/uploads';
 
 // ============================================================
 // Status
@@ -128,14 +129,38 @@ export async function salvarConsumo(osId: string, itemId: string, qtd: number | 
   if (error) throw new Error(error.message);
   await hist(osId, 'Consumo (app)', (before as any)?.qtd_utilizada?.toString() ?? null, qtd?.toString() ?? null);
 }
-export async function confirmarAssinatura(osId: string): Promise<void> {
-  const url = `app/assinatura-${Date.now()}.png`;
-  const { error } = await supabase.from('ordens_servico').update({ assinatura_url: url }).eq('id', osId);
+/**
+ * Grava a assinatura do cliente.
+ *
+ * Recebe a imagem em base64 vinda do quadro de assinatura. O arquivo sobe
+ * primeiro e só depois a OS é atualizada: se o upload falhar, `assinatura_url`
+ * continua nula e `marcarExecutada` continua barrando a finalização — que é
+ * exatamente o comportamento desejado.
+ *
+ * Até aqui esta função inventava um caminho (`app/assinatura-<ts>.png`) sem
+ * enviar arquivo nenhum. A regra "assinatura obrigatória para executar" existia
+ * na aparência e era satisfeita por uma string.
+ */
+export async function confirmarAssinatura(osId: string, base64: string): Promise<void> {
+  const caminho = await enviarBase64(caminhoOs(osId, 'assinatura', 'assinatura.png'), base64, 'image/png');
+  const { error } = await supabase.from('ordens_servico').update({ assinatura_url: caminho }).eq('id', osId);
   if (error) throw new Error(error.message);
   await hist(osId, 'Assinatura do cliente coletada (app)', null, 'Coletada');
 }
-export async function registrarFoto(osId: string, nome: string): Promise<void> {
-  const { error } = await supabase.from('os_anexos').insert({ os_id: osId, nome, tipo: 'foto', created_by: await actorId() });
+
+/**
+ * Anexa uma foto da execução.
+ *
+ * Mesma ordem: o arquivo sobe antes da linha em os_anexos. Antes daqui a linha
+ * era inserida com `arquivo_url` nulo, então a foto aparecia na lista e não
+ * existia em lugar nenhum.
+ */
+export async function registrarFoto(osId: string, uri: string, nome: string): Promise<void> {
+  const contentType = nome.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+  const caminho = await enviarArquivoLocal(caminhoOs(osId, 'foto', nome), uri, contentType);
+  const { error } = await supabase
+    .from('os_anexos')
+    .insert({ os_id: osId, nome, tipo: 'foto', arquivo_url: caminho, created_by: await actorId() });
   if (error) throw new Error(error.message);
   await hist(osId, 'Foto anexada (app)', null, nome);
 }

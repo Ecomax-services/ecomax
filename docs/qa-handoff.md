@@ -83,9 +83,14 @@ Financeiro e Comercial no Backoffice; Início, Documentos, Produtos e
 Colaboradores no Portal; execução guiada em 6 passos e agenda em calendário no
 aplicativo do Operador.
 
-**Upload de arquivo ainda não existe em lugar nenhum.** Assinatura, fotos e
-anexos aparecem na interface mas não gravam arquivo — as regras de acesso do
-armazenamento já estão prontas e testadas, o envio em si é a próxima fase.
+**Assinatura e foto do aplicativo já gravam arquivo de verdade.** O operador
+assina num quadro na tela e a foto vem da câmera ou da galeria; o backoffice
+mostra a assinatura na aba Execução.
+
+Duas OS do seed (OS-1002 e OS-1003) apontam para `seed/assinatura-demo.png`, um
+caminho que nunca existiu no armazenamento. Elas aparecem como **"Coletada
+(arquivo indisponível)"** — isso é o comportamento correto, não um defeito.
+Colete uma assinatura nova pelo aplicativo para ver a imagem.
 
 ---
 
