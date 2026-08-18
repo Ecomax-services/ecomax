@@ -20,18 +20,31 @@ const brDateTime = (iso: string | null) =>
 const codigoOf = (r: any) => (Array.isArray(r) ? r[0]?.codigo : r?.codigo) ?? '—';
 
 // ---------- Minhas OS (RLS já filtra pelo cliente do portal) ----------
-export interface MinhaOs { id: string; codigo: string; tipos: string; status: OsStatus; statusLabel: string; data: string; }
+export interface MinhaOs {
+  id: string; codigo: string; tipos: string; status: OsStatus; statusLabel: string; data: string;
+  /** Cliente e local da execução — um mesmo usuário pode ter mais de uma unidade. */
+  identificacao: string;
+}
+
+/** Status que contam como "aberta" no indicador da tela. */
+const ABERTAS: OsStatus[] = ['em_aberto', 'em_andamento'];
+export const contaAbertas = (os: MinhaOs[]) => os.filter((o) => ABERTAS.includes(o.status)).length;
+
 export async function listMinhasOs(): Promise<MinhaOs[]> {
   const { data, error } = await supabase
     .from('ordens_servico')
-    .select('id, codigo, status, data_programada, created_at, tipos_servico')
+    .select('id, codigo, status, data_programada, created_at, tipos_servico, endereco_execucao, cliente:cliente_id(nome)')
     .order('data_programada', { ascending: false, nullsFirst: false });
   if (error) throw new Error(error.message);
-  return (data as any[]).map((o) => ({
-    id: o.id, codigo: o.codigo, tipos: (o.tipos_servico as string[] | null ?? []).join(', ') || '—',
-    status: o.status, statusLabel: osStatusLabel[o.status as OsStatus] ?? o.status,
-    data: brDate(o.data_programada ?? o.created_at),
-  }));
+  return (data as any[]).map((o) => {
+    const c = Array.isArray(o.cliente) ? o.cliente[0] : o.cliente;
+    return {
+      id: o.id, codigo: o.codigo, tipos: (o.tipos_servico as string[] | null ?? []).join(', ') || '—',
+      status: o.status, statusLabel: osStatusLabel[o.status as OsStatus] ?? o.status,
+      data: brDate(o.data_programada ?? o.created_at),
+      identificacao: [c?.nome, o.endereco_execucao].filter(Boolean).join(' · ') || '—',
+    };
+  });
 }
 
 // ---------- Relatórios técnicos publicados ----------

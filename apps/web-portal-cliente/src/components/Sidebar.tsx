@@ -1,9 +1,11 @@
-import { NavLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { ClipboardList, FileText, Package, Users, Bell, Settings, LogOut } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { Logo } from '@/components/ui/Logo';
 import { useAuth } from '@/auth/AuthProvider';
+import { contarNaoLidas } from '@/lib/notificacoes';
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -14,7 +16,6 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   to: string;
-  badge?: number;
   disabled?: boolean;
 }
 
@@ -23,14 +24,25 @@ const items: NavItem[] = [
   { label: 'Documentos', icon: FileText, to: '/documentos', disabled: true },
   { label: 'Produtos', icon: Package, to: '/produtos', disabled: true },
   { label: 'Colaboradores', icon: Users, to: '/colaboradores', disabled: true },
-  { label: 'Notificações', icon: Bell, to: '/notificacoes', badge: 2 },
+  { label: 'Notificações', icon: Bell, to: '/notificacoes' },
   { label: 'Configurações', icon: Settings, to: '/configuracoes' },
 ];
 
 /** Sidebar do Portal do Cliente (Figma node 31:789). 220px, fundo verde escuro #0a2d0a. */
 export function Sidebar({ onLogout }: { onLogout: () => void }) {
   const { profile } = useAuth();
+  const { pathname } = useLocation();
   const nome = profile?.nome_completo ?? 'Cliente';
+  const [naoLidas, setNaoLidas] = useState(0);
+
+  // Reconta a cada navegação. O badge era o literal `2`: não refletia nada e
+  // continuava lá depois de marcar tudo como lido. Recontar ao trocar de rota
+  // cobre o caso real — sair da tela de notificações e ver o número certo.
+  useEffect(() => {
+    let vivo = true;
+    contarNaoLidas().then((n) => vivo && setNaoLidas(n));
+    return () => { vivo = false; };
+  }, [pathname]);
   return (
     <aside className="fixed inset-y-0 left-0 flex w-[220px] flex-col bg-forest-800 text-white">
       {/* Logo + badge Portal do Cliente */}
@@ -53,9 +65,9 @@ export function Sidebar({ onLogout }: { onLogout: () => void }) {
               )}
               <Icon className={cn('h-[18px] w-[18px] shrink-0', !active && 'opacity-65')} />
               <span className={cn('flex-1 truncate', !active && 'opacity-65')}>{item.label}</span>
-              {item.badge ? (
+              {item.to === '/notificacoes' && naoLidas > 0 ? (
                 <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger-bright px-1 text-[10px] font-semibold leading-none text-white">
-                  {item.badge}
+                  {naoLidas}
                 </span>
               ) : null}
             </>
