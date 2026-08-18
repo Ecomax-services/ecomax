@@ -51,8 +51,8 @@ begin
     (v_func_a, 'NR35', current_date + 90), (v_func_b, 'NR35', current_date + 90);
 
   -- Um produto aplicado numa OS do A, e outro que não tem relação com ninguém.
-  insert into public.produtos (codigo, nome, unidade) values ('[RLS]-P1', '[RLS] Aplicado no A', 'L') returning id into v_prod_a;
-  insert into public.produtos (codigo, nome, unidade) values ('[RLS]-PX', '[RLS] Sem vínculo', 'L') returning id into v_prod_x;
+  insert into public.produtos (codigo, nome, categoria, unidade) values ('[RLS]-P1', '[RLS] Aplicado no A', 'Inseticida', 'L') returning id into v_prod_a;
+  insert into public.produtos (codigo, nome, categoria, unidade) values ('[RLS]-PX', '[RLS] Sem vínculo', 'Inseticida', 'L') returning id into v_prod_x;
   insert into public.os_produtos (os_id, produto_id, qtd_recomendada) values (v_os_a, v_prod_a, 1);
 
   insert into public.cliente_documentos (cliente_id, categoria, titulo, ativo)
