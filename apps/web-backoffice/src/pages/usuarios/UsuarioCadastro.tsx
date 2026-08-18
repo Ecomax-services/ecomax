@@ -20,6 +20,7 @@ const steps = [
 ];
 
 const CPF_RE = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /** dd/mm/aaaa -> yyyy-mm-dd (null se vazio/inválido). */
 function brToISO(s: string): string | null {
@@ -111,21 +112,65 @@ export function UsuarioCadastro() {
     setCpfErr((await cpfExists(form.cpf)) ? 'CPF já cadastrado para outro funcionário.' : '');
   };
 
-  const submit = async () => {
-    if (!form.nome.trim()) return showToast('Informe o nome completo.');
-    if (!CPF_RE.test(form.cpf)) return showToast('CPF inválido.');
-    if (await cpfExists(form.cpf)) return showToast('CPF já cadastrado.');
-    if (!form.cargo || !form.setor) return showToast('Informe cargo e setor.');
-    if (form.comAcesso && (!form.email.trim() || !form.perfilId)) return showToast('Informe e-mail e perfil de acesso.');
+  const perfilNome = perfis.find((p) => p.id === form.perfilId)?.nome ?? '';
+  const role = roleFromPerfil[perfilNome.toLowerCase()];
 
-    const perfilNome = perfis.find((p) => p.id === form.perfilId)?.nome ?? '';
-    const role = roleFromPerfil[perfilNome.toLowerCase()];
-    // Antes daqui havia um `?? 'operacional'` que engolia perfil não mapeado: o
-    // cadastro passava e a pessoa saía com um papel que não era o escolhido —
-    // foi assim que a falta do 'operador' passou despercebida. Perfil novo em
-    // Configurações agora exige a linha correspondente em roleFromPerfil.
-    if (form.comAcesso && !role) {
-      return showToast(`O perfil "${perfilNome}" ainda não tem papel de acesso definido no sistema.`);
+  /**
+   * Primeiro problema do passo, ou null se está tudo certo.
+   *
+   * Existe por passo, e não só no fim, porque a validação vivia inteira no
+   * submit: os passos 1 a 3 avançavam em branco, e a pessoa só descobria o que
+   * faltava no passo 4 — sem saber a qual passo voltar.
+   */
+  const problemaNoPasso = (n: number): string | null => {
+    if (n === 1) {
+      if (!form.nome.trim()) return 'Informe o nome completo.';
+      if (!CPF_RE.test(form.cpf)) return 'Informe o CPF no formato 000.000.000-00.';
+      if (cpfErr) return cpfErr;
+    }
+    if (n === 2) {
+      if (!form.cargo) return 'Selecione o cargo.';
+      if (!form.setor) return 'Selecione o setor.';
+    }
+    if (n === 3 && form.comAcesso) {
+      if (!form.email.trim()) return 'Informe o e-mail de login.';
+      if (!EMAIL_RE.test(form.email.trim())) return 'E-mail de login inválido.';
+      if (!form.perfilId) return 'Selecione o perfil de acesso.';
+      // O `?? 'operacional'` que existia aqui engolia perfil não mapeado: o
+      // cadastro passava e a pessoa saía com papel diferente do escolhido.
+      if (!role) return `O perfil "${perfilNome}" ainda não tem papel de acesso definido no sistema.`;
+      if (!form.senha.trim()) return 'Informe a senha provisória.';
+    }
+    return null;
+  };
+
+  const avancar = async () => {
+    const problema = problemaNoPasso(step);
+    if (problema) return showToast(problema);
+    // CPF duplicado só se sabe consultando. A checagem também vive aqui, e não
+    // apenas no onBlur, porque quem cola o valor e clica direto em Avançar
+    // nunca dispara o blur.
+    if (step === 1 && (await cpfExists(form.cpf))) {
+      setCpfErr('CPF já cadastrado para outro funcionário.');
+      return showToast('CPF já cadastrado.');
+    }
+    setStep((s) => Math.min(4, s + 1));
+  };
+
+  const submit = async () => {
+    // Revalida tudo e leva ao passo do problema — o passo 4 não tem como
+    // mostrar o que falta no passo 1.
+    for (const n of [1, 2, 3]) {
+      const problema = problemaNoPasso(n);
+      if (problema) {
+        setStep(n);
+        return showToast(problema);
+      }
+    }
+    if (await cpfExists(form.cpf)) {
+      setStep(1);
+      setCpfErr('CPF já cadastrado para outro funcionário.');
+      return showToast('CPF já cadastrado.');
     }
 
     setSaving(true);
@@ -329,7 +374,7 @@ export function UsuarioCadastro() {
           <div className="flex gap-3">
             {step > 1 && <Button variant="secondary" onClick={() => setStep((s) => Math.max(1, s - 1))}>Voltar</Button>}
             {step < 4 ? (
-              <Button onClick={() => setStep((s) => Math.min(4, s + 1))}>Avançar</Button>
+              <Button onClick={avancar}>Avançar</Button>
             ) : (
               <Button onClick={submit} disabled={saving}>
                 {saving ? 'Salvando…' : form.comAcesso ? 'Salvar e enviar credenciais' : 'Salvar funcionário'}
