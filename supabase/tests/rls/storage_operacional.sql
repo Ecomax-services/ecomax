@@ -15,6 +15,10 @@ begin;
 -- Fixtures
 -- ---------------------------------------------------------------------------
 create temporary table t_ids (k text primary key, v uuid);
+-- Os casos rodam sob `set local role authenticated`, e a temporária nasce do
+-- postgres: sem este grant os testes falham lendo as próprias fixtures, e o
+-- erro se disfarça de "policy negou".
+grant select on t_ids to authenticated;
 
 do $$
 declare
