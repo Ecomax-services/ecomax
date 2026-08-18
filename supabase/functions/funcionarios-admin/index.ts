@@ -43,12 +43,23 @@ async function enviarLinkDeSenha(
 ): Promise<{ enviado: boolean; motivo?: string }> {
   const app = appDoRole(role);
   const base = APP_URLS[app];
-  if (!base) {
-    return { enviado: false, motivo: `APP_URL para "${app}" não configurada nas secrets da função` };
+
+  if (!base && app !== 'backoffice') {
+    // Sem redirectTo o Supabase manda para o Site URL, que é o Backoffice.
+    // Para operador e cliente isso é pior do que não enviar: eles receberiam um
+    // link para um sistema onde não têm acesso e ficariam achando que o problema
+    // é a senha. Melhor falhar dizendo o que configurar.
+    return { enviado: false, motivo: `APP_URL_${app === 'portal_cliente' ? 'PORTAL' : 'MOBILE'} não configurada nas secrets da função` };
   }
-  const { error } = await admin.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: `${base.replace(/\/$/, '')}/criar-senha`,
-  });
+
+  // Para o Backoffice o fallback é inofensivo: o Site URL já é ele. Fica só o
+  // aviso, para a secret não passar despercebida.
+  if (!base) console.warn('APP_URL_BACKOFFICE não configurada; usando o Site URL do projeto');
+
+  const { error } = await admin.auth.resetPasswordForEmail(
+    email.trim(),
+    base ? { redirectTo: `${base.replace(/\/$/, '')}/criar-senha` } : undefined,
+  );
   if (error) {
     console.error('falha ao enviar link de senha', { email, app, erro: error.message });
     return { enviado: false, motivo: error.message };
