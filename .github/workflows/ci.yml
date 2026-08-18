@@ -96,7 +96,11 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Versão fixa, não `latest`: resolver "latest" custa uma chamada à API
+          # do GitHub sem autenticação, que estoura o limite de taxa em dia de
+          # muitos pushes — e o job morre por um motivo que não tem nada a ver
+          # com o banco. Fixar também mantém a CI e a máquina local no mesmo CLI.
+          version: 2.114.0
 
       - name: Subir o stack local e aplicar as migrations
         # `supabase start` aplica todas as migrations em ordem; se qualquer uma
@@ -155,7 +159,11 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Versão fixa, não `latest`: resolver "latest" custa uma chamada à API
+          # do GitHub sem autenticação, que estoura o limite de taxa em dia de
+          # muitos pushes — e o job morre por um motivo que não tem nada a ver
+          # com o banco. Fixar também mantém a CI e a máquina local no mesmo CLI.
+          version: 2.114.0
 
       - name: Comparar migrations locais com as aplicadas
         env:
