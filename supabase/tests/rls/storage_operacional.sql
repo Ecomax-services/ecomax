@@ -142,7 +142,7 @@ begin
     values ('operacional-docs', 'os/'||os_a||'/assinatura/1-assinatura.png',
             (select v from t_ids where k='op_a'));
     ok := true;
-  exception when insufficient_privilege or others then ok := false;
+  exception when others then ok := false; raise notice 'motivo: % %', sqlstate, sqlerrm;
   end;
   perform pg_temp.esperar('operador grava assinatura na OS dele', ok, true);
 
@@ -152,7 +152,7 @@ begin
     values ('operacional-docs', 'os/'||os_b||'/assinatura/1-assinatura.png',
             (select v from t_ids where k='op_a'));
     ok := true;
-  exception when others then ok := false;
+  exception when others then ok := false; raise notice 'motivo: % %', sqlstate, sqlerrm;
   end;
   perform pg_temp.esperar('operador não grava em OS alheia', ok, false);
 
@@ -162,7 +162,7 @@ begin
     values ('operacional-docs', 'os/'||os_a||'/certificado/1-cert.pdf',
             (select v from t_ids where k='op_a'));
     ok := true;
-  exception when others then ok := false;
+  exception when others then ok := false; raise notice 'motivo: % %', sqlstate, sqlerrm;
   end;
   perform pg_temp.esperar('operador não emite certificado', ok, false);
 
@@ -171,7 +171,7 @@ begin
     insert into storage.objects (bucket_id, name, owner)
     values ('operacional-docs', 'solto.png', (select v from t_ids where k='op_a'));
     ok := true;
-  exception when others then ok := false;
+  exception when others then ok := false; raise notice 'motivo: % %', sqlstate, sqlerrm;
   end;
   perform pg_temp.esperar('caminho fora da convenção é barrado', ok, false);
 
