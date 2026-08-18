@@ -1,6 +1,11 @@
 {
   "compilerOptions": {
     "composite": true,
+    // composite:true proíbe noEmit (TS6304), então mandamos o emit para dentro de
+    // node_modules em vez de deixar vite.config.js/.d.ts ao lado do .ts — o Vite
+    // resolve o .js antes do .ts e passaria a ignorar mudanças na config.
+    "outDir": "./node_modules/.tmp/tsconfig.node",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",

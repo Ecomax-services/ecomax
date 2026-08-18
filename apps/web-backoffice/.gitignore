@@ -4,3 +4,8 @@ dist-ssr
 *.local
 .env
 .DS_Store
+
+# Artefatos do tsc -b (a config fonte é o .ts)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
