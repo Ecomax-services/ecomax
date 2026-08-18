@@ -27,6 +27,7 @@ import { SelectField, SearchInput } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
+import { escapeHtml } from '@/lib/html';
 import { docTone, type Usuario, type DocState } from '@/data/usuarios';
 import {
   listFuncionarios,
@@ -186,21 +187,25 @@ export function UsuariosList() {
   const exportPdf = async () => {
     const all = await listFuncionarios({ filtro: filter, cargo, setor, gestor, search, page: 1, pageSize: 1000 });
     const list = all.rows;
+    // Todo valor vem do cadastro (editável pelo usuário) e é interpolado em markup,
+    // então precisa de escape — ver src/lib/html.ts.
     const cells = list
       .map(
         (u) =>
-          `<tr><td>${u.name}</td><td>${u.cpf}</td><td>${u.cargo}</td><td>${u.setor}</td><td>${u.gestor}</td><td>${u.status}</td><td>${u.aso}</td><td>${u.cnh}</td></tr>`,
+          `<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.cpf)}</td><td>${escapeHtml(u.cargo)}</td><td>${escapeHtml(u.setor)}</td><td>${escapeHtml(u.gestor)}</td><td>${escapeHtml(u.status)}</td><td>${escapeHtml(u.aso)}</td><td>${escapeHtml(u.cnh)}</td></tr>`,
       )
       .join('');
     const html = `<html><head><title>Funcionários</title><style>body{font-family:Arial;padding:24px;color:#151619}h1{font-size:18px}table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}th,td{border:1px solid #d8dadf;padding:8px 10px;text-align:left}th{background:#f7f7f8}</style></head><body><h1>Gestão de Usuários — Funcionários (${list.length})</h1><table><thead><tr><th>Nome</th><th>CPF</th><th>Cargo</th><th>Setor</th><th>Gestor</th><th>Status</th><th>ASO</th><th>CNH</th></tr></thead><tbody>${cells}</tbody></table></body></html>`;
     const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(html);
-      w.document.close();
-      w.focus();
-      setTimeout(() => w.print(), 400);
+    if (!w) {
+      showToast('O navegador bloqueou a janela de impressão. Libere pop-ups para este site.');
+      return;
     }
-    showToast(`PDF gerado (${list.length} registros)`);
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
+    showToast(`Impressão aberta (${list.length} registros)`);
   };
 
   const th = 'px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-ink-400';
