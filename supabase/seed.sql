@@ -1,0 +1,17 @@
+-- Seed local / de QA.
+--
+-- Aplicado automaticamente ao final de `supabase db reset` (config.toml,
+-- [db.seed] sql_paths). Os dados de catálogo e de configuração que o sistema
+-- precisa para funcionar NÃO vivem aqui — eles são migrations `*_seed.sql`,
+-- porque também precisam existir em produção.
+--
+-- Este arquivo é só para dados de teste descartáveis. Está vazio de propósito
+-- por enquanto: o seed de QA (cenários nomeados `[QA] …`, contas de
+-- Operacional e Almoxarifado, volume para exercitar paginação) entra numa fase
+-- posterior do plano.
+--
+-- Regras para quando ele for preenchido:
+--   • idempotente (`on conflict do nothing`), para poder rodar de novo;
+--   • tudo identificável por um prefixo `[QA]`, para o reset não apagar
+--     trabalho de outra pessoa no ambiente compartilhado;
+--   • nada de segredo real — este arquivo é versionado.
