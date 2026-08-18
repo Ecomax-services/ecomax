@@ -303,8 +303,21 @@ export function criarFuncionario(payload: NovoFuncionario) {
   return invokeAdmin<{ id: string; profile_id: string | null }>({ action: 'create', ...payload });
 }
 
-export function resetSenha(funcionarioId: string, email: string) {
-  return invokeAdmin({ action: 'reset_password', funcionario_id: funcionarioId, email });
+/**
+ * Dispara o e-mail de redefinição de senha.
+ *
+ * O `profileId` decide para qual app o link aponta: operador vai para o
+ * aplicativo, cliente para o portal, o resto para o Backoffice. Sem ele a Edge
+ * Function não tem como saber o papel, e mandar um operador para o Backoffice —
+ * onde ele nem tem acesso — equivale a não mandar e-mail nenhum.
+ */
+export function resetSenha(funcionarioId: string, email: string, profileId?: string | null) {
+  return invokeAdmin({
+    action: 'reset_password',
+    funcionario_id: funcionarioId,
+    email,
+    profile_id: profileId ?? null,
+  });
 }
 
 export async function alterarPerfilAcesso(profileId: string, perfilId: string): Promise<void> {

@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CenteredAuthLayout } from '@/components/CenteredAuthLayout';
 import { PasswordInput } from '@/components/Input';
 import { Button } from '@/components/Button';
+import { supabase } from '@/lib/supabase';
 import { colors, fonts } from '@/theme';
 import type { RootStackParamList } from '@/navigation/types';
 
@@ -33,8 +34,41 @@ const META = [
 export function ResetPasswordScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
   const score = useMemo(() => evaluate(password), [password]);
   const meta = META[score];
+
+  async function salvar() {
+    if (salvando) return;
+    setErro('');
+    if (score < 4) {
+      setErro('A senha precisa ter 8 a 16 caracteres, com número, letra e caractere especial.');
+      return;
+    }
+    if (password !== confirm) {
+      setErro('As senhas não conferem.');
+      return;
+    }
+    setSalvando(true);
+    // O link do e-mail já criou a sessão de recuperação; é ela que autoriza esta
+    // troca. Antes daqui a tela só navegava para o Login: dizia "senha salva" e
+    // não salvava nada, e a pessoa voltava a não conseguir entrar.
+    const { error } = await supabase.auth.updateUser({ password });
+    setSalvando(false);
+    if (error) {
+      setErro(
+        error.message.toLowerCase().includes('session')
+          ? 'O link expirou. Peça um novo e-mail de recuperação.'
+          : error.message,
+      );
+      return;
+    }
+    // Encerrar a sessão de recuperação obriga a entrar com a senha nova, que é a
+    // única forma de a pessoa confirmar que ela funciona.
+    await supabase.auth.signOut();
+    navigation.navigate('Login');
+  }
 
   return (
     <CenteredAuthLayout title="Criar nova senha" onBack={() => navigation.goBack()}>
@@ -67,18 +101,21 @@ export function ResetPasswordScreen({ navigation }: Props) {
           value={confirm}
           onChangeText={setConfirm}
         />
-        <Button
-          label="Salvar nova senha"
-          onPress={() => {
-            if (score === 4 && password === confirm) navigation.navigate('Login');
-          }}
-        />
+        {!!erro && <Text style={styles.erro}>{erro}</Text>}
+        <Button label={salvando ? 'Salvando…' : 'Salvar nova senha'} onPress={salvar} />
       </View>
     </CenteredAuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
+  erro: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    color: colors.danger,
+    marginTop: 12,
+    marginBottom: -4,
+  },
   iconCircle: {
     width: 56,
     height: 56,

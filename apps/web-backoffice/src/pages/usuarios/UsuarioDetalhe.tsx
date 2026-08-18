@@ -116,7 +116,7 @@ export function UsuarioDetalhe() {
         await logAuditoria(row.id, 'funcionario_inativado', { nome: row.nome_completo }, justificativa);
       } else if (action === 'reset') {
         if (!row.email) throw new Error('Funcionário sem e-mail de acesso.');
-        await resetSenha(row.id, row.email);
+        await resetSenha(row.id, row.email, row.profile_id);
       } else if (action === 'bloquear') {
         if (!row.profile_id) throw new Error('Funcionário sem login para bloquear.');
         await setBloqueioLogin(row.id, row.profile_id, true, justificativa);

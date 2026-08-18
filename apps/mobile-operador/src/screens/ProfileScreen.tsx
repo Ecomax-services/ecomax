@@ -8,6 +8,7 @@ import { Button } from '@/components/Button';
 import { LogoutSheet } from '@/components/LogoutSheet';
 import { useAuth } from '@/auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
+import { enviarLinkDeRecuperacao } from '@/lib/recuperacaoSenha';
 import { getMeuPerfil, type MeuPerfil, type DocState } from '@/lib/perfil';
 import { colors, fonts, radius } from '@/theme';
 import type { ConfigStackParamList } from '@/navigation/types';
@@ -33,7 +34,7 @@ export function ProfileScreen({ navigation }: Props) {
 
   async function handleChangePassword() {
     if (!session?.user.email) return;
-    await supabase.auth.resetPasswordForEmail(session.user.email);
+    await enviarLinkDeRecuperacao(session.user.email);
     Alert.alert('Alterar senha', `Enviamos um link de redefinição para ${session.user.email}. Verifique seu e-mail.`);
   }
 
