@@ -131,9 +131,11 @@ jobs:
         # do banco recém-recriado e comparados com o que está versionado.
         run: |
           supabase gen types typescript --local --schema public > /tmp/gerado.ts
-          # Só o corpo interessa: o arquivo versionado leva um cabeçalho de aviso.
-          if ! diff <(grep -v '^//' supabase/types/database.ts | sed '/^$/d') \
-                    <(grep -v '^//' /tmp/gerado.ts | sed '/^$/d') > /tmp/tipos.diff; then
+          # A normalização remove o cabeçalho de aviso e o bloco
+          # __InternalSupabase, que traz a versão do PostgREST — ela difere entre
+          # o projeto remoto e o stack local, sem o schema ter mudado.
+          if ! diff <(python3 scripts/normalizar-tipos.py supabase/types/database.ts) \
+                    <(python3 scripts/normalizar-tipos.py /tmp/gerado.ts) > /tmp/tipos.diff; then
             echo "::error::supabase/types/database.ts está defasado. Rode ./scripts/gen-types.sh e commite."
             head -60 /tmp/tipos.diff
             exit 1
