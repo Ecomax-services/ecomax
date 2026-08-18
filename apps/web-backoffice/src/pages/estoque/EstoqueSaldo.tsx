@@ -408,7 +408,7 @@ function InventarioFisicoTab({
       setInv(i); setConta(Object.fromEntries(i.itens.map((x) => [x.id, '']))); showToast(`${i.codigo} iniciado`);
     } catch (e) { showToast((e as Error).message); } finally { setBusy(false); }
   };
-  const toggleSel = (id: string) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSel = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   const salvarContagem = async () => {
     if (!inv) return;

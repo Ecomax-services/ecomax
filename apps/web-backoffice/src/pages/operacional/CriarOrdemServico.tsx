@@ -385,8 +385,8 @@ function ProdutoPicker({ title, loader, exclude, onClose, onPick }: { title: str
   const [all, setAll] = useState<Produto[]>([]);
   const [q, setQ] = useState('');
   useEffect(() => { loader().then(setAll).catch(() => {}); }, [loader]);
-  const ex = new Set(exclude);
   const filtered = useMemo(() => {
+    const ex = new Set(exclude);
     const s = q.trim().toLowerCase();
     return all.filter((p) => !ex.has(p.id) && (!s || `${p.name} ${p.cod} ${p.cat}`.toLowerCase().includes(s)));
   }, [all, q, exclude]);
