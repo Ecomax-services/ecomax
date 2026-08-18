@@ -7,7 +7,10 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Chaveado pelo branch, não pelo ref: com um PR aberto, o mesmo commit dispara
+  # `push` (refs/heads/lucas-dev) e `pull_request` (refs/pull/N/merge), que são
+  # refs diferentes e não se cancelariam — rodava tudo em dobro.
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
