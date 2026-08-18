@@ -6,6 +6,9 @@ import { EmailSent } from '@/pages/auth/EmailSent';
 import { ResetPassword } from '@/pages/auth/ResetPassword';
 import { Notifications } from '@/pages/Notifications';
 import { OrdensServico } from '@/pages/OrdensServico';
+import { Documentos } from '@/pages/Documentos';
+import { Produtos } from '@/pages/Produtos';
+import { Colaboradores } from '@/pages/Colaboradores';
 import { Settings } from '@/pages/Settings';
 import { Profile } from '@/pages/Profile';
 import { Preferences } from '@/pages/Preferences';
@@ -20,6 +23,9 @@ export const router = createBrowserRouter([
     element: <RequireAuth />,
     children: [
       { path: '/ordens', element: <OrdensServico /> },
+      { path: '/documentos', element: <Documentos /> },
+      { path: '/produtos', element: <Produtos /> },
+      { path: '/colaboradores', element: <Colaboradores /> },
       { path: '/notificacoes', element: <Notifications /> },
       { path: '/configuracoes', element: <Settings /> },
       { path: '/configuracoes/perfil', element: <Profile /> },

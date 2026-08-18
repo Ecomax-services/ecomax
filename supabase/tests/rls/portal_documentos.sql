@@ -160,6 +160,23 @@ begin
    where funcionario_id = (select v from t where k='func_a');
   reset role;
   perform pg_temp.esperar('cliente vê documento de quem o atendeu', n = 1, true);
+
+  -- O vínculo que a tela usa para não listar a própria pessoa: a conta do
+  -- portal nasce com linha em funcionarios, e funcionarios_self_select a
+  -- tornaria visível se a consulta pedisse funcionarios solto.
+  perform pg_temp.como((select v from t where k='cli_a'));
+  set local role authenticated;
+  select count(*) into n from public.os_funcionarios
+   where funcionario_id = (select v from t where k='func_a');
+  reset role;
+  perform pg_temp.esperar('cliente vê a escala da OS dele', n = 1, true);
+
+  perform pg_temp.como((select v from t where k='cli_a'));
+  set local role authenticated;
+  select count(*) into n from public.os_funcionarios
+   where funcionario_id = (select v from t where k='func_b');
+  reset role;
+  perform pg_temp.esperar('cliente NÃO vê a escala de OS alheia', n = 0, true);
 end $$;
 
 -- ---------------------------------------------------------------------------

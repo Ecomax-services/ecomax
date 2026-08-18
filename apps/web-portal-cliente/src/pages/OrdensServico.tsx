@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, Download, CalendarDays, Search } from 'lucide-react';
+import { FileText, Download, CalendarDays } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { cn } from '@/lib/cn';
+import {
+  CountHeadline, Empty, ErrorBanner, Loading, SearchInput, Section, TH,
+} from '@/components/ui/DataSection';
 import {
   listMinhasOs, listRelatorios, listCronograma, osStatusClass, contaAbertas,
   type MinhaOs, type RelatorioCliente, type CronogramaCliente,
@@ -37,27 +40,24 @@ export function OrdensServico() {
     <>
       <Topbar title="Ordens de Serviço" breadcrumb="Início  /  Ordens de Serviço" />
       <div className="flex-1 px-8 py-6">
-        {error && <p className="mb-4 rounded-lg bg-expiredTag-bg px-4 py-3 text-sm text-expiredTag-fg">{error}</p>}
+        {error && <ErrorBanner>{error}</ErrorBanner>}
         {loading ? (
-          <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-ink-200 bg-white text-sm text-ink-400">Carregando…</div>
+          <Loading />
         ) : (
           <div className="flex flex-col gap-6">
             {/* Minhas OS */}
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[15px] text-ink-700">
-                <span className="text-[22px] font-bold text-forest-900">{contaAbertas(os)}</span>{' '}
-                {contaAbertas(os) === 1 ? 'ordem de serviço aberta' : 'ordens de serviço abertas'}
-              </p>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                <input
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Buscar por nº, serviço ou local"
-                  aria-label="Buscar ordens de serviço"
-                  className="h-10 w-[300px] max-w-full rounded-lg border border-ink-200 bg-white pl-9 pr-3 text-[13px] text-ink-900 placeholder:text-ink-400 focus:border-forest-500 focus:outline-none"
-                />
-              </div>
+              <CountHeadline
+                n={contaAbertas(os)}
+                singular="ordem de serviço aberta"
+                plural="ordens de serviço abertas"
+              />
+              <SearchInput
+                value={busca}
+                onChange={setBusca}
+                placeholder="Buscar por nº, serviço ou local"
+                label="Buscar ordens de serviço"
+              />
             </div>
 
             <Section title="Minhas ordens de serviço" count={osFiltradas.length}>
@@ -138,18 +138,3 @@ export function OrdensServico() {
   );
 }
 
-const TH = 'px-4 py-2.5 text-left text-xs font-bold uppercase text-ink-400';
-
-function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-ink-900">
-        {title}<span className="rounded-full bg-ink-50 px-2 py-0.5 text-[11px] font-semibold text-ink-500">{count}</span>
-      </h2>
-      {children}
-    </section>
-  );
-}
-function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="flex h-28 items-center justify-center rounded-xl border border-dashed border-ink-200 bg-white text-sm text-ink-400">{children}</div>;
-}

@@ -21,9 +21,9 @@ interface NavItem {
 
 const items: NavItem[] = [
   { label: 'Ordens de Serviço', icon: ClipboardList, to: '/ordens' },
-  { label: 'Documentos', icon: FileText, to: '/documentos', disabled: true },
-  { label: 'Produtos', icon: Package, to: '/produtos', disabled: true },
-  { label: 'Colaboradores', icon: Users, to: '/colaboradores', disabled: true },
+  { label: 'Documentos', icon: FileText, to: '/documentos' },
+  { label: 'Produtos', icon: Package, to: '/produtos' },
+  { label: 'Colaboradores', icon: Users, to: '/colaboradores' },
   { label: 'Notificações', icon: Bell, to: '/notificacoes' },
   { label: 'Configurações', icon: Settings, to: '/configuracoes' },
 ];
