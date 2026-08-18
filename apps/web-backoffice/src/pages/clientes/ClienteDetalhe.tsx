@@ -417,7 +417,20 @@ function PortalModal({ clienteId, canEdit, onClose }: { clienteId: string; canEd
 
   const convidar = async () => {
     if (!form.nome.trim() || !form.email.trim()) return showToast('Informe nome e e-mail.');
-    try { await convidarPortalUsuario(clienteId, form.nome.trim(), form.email.trim(), form.perfil.trim() || 'Usuário'); setForm({ nome: '', email: '', perfil: '' }); setAdding(false); showToast('Convite registrado (envio de e-mail em breve)'); load(); }
+    try {
+      const r = await convidarPortalUsuario(clienteId, form.nome.trim(), form.email.trim(), form.perfil.trim() || 'Usuário');
+      setForm({ nome: '', email: '', perfil: '' });
+      setAdding(false);
+      // O aviso diz o que houve de fato. Antes afirmava "envio de e-mail em
+      // breve", que era honesto sobre não enviar e inútil para quem esperava o
+      // convite chegar.
+      showToast(
+        r.email_enviado
+          ? `Convite enviado para ${form.email.trim()}`
+          : `Acesso criado, mas o e-mail não saiu (${r.email_erro ?? 'motivo desconhecido'}). Peça à pessoa para usar "Esqueci minha senha" no portal.`,
+      );
+      load();
+    }
     catch (e) { showToast((e as Error).message); }
   };
   const setStatus = async (u: PortalUsuarioRow, status: 'ativo' | 'inativo' | 'convidado') => {

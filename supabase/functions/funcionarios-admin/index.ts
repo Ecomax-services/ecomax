@@ -93,9 +93,9 @@ Deno.serve(async (req) => {
   }
   const action: string = payload?.action;
 
-  const need = async (acao: string) => {
+  const need = async (acao: string, modulo = 'gestao_usuarios') => {
     const { data, error } = await userClient.rpc('has_module_perm', {
-      _modulo: 'gestao_usuarios',
+      _modulo: modulo,
       _acao: acao,
     });
     if (error) throw new Error(error.message);
@@ -197,6 +197,77 @@ Deno.serve(async (req) => {
       if (error) throw new Error(error.message);
       await audit(funcionario_id, bloquear ? 'login_bloqueado' : 'login_desbloqueado', { profile_id }, justificativa);
       return json({ ok: true });
+    }
+
+    /**
+     * Convite de usuário do Portal do Cliente.
+     *
+     * A tela de Gestão de Clientes só inseria a linha em cliente_portal_usuarios
+     * e avisava "envio de e-mail em breve". Ninguém recebia nada, e não havia
+     * login: a pessoa convidada não tinha como entrar. Aqui o convite passa a
+     * fazer as três coisas de uma vez — cria o acesso, aponta o papel para
+     * `cliente` e dispara o e-mail para o Portal.
+     */
+    if (action === 'invite_portal') {
+      if (!(await need('criar', 'gestao_clientes'))) {
+        return json({ error: 'Sem permissão para convidar usuários do portal' }, 403);
+      }
+      const { cliente_id, nome, email, perfil } = payload;
+      const mail = String(email ?? '').trim().toLowerCase();
+      if (!cliente_id || !mail) return json({ error: 'Informe cliente e e-mail.' }, 400);
+
+      // Reaproveita a conta quando o e-mail já existe: a mesma pessoa pode ser
+      // convidada por mais de um cliente, e criar duas contas com o mesmo
+      // e-mail falharia no Auth.
+      const { data: existentes } = await admin.auth.admin.listUsers();
+      let uid = existentes?.users?.find((u) => u.email?.toLowerCase() === mail)?.id ?? null;
+
+      if (!uid) {
+        const { data: criado, error: cErr } = await admin.auth.admin.createUser({
+          email: mail,
+          password: crypto.randomUUID(),   // descartada: a pessoa define a dela pelo link
+          email_confirm: true,
+          user_metadata: { nome_completo: nome ?? mail },
+        });
+        if (cErr || !criado?.user) throw new Error(cErr?.message || 'Falha ao criar o acesso');
+        uid = criado.user.id;
+      }
+
+      const { error: pErr } = await admin
+        .from('profiles')
+        .update({ nome_completo: nome ?? mail, role: 'cliente', ativo: true, cliente_id })
+        .eq('id', uid);
+      if (pErr) throw new Error(pErr.message);
+
+      // O vínculo é por e-mail (é o que my_portal_cliente_ids consulta), então
+      // reconvidar o mesmo endereço atualiza em vez de duplicar.
+      const { data: jaVinculado } = await admin
+        .from('cliente_portal_usuarios')
+        .select('id')
+        .eq('cliente_id', cliente_id)
+        .ilike('email', mail)
+        .maybeSingle();
+
+      if (jaVinculado) {
+        await admin
+          .from('cliente_portal_usuarios')
+          .update({ nome: nome ?? mail, perfil: perfil ?? 'Usuário', status: 'convidado' })
+          .eq('id', jaVinculado.id);
+      } else {
+        const { error: vErr } = await admin.from('cliente_portal_usuarios').insert({
+          cliente_id, nome: nome ?? mail, email: mail, perfil: perfil ?? 'Usuário', status: 'convidado',
+        });
+        if (vErr) throw new Error(vErr.message);
+      }
+
+      const envio = await enviarLinkDeSenha(admin, mail, 'cliente');
+      await admin.from('auditoria').insert({
+        actor_id: caller.id, funcionario_id: null, modulo: 'gestao_clientes',
+        acao: 'portal_usuario_convidado',
+        detalhes: { cliente_id, email: mail, email_enviado: envio.enviado },
+      });
+
+      return json({ ok: true, profile_id: uid, email_enviado: envio.enviado, email_erro: envio.motivo });
     }
 
     return json({ error: 'Ação desconhecida' }, 400);
