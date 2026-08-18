@@ -27,12 +27,22 @@ function brToISO(s: string): string | null {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
 
+/**
+ * Perfil escolhido na tela → papel gravado em `profiles.role`.
+ *
+ * Cuidado com a diferença entre as duas últimas linhas, que não é sutil:
+ * `operacional` é quem trabalha no Backoffice; `operador` é quem usa o
+ * aplicativo de campo, e `hasMobileAccess` exige exatamente esse valor. Faltava
+ * a segunda, então todo cadastro caía em 'operacional' e não havia como criar
+ * quem usa o app — o único operador do banco tinha vindo do seed.
+ */
 const roleFromPerfil: Record<string, string> = {
   administrador: 'admin',
   gestor: 'gestor',
   operacional: 'operacional',
   almoxarifado: 'almoxarifado',
   cliente: 'cliente',
+  'operador de campo': 'operador',
 };
 
 const empty = {
@@ -108,16 +118,25 @@ export function UsuarioCadastro() {
     if (!form.cargo || !form.setor) return showToast('Informe cargo e setor.');
     if (form.comAcesso && (!form.email.trim() || !form.perfilId)) return showToast('Informe e-mail e perfil de acesso.');
 
+    const perfilNome = perfis.find((p) => p.id === form.perfilId)?.nome ?? '';
+    const role = roleFromPerfil[perfilNome.toLowerCase()];
+    // Antes daqui havia um `?? 'operacional'` que engolia perfil não mapeado: o
+    // cadastro passava e a pessoa saía com um papel que não era o escolhido —
+    // foi assim que a falta do 'operador' passou despercebida. Perfil novo em
+    // Configurações agora exige a linha correspondente em roleFromPerfil.
+    if (form.comAcesso && !role) {
+      return showToast(`O perfil "${perfilNome}" ainda não tem papel de acesso definido no sistema.`);
+    }
+
     setSaving(true);
     try {
-      const perfilNome = perfis.find((p) => p.id === form.perfilId)?.nome ?? '';
       const folder = `tmp-${crypto.randomUUID()}`;
       const [avatarUrl, asoUrl, cnhUrl] = await Promise.all([
         photoFile ? uploadFuncionarioFile(photoFile, folder, 'foto') : Promise.resolve(null),
         asoFile ? uploadFuncionarioFile(asoFile, folder, 'aso') : Promise.resolve(null),
         !form.cnhNA && cnhFile ? uploadFuncionarioFile(cnhFile, folder, 'cnh') : Promise.resolve(null),
       ]);
-      await criarFuncionario({
+      const r = await criarFuncionario({
         funcionario: {
           avatar_url: avatarUrl,
           aso_arquivo_url: asoUrl,
@@ -144,12 +163,21 @@ export function UsuarioCadastro() {
           ? {
               email: form.email.trim(),
               perfil_acesso_id: form.perfilId,
-              role: roleFromPerfil[perfilNome.toLowerCase()] ?? 'operacional',
+              role,
               senha_provisoria: form.senha,
             }
           : undefined,
       });
-      showToast(form.comAcesso ? 'Usuário cadastrado · credenciais enviadas' : 'Funcionário cadastrado');
+      // O aviso precisa dizer o que houve de fato. "credenciais enviadas" era
+      // afirmação sem base: o envio depende de SMTP e pode falhar em silêncio.
+      // Se falhou, a senha provisória da tela é a única forma de entrar.
+      showToast(
+        !form.comAcesso
+          ? 'Funcionário cadastrado'
+          : r.email_enviado
+            ? 'Usuário cadastrado · e-mail de primeiro acesso enviado'
+            : `Usuário cadastrado, mas o e-mail não saiu (${r.email_erro ?? 'motivo desconhecido'}). Entregue a senha provisória: ${form.senha}`,
+      );
       navigate('/usuarios');
     } catch (e) {
       showToast((e as Error).message || 'Falha ao cadastrar');

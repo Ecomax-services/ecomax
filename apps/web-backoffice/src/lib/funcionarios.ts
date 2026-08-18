@@ -299,8 +299,16 @@ export interface NovoFuncionario {
   acesso?: { email: string; role?: string; perfil_acesso_id?: string; senha_provisoria?: string };
 }
 
+export interface FuncionarioCriado {
+  id: string;
+  profile_id: string | null;
+  /** undefined quando o funcionário foi criado sem acesso à plataforma. */
+  email_enviado?: boolean;
+  email_erro?: string;
+}
+
 export function criarFuncionario(payload: NovoFuncionario) {
-  return invokeAdmin<{ id: string; profile_id: string | null }>({ action: 'create', ...payload });
+  return invokeAdmin<FuncionarioCriado>({ action: 'create', ...payload });
 }
 
 /**
