@@ -72,15 +72,16 @@ export interface DocumentoCliente {
   estado: EstadoValidade;
   /** Sem cliente = documento institucional, igual para todos os clientes. */
   institucional: boolean;
+  /** Data de cadastro, usada pelo indicador "emitidos nos últimos 30 dias". */
+  criadoEm: string | null;
 }
 
 export async function listDocumentos(): Promise<DocumentoCliente[]> {
   // O RLS já entrega só o que é institucional ou do cliente logado, e só ativo.
   const { data, error } = await supabase
     .from('cliente_documentos')
-    .select('id, cliente_id, categoria, titulo, descricao, arquivo_url, validade')
-    .order('categoria')
-    .order('titulo');
+    .select('id, cliente_id, categoria, titulo, descricao, arquivo_url, validade, created_at')
+    .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data as any[]).map((d) => ({
     id: d.id,
@@ -92,6 +93,7 @@ export async function listDocumentos(): Promise<DocumentoCliente[]> {
     validadeBr: brDate(d.validade),
     estado: estadoValidade(d.validade),
     institucional: d.cliente_id === null,
+    criadoEm: d.created_at ? d.created_at.slice(0, 10) : null,
   }));
 }
 
@@ -236,4 +238,127 @@ export async function listTiposDocumentoColaborador(): Promise<string[]> {
     .order('ordem');
   if (error) throw new Error(error.message);
   return (data as { nome: string }[]).map((c) => c.nome);
+}
+
+// ===========================================================================
+// Início
+// ===========================================================================
+
+export interface ProximaVisita {
+  id: string;
+  osCodigo: string;
+  data: string;
+  /** Nulo quando a OS ainda não tem data programada. */
+  dataIso: string | null;
+  diaSemana: string;
+  servico: string;
+  local: string;
+  status: string;
+}
+
+export interface AlertaValidade {
+  id: string;
+  titulo: string;
+  detalhe: string;
+  validadeBr: string;
+  estado: EstadoValidade;
+  arquivoUrl: string | null;
+}
+
+export interface ResumoInicio {
+  osAbertas: number;
+  documentosRecentes: number;
+  aVencer: number;
+  naoLidas: number;
+  proximaVisita: ProximaVisita | null;
+  proximasVisitas: ProximaVisita[];
+  ultimosDocumentos: DocumentoCliente[];
+  alertas: AlertaValidade[];
+}
+
+const DIA_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+
+/**
+ * Tudo o que a tela Início mostra, numa chamada só.
+ *
+ * Reaproveita as listas das outras telas em vez de escrever consultas próprias:
+ * o portal de um cliente lida com dezenas de linhas, não milhares, e ter uma
+ * origem só evita o clássico de o indicador discordar da tela que ele resume.
+ */
+export async function getResumoInicio(): Promise<ResumoInicio> {
+  const [os, docs, colaboradores, naoLidasRes] = await Promise.all([
+    listMinhasOsComData(),
+    listDocumentos(),
+    listColaboradores(),
+    supabase.from('notificacoes').select('id', { count: 'exact', head: true }).eq('lida', false),
+  ]);
+
+  const hojeIso = new Date().toISOString().slice(0, 10);
+
+  const futuras = os
+    .filter((o) => o.dataIso && o.dataIso >= hojeIso && o.status !== 'cancelada' && o.status !== 'concluida')
+    .sort((a, b) => (a.dataIso ?? '').localeCompare(b.dataIso ?? ''));
+
+  const trintaDiasAtras = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+
+  // "A vencer" junta documentos do cliente e documentos de quem o atende: para
+  // quem está do lado de fora, é tudo conformidade do serviço contratado.
+  const alertas: AlertaValidade[] = [
+    ...docs
+      .filter((d) => d.validade && d.estado !== 'valido')
+      .map((d) => ({
+        id: d.id,
+        titulo: d.titulo,
+        detalhe: d.categoria,
+        validadeBr: d.validadeBr,
+        estado: d.estado,
+        arquivoUrl: d.arquivoUrl,
+      })),
+    ...colaboradores.flatMap((c) =>
+      Object.values(c.documentos)
+        .filter((doc) => doc.validade && doc.estado !== 'valido')
+        .map((doc) => ({
+          id: `${c.id}-${doc.tipo}`,
+          titulo: `${doc.tipo}: ${c.nome}`,
+          detalhe: c.cargo,
+          validadeBr: doc.validadeBr,
+          estado: doc.estado,
+          arquivoUrl: doc.arquivoUrl,
+        })),
+    ),
+  ].sort((a, b) => (a.validadeBr < b.validadeBr ? -1 : 1));
+
+  return {
+    osAbertas: os.filter((o) => o.status === 'em_aberto' || o.status === 'em_andamento').length,
+    documentosRecentes: docs.filter((d) => (d.criadoEm ?? '') >= trintaDiasAtras).length,
+    aVencer: alertas.length,
+    naoLidas: naoLidasRes.count ?? 0,
+    proximaVisita: futuras[0] ?? null,
+    proximasVisitas: futuras.slice(0, 3),
+    ultimosDocumentos: docs.slice(0, 4),
+    alertas: alertas.slice(0, 5),
+  };
+}
+
+/** Como listMinhasOs, mas guardando a data crua, que o Início precisa comparar. */
+async function listMinhasOsComData() {
+  const { data, error } = await supabase
+    .from('ordens_servico')
+    .select('id, codigo, status, data_programada, created_at, tipos_servico, endereco_execucao, cliente:cliente_id(nome)')
+    .order('data_programada', { ascending: true, nullsFirst: false });
+  if (error) throw new Error(error.message);
+  return (data as any[]).map((o) => {
+    const c = Array.isArray(o.cliente) ? o.cliente[0] : o.cliente;
+    const iso: string | null = o.data_programada;
+    return {
+      id: o.id,
+      osCodigo: o.codigo,
+      status: o.status as string,
+      dataIso: iso,
+      data: brDate(iso),
+      diaSemana: iso ? DIA_SEMANA[new Date(`${iso}T00:00:00`).getDay()] : '',
+      servico: (o.tipos_servico as string[] | null ?? []).join(', ') || '—',
+      local: [c?.nome, o.endereco_execucao].filter(Boolean).join(' · ') || '—',
+    };
+  });
 }

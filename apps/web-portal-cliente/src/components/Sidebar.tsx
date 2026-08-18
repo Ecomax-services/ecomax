@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { ClipboardList, FileText, Package, Users, Bell, Settings, LogOut } from 'lucide-react';
+import { Home, ClipboardList, FileText, Package, Users, Bell, Settings, LogOut } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { Logo } from '@/components/ui/Logo';
@@ -20,6 +20,7 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
+  { label: 'Início', icon: Home, to: '/inicio' },
   { label: 'Ordens de Serviço', icon: ClipboardList, to: '/ordens' },
   { label: 'Documentos', icon: FileText, to: '/documentos' },
   { label: 'Produtos', icon: Package, to: '/produtos' },
