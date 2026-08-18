@@ -3,23 +3,15 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "rewrites": [
-    {
-      "comment": "SPA: o roteamento é do react-router. Sem isto, dar F5 em /usuarios devolve 404 — o arquivo estático só existe em /index.html. Arquivos que existem em disco têm precedência sobre rewrites, então os assets continuam sendo servidos normalmente.",
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
-      "comment": "Os assets do Vite levam hash de conteúdo no nome, então nunca mudam sob a mesma URL.",
       "source": "/assets/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
     },
     {
-      "comment": "O index.html é o único arquivo cujo conteúdo muda sob a mesma URL. Se ele for cacheado, o navegador do QA continua pedindo assets de um deploy que já não existe.",
       "source": "/index.html",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }

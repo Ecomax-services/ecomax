@@ -1,0 +1,59 @@
+# Deploy na Vercel
+
+## Projetos
+
+Um projeto Vercel por app, com **Root Directory** apontando para a pasta do app:
+
+| Projeto | Root Directory |
+|---|---|
+| backoffice | `apps/web-backoffice` |
+| portal-cliente | `apps/web-portal-cliente` |
+
+O `mobile-operador` não vai para a Vercel — é Expo, distribuído por Expo Go / EAS.
+
+## Por que cada linha do `vercel.json`
+
+**`rewrites` para `/index.html`** — o roteamento é do react-router, e o único
+arquivo que existe em disco é o `index.html`. Sem o rewrite, dar F5 em
+`/usuarios` ou `/estoque/saldo` devolve 404. Arquivos que existem em disco têm
+precedência sobre rewrites, então os assets continuam sendo servidos.
+
+**Cache dos assets** — os nomes levam hash de conteúdo, então nunca mudam sob a
+mesma URL: `immutable` por um ano.
+
+**`no-cache` no `index.html`** — é o único arquivo cujo conteúdo muda sob a mesma
+URL. Se ele for cacheado, o navegador continua pedindo assets de um deploy que já
+não existe, e a pessoa vê tela branca até limpar o cache.
+
+**Nada de chave `comment`** — a Vercel valida o `vercel.json` com schema estrito
+e recusa propriedades desconhecidas. O deploy falha na validação, antes do build.
+
+## Variáveis de ambiente
+
+Nos dois projetos, marcadas para **Production, Preview e Development**:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+São lidas em tempo de build, não em runtime — mudar uma delas exige um redeploy,
+não basta salvar. O `scripts/check-env.mjs` roda antes do `tsc` e falha o build
+com o nome da variável faltando, em vez de deixar o deploy verde e o app abrir
+em branco.
+
+## Redirect URLs no Supabase
+
+Em Authentication → URL Configuration, a allow-list precisa conter:
+
+```
+https://<backoffice>.vercel.app/**
+https://<portal>.vercel.app/**
+https://backoffice-*-<scope>.vercel.app/**
+https://portal-cliente-*-<scope>.vercel.app/**
+http://localhost:5173/**
+http://localhost:5174/**
+ecomaxoperador://**
+exp://**
+```
+
+Sem os wildcards de preview, o link de recuperação de senha aberto a partir de um
+deploy de preview cai fora da allow-list e o Supabase devolve para o Site URL.
