@@ -5,6 +5,7 @@ import { ForgotPassword } from '@/pages/auth/ForgotPassword';
 import { EmailSent } from '@/pages/auth/EmailSent';
 import { ResetPassword } from '@/pages/auth/ResetPassword';
 import { Notifications } from '@/pages/Notifications';
+import { OrdensServico } from '@/pages/OrdensServico';
 import { Settings } from '@/pages/Settings';
 import { Profile } from '@/pages/Profile';
 import { Preferences } from '@/pages/Preferences';
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
+      { path: '/ordens', element: <OrdensServico /> },
       { path: '/notificacoes', element: <Notifications /> },
       { path: '/configuracoes', element: <Settings /> },
       { path: '/configuracoes/perfil', element: <Profile /> },
