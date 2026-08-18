@@ -29,9 +29,9 @@ jobs:
           - app: mobile-operador
             build: false   # Expo: não tem script build; o alvo aqui é o typecheck
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
@@ -89,7 +89,7 @@ jobs:
     name: migrations sobem do zero
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: supabase/setup-cli@v1
         with:
@@ -105,15 +105,17 @@ jobs:
         # funciona sobre um banco já existente.
         run: supabase db reset
 
-      - name: Resumo do schema recriado
+      - name: Conferir que as migrations reproduzem o schema
+        # O CLI manda o progresso ("Applying migration…") para stderr junto do
+        # resultado, então "arquivo vazio" não serve de critério — o marcador é
+        # a linha final.
         run: |
-          supabase db diff --schema public > /tmp/diff.txt 2>&1 || true
-          if [ -s /tmp/diff.txt ]; then
-            echo "::warning::O schema recriado difere das migrations:"
-            cat /tmp/diff.txt
-          else
-            echo "Schema reproduzido pelas migrations, sem diferenças."
+          supabase db diff --schema public 2>&1 | tee /tmp/diff.txt
+          if ! grep -q "No schema changes found" /tmp/diff.txt; then
+            echo "::error::O banco recriado difere do que as migrations descrevem (veja o diff acima)"
+            exit 1
           fi
+          echo "Schema reproduzido pelas migrations, sem diferenças ✓"
 
       - name: Parar o stack
         if: always()
@@ -134,7 +136,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: supabase/setup-cli@v1
         with:
