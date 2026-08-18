@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useFocusEffect } from '@react-navigation/native';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Tag } from '@/components/Tag';
 import { colors, fonts, radius } from '@/theme';
-import { initialNotifications, tagColors, type NotificationItem } from '@/data/notifications';
+import { listNotificacoes, markRead, markAllRead, tagColors, type NotifItem } from '@/lib/notificacoes';
 
 type Tab = 'todas' | 'nao-lidas' | 'lidas';
 const TABS: { key: Tab; label: string }[] = [
@@ -13,10 +14,18 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'lidas', label: 'Lidas' },
 ];
 
-/** Tela 2 - Notificações (nodes 30:497 e 83:483). */
+/** Tela Notificações — persistidas em public.notificacoes (RLS por operador). */
 export function NotificationsScreen() {
-  const [items, setItems] = useState<NotificationItem[]>(initialNotifications);
+  const [items, setItems] = useState<NotifItem[]>([]);
   const [tab, setTab] = useState<Tab>('todas');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback((isRefresh?: boolean) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    listNotificacoes().then(setItems).catch(() => {}).finally(() => { setLoading(false); setRefreshing(false); });
+  }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const unread = items.filter((n) => !n.read).length;
   const visible = useMemo(() => {
@@ -25,7 +34,13 @@ export function NotificationsScreen() {
     return items;
   }, [items, tab]);
 
-  const markAll = () => setItems((p) => p.map((n) => ({ ...n, read: true })));
+  const onMarkAll = async () => {
+    try { await markAllRead(); setItems((p) => p.map((n) => ({ ...n, read: true }))); } catch { /* noop */ }
+  };
+  const onTap = async (n: NotifItem) => {
+    if (n.read) return;
+    try { await markRead(n.id); setItems((p) => p.map((x) => (x.id === n.id ? { ...x, read: true } : x))); } catch { /* noop */ }
+  };
 
   return (
     <View style={styles.root}>
@@ -34,19 +49,14 @@ export function NotificationsScreen() {
         title="Notificações"
         right={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Pressable onPress={markAll} disabled={unread === 0}>
+            <Pressable onPress={onMarkAll} disabled={unread === 0}>
               <Text style={[styles.markAll, unread === 0 && { opacity: 0.4 }]}>Marcar como lidas</Text>
             </Pressable>
-            {unread > 0 && (
-              <View style={styles.headerBadge}>
-                <Text style={styles.badgeText}>{unread}</Text>
-              </View>
-            )}
+            {unread > 0 && <View style={styles.headerBadge}><Text style={styles.badgeText}>{unread}</Text></View>}
           </View>
         }
       />
 
-      {/* Tabs */}
       <View style={styles.tabs}>
         {TABS.map((t) => {
           const active = tab === t.key;
@@ -59,21 +69,22 @@ export function NotificationsScreen() {
         })}
       </View>
 
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {visible.length === 0 ? (
-          <Text style={styles.empty}>Nenhuma notificação.</Text>
-        ) : (
-          visible.map((n) => <Card key={n.id} item={n} />)
-        )}
-      </ScrollView>
+      {loading ? (
+        <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />}>
+          {visible.length === 0 ? <Text style={styles.empty}>Nenhuma notificação.</Text> : visible.map((n) => <Card key={n.id} item={n} onPress={() => onTap(n)} />)}
+        </ScrollView>
+      )}
     </View>
   );
 }
 
-function Card({ item }: { item: NotificationItem }) {
+function Card({ item, onPress }: { item: NotifItem; onPress: () => void }) {
   const tc = tagColors[item.kind];
   return (
-    <View style={[styles.card, item.read ? styles.cardRead : styles.cardUnread]}>
+    <Pressable onPress={onPress} style={[styles.card, item.read ? styles.cardRead : styles.cardUnread]}>
       {!item.read && <View style={styles.dot} />}
       <View style={[styles.cardInner, !item.read && { paddingLeft: 28 }]}>
         <View style={styles.cardTop}>
@@ -82,14 +93,14 @@ function Card({ item }: { item: NotificationItem }) {
         </View>
         <Text style={styles.cardTitle}>{item.title}</Text>
         <Text style={styles.cardDesc}>{item.description}</Text>
-        <Text style={styles.cardAction}>Ver detalhes</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   markAll: { fontFamily: fonts.medium, fontSize: 12, color: colors.primary },
   headerBadge: { backgroundColor: colors.danger, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
   badgeText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.white },
@@ -100,7 +111,7 @@ const styles = StyleSheet.create({
   tabIndicator: { position: 'absolute', bottom: 0, height: 2, width: '100%', backgroundColor: colors.primary },
   list: { padding: 16, gap: 16 },
   empty: { textAlign: 'center', color: colors.neutral500, fontFamily: fonts.regular, marginTop: 40 },
-  card: { borderRadius: radius.md, minHeight: 113, justifyContent: 'center' },
+  card: { borderRadius: radius.md, minHeight: 96, justifyContent: 'center' },
   cardUnread: { backgroundColor: colors.primaryTint },
   cardRead: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border },
   cardInner: { padding: 14, gap: 6 },
@@ -109,5 +120,4 @@ const styles = StyleSheet.create({
   datetime: { fontFamily: fonts.regular, fontSize: 11, color: colors.neutral400 },
   cardTitle: { fontFamily: fonts.semibold, fontSize: 14, color: colors.ink },
   cardDesc: { fontFamily: fonts.regular, fontSize: 12, color: colors.neutral500 },
-  cardAction: { fontFamily: fonts.medium, fontSize: 12, color: colors.primary, marginTop: 2 },
 });

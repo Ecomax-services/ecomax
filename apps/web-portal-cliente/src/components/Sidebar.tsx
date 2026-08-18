@@ -19,7 +19,7 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
-  { label: 'Ordens de Serviço', icon: ClipboardList, to: '/ordens', disabled: true },
+  { label: 'Ordens de Serviço', icon: ClipboardList, to: '/ordens' },
   { label: 'Documentos', icon: FileText, to: '/documentos', disabled: true },
   { label: 'Produtos', icon: Package, to: '/produtos', disabled: true },
   { label: 'Colaboradores', icon: Users, to: '/colaboradores', disabled: true },
