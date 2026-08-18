@@ -120,6 +120,18 @@ jobs:
           fi
           echo "Schema reproduzido pelas migrations, sem diferenças ✓"
 
+      - name: Suíte de RLS
+        # Único lugar onde dá para provar RLS de verdade: aqui somos superusuário
+        # e podemos `set local role authenticated`. O conector de produção roda
+        # como supabase_read_only_user e não troca de role.
+        # ON_ERROR_STOP porque os testes falham via `raise exception`.
+        run: |
+          for f in supabase/tests/rls/*.sql; do
+            echo "--- $f"
+            psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+              -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
       - name: Parar o stack
         if: always()
         run: supabase stop --no-backup
