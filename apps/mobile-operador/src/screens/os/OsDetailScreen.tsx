@@ -2,11 +2,13 @@ import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TextInput, Pressable, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Tag } from '@/components/Tag';
 import { Button } from '@/components/Button';
+import { AssinaturaSheet } from '@/components/AssinaturaSheet';
 import { colors, fonts, radius } from '@/theme';
 import {
   getOs, listProdutos, listCronograma, registrarCheckIn, registrarCheckOut, salvarConsumo,
@@ -25,6 +27,7 @@ export function OsDetailScreen({ route, navigation }: Props) {
   const [consumo, setConsumo] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [assinando, setAssinando] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -37,6 +40,49 @@ export function OsDetailScreen({ route, navigation }: Props) {
       .finally(() => setLoading(false));
   }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  /**
+   * Anexa uma foto da execução.
+   *
+   * Câmera primeiro, galeria como alternativa: em campo o caso normal é
+   * fotografar na hora, mas a pessoa pode ter fotografado antes de abrir a OS.
+   */
+  const anexarFoto = () => {
+    Alert.alert('Anexar foto', 'De onde vem a foto?', [
+      { text: 'Câmera', onPress: () => capturar('camera') },
+      { text: 'Galeria', onPress: () => capturar('galeria') },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  const capturar = async (origem: 'camera' | 'galeria') => {
+    const perm =
+      origem === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(
+        'Permissão necessária',
+        `Autorize o acesso ${origem === 'camera' ? 'à câmera' : 'às fotos'} nos ajustes do aparelho.`,
+      );
+      return;
+    }
+    const opcoes: ImagePicker.ImagePickerOptions = {
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      // Reduz o arquivo antes de subir: em campo a rede costuma ser ruim, e a
+      // foto serve de evidência, não de material publicitário.
+      quality: 0.6,
+      allowsEditing: false,
+    };
+    const r =
+      origem === 'camera'
+        ? await ImagePicker.launchCameraAsync(opcoes)
+        : await ImagePicker.launchImageLibraryAsync(opcoes);
+    if (r.canceled || !r.assets?.[0]) return;
+    const asset = r.assets[0];
+    const nome = asset.fileName ?? `foto-${Date.now()}.jpg`;
+    await run(() => registrarFoto(id, asset.uri, nome), 'Foto anexada');
+  };
 
   const run = async (fn: () => Promise<void>, ok?: string) => {
     setBusy(true);
@@ -106,7 +152,7 @@ export function OsDetailScreen({ route, navigation }: Props) {
           </View>
           {!readOnly && !os.checkInAt && <Button label="Registrar check-in" onPress={() => run(() => registrarCheckIn(id, os.status), 'Check-in registrado')} />}
           {!readOnly && os.checkInAt && !os.checkOutAt && <Button label="Registrar check-out" variant="outlineGreen" onPress={() => run(() => registrarCheckOut(id), 'Check-out registrado')} />}
-          <Text style={styles.hint}>Localização (GPS) e fotos com captura nativa serão habilitadas em R3.</Text>
+          <Text style={styles.hint}>A localização (GPS) do check-in ainda não é registrada.</Text>
         </Section>
 
         {/* Produtos / consumo */}
@@ -139,9 +185,15 @@ export function OsDetailScreen({ route, navigation }: Props) {
             <MaterialIcons name={os.assinaturaUrl ? 'check-circle' : 'draw'} size={18} color={os.assinaturaUrl ? colors.primary : colors.neutral400} />
             <Text style={styles.compText}>{os.assinaturaUrl ? 'Assinatura do cliente coletada' : 'Assinatura pendente'}</Text>
           </View>
-          {!readOnly && !os.assinaturaUrl && <Button label="Coletar assinatura do cliente" variant="outlineGreen" onPress={() => run(() => confirmarAssinatura(id), 'Assinatura coletada')} />}
+          {!readOnly && !os.assinaturaUrl && (
+            <Button
+              label="Coletar assinatura do cliente"
+              variant="outlineGreen"
+              onPress={() => setAssinando(true)}
+            />
+          )}
           {!readOnly && (
-            <Pressable style={styles.photoBtn} onPress={() => run(() => registrarFoto(id, `foto-${Date.now()}.jpg`), 'Foto anexada')}>
+            <Pressable style={styles.photoBtn} onPress={anexarFoto}>
               <MaterialIcons name="photo-camera" size={18} color={colors.primary} />
               <Text style={styles.photoText}>Anexar foto da execução</Text>
             </Pressable>
@@ -172,6 +224,15 @@ export function OsDetailScreen({ route, navigation }: Props) {
         )}
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <AssinaturaSheet
+        visible={assinando}
+        onClose={() => setAssinando(false)}
+        onConfirm={async (base64) => {
+          await confirmarAssinatura(id, base64);
+          load();
+        }}
+      />
     </View>
   );
 }
