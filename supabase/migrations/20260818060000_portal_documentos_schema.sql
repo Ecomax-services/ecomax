@@ -114,3 +114,17 @@ comment on column public.funcionarios.cnh_validade is
 insert into storage.buckets (id, name, public)
 values ('portal-docs', 'portal-docs', false)
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Acesso de tabela
+-- ---------------------------------------------------------------------------
+-- No projeto remoto isto vem de graça, pelos privilégios padrão do Supabase.
+-- Num banco criado do zero, não vem — e a migration tem de bastar por si.
+-- Sem estas linhas o `db reset` sobe e as telas do portal batem em
+-- "permission denied for table", que não tem nada a ver com RLS.
+--
+-- Quem decide as linhas continua sendo o RLS; o grant só abre a porta da tabela.
+-- `anon` fica de fora de propósito: não há policy para ele, então o grant seria
+-- uma permissão que nunca se exerce.
+grant select, insert, update, delete on public.cliente_documentos to authenticated, service_role;
+grant select, insert, update, delete on public.funcionario_documentos to authenticated, service_role;
