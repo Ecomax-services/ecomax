@@ -19,6 +19,9 @@ import { Bases } from '@/pages/estoque/Bases';
 import { EstoqueSaldo } from '@/pages/estoque/EstoqueSaldo';
 import { ClientesList } from '@/pages/clientes/ClientesList';
 import { ClienteDetalhe } from '@/pages/clientes/ClienteDetalhe';
+import { OperacionalList } from '@/pages/operacional/OperacionalList';
+import { CriarOrdemServico } from '@/pages/operacional/CriarOrdemServico';
+import { OrdemServicoDetalhe } from '@/pages/operacional/OrdemServicoDetalhe';
 import { Configuracoes } from '@/pages/configuracoes/Configuracoes';
 import { CadastrosAuxiliares } from '@/pages/configuracoes/CadastrosAuxiliares';
 import { MeuPerfil } from '@/pages/configuracoes/MeuPerfil';
@@ -39,6 +42,14 @@ export const router = createBrowserRouter([
         children: [
           { path: '/clientes', element: <ClientesList /> },
           { path: '/clientes/:id', element: <ClienteDetalhe /> },
+        ],
+      },
+      {
+        element: <RequireModule module="operacional" />,
+        children: [
+          { path: '/operacional', element: <OperacionalList /> },
+          { path: '/operacional/nova', element: <CriarOrdemServico /> },
+          { path: '/operacional/:id', element: <OrdemServicoDetalhe /> },
         ],
       },
       {
