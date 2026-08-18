@@ -11,3 +11,8 @@ export type ConfigStackParamList = {
   Perfil: undefined;
   Preferencias: undefined;
 };
+
+export type OsStackParamList = {
+  OsList: undefined;
+  OsDetail: { id: string; codigo: string };
+};

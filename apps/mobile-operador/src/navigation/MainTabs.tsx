@@ -7,15 +7,27 @@ import {
 } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NotificationsScreen } from '@/screens/NotificationsScreen';
-import { PlaceholderScreen } from '@/screens/PlaceholderScreen';
+import { OsListScreen } from '@/screens/os/OsListScreen';
+import { OsDetailScreen } from '@/screens/os/OsDetailScreen';
+import { AgendaScreen } from '@/screens/AgendaScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { PreferencesScreen } from '@/screens/PreferencesScreen';
 import { colors, fonts } from '@/theme';
-import type { ConfigStackParamList } from '@/navigation/types';
+import type { ConfigStackParamList, OsStackParamList } from '@/navigation/types';
 
 const Tab = createBottomTabNavigator();
 const ConfigStackNav = createNativeStackNavigator<ConfigStackParamList>();
+const OsStackNav = createNativeStackNavigator<OsStackParamList>();
+
+function OsStack() {
+  return (
+    <OsStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <OsStackNav.Screen name="OsList" component={OsListScreen} />
+      <OsStackNav.Screen name="OsDetail" component={OsDetailScreen} />
+    </OsStackNav.Navigator>
+  );
+}
 
 function ConfigStack() {
   return (
@@ -77,8 +89,8 @@ export function MainTabs() {
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <TabBar {...props} />}
     >
-      <Tab.Screen name="OS">{() => <PlaceholderScreen title="Ordens de Serviço" />}</Tab.Screen>
-      <Tab.Screen name="Agenda">{() => <PlaceholderScreen title="Agenda" />}</Tab.Screen>
+      <Tab.Screen name="OS" component={OsStack} />
+      <Tab.Screen name="Agenda" component={AgendaScreen} />
       <Tab.Screen name="Notificacoes" component={NotificationsScreen} />
       <Tab.Screen name="Config" component={ConfigStack} />
     </Tab.Navigator>
