@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import type { Json, TablesUpdate } from '@/lib/database.types';
 import type { Usuario, DocState } from '@/data/usuarios';
 
 /** Linha crua da tabela `funcionarios` (subconjunto usado pela UI). */
@@ -165,7 +166,12 @@ export async function getFuncionario(id: string): Promise<FuncionarioRow | null>
   return (data as FuncionarioRow) ?? null;
 }
 
-export async function updateFuncionario(id: string, patch: Partial<FuncionarioRow>): Promise<void> {
+/**
+ * `TablesUpdate`, e não `Partial<FuncionarioRow>`: FuncionarioRow carrega o
+ * campo `gestor`, que vem de um join e não é coluna. Com o tipo da linha, o
+ * PostgREST recebia um campo inexistente e o ignorava calado.
+ */
+export async function updateFuncionario(id: string, patch: TablesUpdate<'funcionarios'>): Promise<void> {
   const { error } = await supabase.from('funcionarios').update(patch).eq('id', id);
   if (error) throw new Error(error.message);
 }
@@ -178,7 +184,7 @@ async function currentUserId(): Promise<string | null> {
 export async function logAuditoria(
   funcionarioId: string | null,
   acao: string,
-  detalhes?: unknown,
+  detalhes?: Json,
   justificativa?: string,
 ): Promise<void> {
   const actor = await currentUserId();
@@ -299,8 +305,16 @@ export interface NovoFuncionario {
   acesso?: { email: string; role?: string; perfil_acesso_id?: string; senha_provisoria?: string };
 }
 
+export interface FuncionarioCriado {
+  id: string;
+  profile_id: string | null;
+  /** undefined quando o funcionário foi criado sem acesso à plataforma. */
+  email_enviado?: boolean;
+  email_erro?: string;
+}
+
 export function criarFuncionario(payload: NovoFuncionario) {
-  return invokeAdmin<{ id: string; profile_id: string | null }>({ action: 'create', ...payload });
+  return invokeAdmin<FuncionarioCriado>({ action: 'create', ...payload });
 }
 
 /**

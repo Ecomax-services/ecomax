@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import type { Json } from '@/lib/database.types';
 import type { BadgeTone } from '@/components/ui/Badge';
 
 // ============================================================
@@ -9,7 +10,7 @@ async function actorId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
   return data.user?.id ?? null;
 }
-async function audit(acao: string, detalhes?: unknown): Promise<void> {
+async function audit(acao: string, detalhes?: Json): Promise<void> {
   await supabase.from('auditoria').insert({
     actor_id: await actorId(), funcionario_id: null, modulo: 'gestao_clientes', acao, detalhes: detalhes ?? null,
   });

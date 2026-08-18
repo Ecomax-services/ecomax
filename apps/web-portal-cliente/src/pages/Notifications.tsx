@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Topbar } from '@/components/Topbar';
 import { cn } from '@/lib/cn';
-import { tagStyles, type NotificationItem } from '@/data/notifications';
 import {
   listNotificacoes, markRead as apiMarkRead, markAllRead as apiMarkAllRead, removeNotificacao,
+  tagStyles, type NotificationItem,
 } from '@/lib/notificacoes';
 
 type Tab = 'todas' | 'nao-lidas' | 'lidas';
@@ -16,18 +17,45 @@ const tabs: { key: Tab; label: string }[] = [
 
 /** Tela 2 - Notificações (persistidas em public.notificacoes, RLS por cliente do portal). */
 export function Notifications() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [tab, setTab] = useState<Tab>('todas');
   const [loading, setLoading] = useState(true);
+  const [carregandoMais, setCarregandoMais] = useState(false);
+  const [temMais, setTemMais] = useState(false);
+  const [pagina, setPagina] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try { setItems(await listNotificacoes()); }
+    try {
+      const r = await listNotificacoes(0);
+      setItems(r.itens); setTemMais(r.temMais); setPagina(0);
+    }
     catch (e) { setError((e as Error).message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  const carregarMais = async () => {
+    if (carregandoMais) return;
+    setCarregandoMais(true);
+    try {
+      const r = await listNotificacoes(pagina + 1);
+      // Concatena em vez de trocar: "Carregar mais" acrescenta ao que já está
+      // na tela, senão a pessoa perde de vista o que acabou de ler.
+      setItems((p) => [...p, ...r.itens]);
+      setTemMais(r.temMais);
+      setPagina((p) => p + 1);
+    } catch (e) { setError((e as Error).message); }
+    finally { setCarregandoMais(false); }
+  };
+
+  /** Abre o destino da notificação e a marca como lida no caminho. */
+  const abrir = async (n: NotificationItem) => {
+    if (!n.read) await markRead(n.id);
+    if (n.destino) navigate(n.destino);
+  };
 
   const unreadCount = items.filter((n) => !n.read).length;
   const visible = useMemo(() => {
@@ -80,11 +108,27 @@ export function Notifications() {
         ) : visible.length === 0 ? (
           <EmptyState tab={tab} />
         ) : (
-          <ul className="space-y-4">
-            {visible.map((n) => (
-              <NotificationCard key={n.id} item={n} onAction={() => markRead(n.id)} onDelete={() => remove(n.id)} />
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-4">
+              {visible.map((n) => (
+                <NotificationCard key={n.id} item={n} onAction={() => abrir(n)} onDelete={() => remove(n.id)} />
+              ))}
+            </ul>
+            {/* Só aparece na aba "Todas": nas outras a lista é um recorte do que
+                já veio, e paginar por cima do filtro daria a impressão errada
+                de que ainda há itens daquele tipo por carregar. */}
+            {temMais && tab === 'todas' && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={carregarMais}
+                  disabled={carregandoMais}
+                  className="rounded-lg border border-ink-200 bg-white px-5 py-2.5 text-[13px] font-medium text-ink-700 transition hover:bg-ink-50 disabled:opacity-50"
+                >
+                  {carregandoMais ? 'Carregando…' : 'Carregar mais'}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>

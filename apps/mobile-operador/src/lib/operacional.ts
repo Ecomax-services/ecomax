@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { caminhoOs, enviarBase64, enviarArquivoLocal } from '@/lib/uploads';
+import type { TablesUpdate } from '@/lib/database.types';
 
 // ============================================================
 // Status
@@ -110,11 +111,15 @@ export async function listCronograma(osId: string): Promise<CronogramaItem[]> {
 // Captura em campo
 // ============================================================
 export async function registrarCheckIn(osId: string, statusAtual: OsStatus): Promise<void> {
-  const patch: Record<string, unknown> = { check_in_at: new Date().toISOString() };
+  const agora = new Date().toISOString();
+  // Tipado pela própria tabela em vez de Record<string, unknown>: assim um nome
+  // de coluna errado vira erro de compilação, e não um update silenciosamente
+  // ignorado pelo PostgREST.
+  const patch: TablesUpdate<'ordens_servico'> = { check_in_at: agora };
   if (statusAtual === 'em_aberto') patch.status = 'em_andamento';
   const { error } = await supabase.from('ordens_servico').update(patch).eq('id', osId);
   if (error) throw new Error(error.message);
-  await hist(osId, 'Check-in (app)', null, brTime(patch.check_in_at as string));
+  await hist(osId, 'Check-in (app)', null, brTime(agora));
   if (patch.status) await hist(osId, 'Status', osTag.em_aberto.label, osTag.em_andamento.label);
 }
 export async function registrarCheckOut(osId: string): Promise<void> {

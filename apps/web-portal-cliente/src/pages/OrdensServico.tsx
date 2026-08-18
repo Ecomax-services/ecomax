@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FileText, Download, CalendarDays } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { cn } from '@/lib/cn';
 import {
-  listMinhasOs, listRelatorios, listCronograma, osStatusClass,
+  CountHeadline, Empty, ErrorBanner, Loading, SearchInput, Section, TH,
+} from '@/components/ui/DataSection';
+import {
+  listMinhasOs, listRelatorios, listCronograma, osStatusClass, contaAbertas,
   type MinhaOs, type RelatorioCliente, type CronogramaCliente,
 } from '@/lib/operacional';
 
@@ -13,6 +16,17 @@ export function OrdensServico() {
   const [cronograma, setCronograma] = useState<CronogramaCliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
+
+  // Filtro no cliente: o portal traz as OS de um cliente só, então a lista é
+  // curta e uma ida ao servidor por tecla não se paga.
+  const osFiltradas = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return os;
+    return os.filter((o) =>
+      `${o.codigo} ${o.tipos} ${o.identificacao} ${o.statusLabel}`.toLowerCase().includes(q),
+    );
+  }, [os, busca]);
 
   useEffect(() => {
     setLoading(true);
@@ -26,25 +40,40 @@ export function OrdensServico() {
     <>
       <Topbar title="Ordens de Serviço" breadcrumb="Início  /  Ordens de Serviço" />
       <div className="flex-1 px-8 py-6">
-        {error && <p className="mb-4 rounded-lg bg-expiredTag-bg px-4 py-3 text-sm text-expiredTag-fg">{error}</p>}
+        {error && <ErrorBanner>{error}</ErrorBanner>}
         {loading ? (
-          <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-ink-200 bg-white text-sm text-ink-400">Carregando…</div>
+          <Loading />
         ) : (
           <div className="flex flex-col gap-6">
             {/* Minhas OS */}
-            <Section title="Minhas ordens de serviço" count={os.length}>
-              {os.length === 0 ? (
-                <Empty>Nenhuma ordem de serviço.</Empty>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CountHeadline
+                n={contaAbertas(os)}
+                singular="ordem de serviço aberta"
+                plural="ordens de serviço abertas"
+              />
+              <SearchInput
+                value={busca}
+                onChange={setBusca}
+                placeholder="Buscar por nº, serviço ou local"
+                label="Buscar ordens de serviço"
+              />
+            </div>
+
+            <Section title="Minhas ordens de serviço" count={osFiltradas.length}>
+              {osFiltradas.length === 0 ? (
+                <Empty>{busca ? 'Nenhuma ordem de serviço para esta busca.' : 'Nenhuma ordem de serviço.'}</Empty>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-ink-200 bg-white">
                   <table className="w-full border-collapse">
                     <thead><tr className="bg-ink-50">
-                      <th className={TH}>Nº</th><th className={TH}>Serviço</th><th className={TH}>Data</th><th className={TH}>Status</th>
+                      <th className={TH}>Nº</th><th className={TH}>Identificação</th><th className={TH}>Serviço</th><th className={TH}>Data</th><th className={TH}>Status</th>
                     </tr></thead>
                     <tbody>
-                      {os.map((o) => (
+                      {osFiltradas.map((o) => (
                         <tr key={o.id} className="border-t border-ink-200">
                           <td className="px-4 py-3 text-sm font-semibold text-forest-900">{o.codigo}</td>
+                          <td className="px-4 py-3 text-sm text-ink-800">{o.identificacao}</td>
                           <td className="px-4 py-3 text-sm text-ink-800">{o.tipos}</td>
                           <td className="px-4 py-3 text-sm text-ink-500">{o.data}</td>
                           <td className="px-4 py-3"><span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', osStatusClass[o.status])}>{o.statusLabel}</span></td>
@@ -109,18 +138,3 @@ export function OrdensServico() {
   );
 }
 
-const TH = 'px-4 py-2.5 text-left text-xs font-bold uppercase text-ink-400';
-
-function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-ink-900">
-        {title}<span className="rounded-full bg-ink-50 px-2 py-0.5 text-[11px] font-semibold text-ink-500">{count}</span>
-      </h2>
-      {children}
-    </section>
-  );
-}
-function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="flex h-28 items-center justify-center rounded-xl border border-dashed border-ink-200 bg-white text-sm text-ink-400">{children}</div>;
-}

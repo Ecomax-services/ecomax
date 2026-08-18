@@ -1,6 +1,12 @@
 import { Link, useOutletContext } from 'react-router-dom';
 import { User, Bell, ArrowRight } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
+import { useAuth } from '@/auth/AuthProvider';
+
+function initialsOf(name: string): string {
+  const p = name.trim().split(/\s+/);
+  return ((p[0]?.[0] ?? '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase() || 'U';
+}
 
 interface LayoutCtx {
   requestLogout: () => void;
@@ -9,6 +15,11 @@ interface LayoutCtx {
 /** Tela 3 - Configurações (Portal, node 31:870). */
 export function Settings() {
   const { requestLogout } = useOutletContext<LayoutCtx>();
+  // O cartão abaixo vinha escrito à mão ("Ana Beatriz Costa"), então todo mundo
+  // via o nome da mesma pessoa fictícia — inclusive em produção.
+  const { profile, session } = useAuth();
+  const nome = profile?.nome_completo ?? 'Cliente';
+  const email = session?.user.email ?? '—';
 
   return (
     <>
@@ -17,12 +28,12 @@ export function Settings() {
       <div className="flex-1 px-6 py-7">
         {/* Card de identificação */}
         <div className="flex w-[520px] max-w-full items-center gap-4 rounded-xl bg-white p-5 shadow-[0px_2px_12px_0px_rgba(0,0,0,0.06)]">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-forest-500 text-xl font-semibold text-white">
-            AB
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-forest-500 text-xl font-semibold text-white">
+            {initialsOf(nome)}
           </div>
-          <div>
-            <p className="text-[17px] font-semibold text-ink-900">Ana Beatriz Costa</p>
-            <p className="text-[13px] text-ink-500">ana.beatriz@empresa.com.br</p>
+          <div className="min-w-0">
+            <p className="truncate text-[17px] font-semibold text-ink-900">{nome}</p>
+            <p className="truncate text-[13px] text-ink-500">{email}</p>
             <span className="mt-1 inline-flex rounded-full bg-forest-100 px-2.5 py-0.5 text-[11px] font-medium text-forest-500">
               Cliente
             </span>

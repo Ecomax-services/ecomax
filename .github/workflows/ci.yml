@@ -124,6 +124,30 @@ jobs:
           fi
           echo "Schema reproduzido pelas migrations, sem diferenças ✓"
 
+      - name: Conferir que os tipos gerados não estão defasados
+        # Os tipos vêm do schema; se uma migration muda coluna e ninguém roda
+        # ./scripts/gen-types.sh, o `tsc` continua verde contra um schema que já
+        # não existe — e o erro só aparece em runtime. Aqui os tipos são gerados
+        # do banco recém-recriado e comparados com o que está versionado.
+        run: |
+          supabase gen types typescript --local --schema public > /tmp/gerado.ts
+          # A normalização remove o cabeçalho de aviso e o bloco
+          # __InternalSupabase, que traz a versão do PostgREST — ela difere entre
+          # o projeto remoto e o stack local, sem o schema ter mudado.
+          if ! diff <(python3 scripts/normalizar-tipos.py supabase/types/database.ts) \
+                    <(python3 scripts/normalizar-tipos.py /tmp/gerado.ts) > /tmp/tipos.diff; then
+            echo "::error::supabase/types/database.ts está defasado. Rode ./scripts/gen-types.sh e commite."
+            head -60 /tmp/tipos.diff
+            exit 1
+          fi
+          for app in web-backoffice web-portal-cliente mobile-operador; do
+            if ! diff -q supabase/types/database.ts "apps/$app/src/lib/database.types.ts" > /dev/null; then
+              echo "::error::apps/$app/src/lib/database.types.ts divergiu do arquivo canônico. Rode ./scripts/gen-types.sh."
+              exit 1
+            fi
+          done
+          echo "Tipos em dia ✓"
+
       - name: Suíte de RLS
         # Único lugar onde dá para provar RLS de verdade: aqui somos superusuário
         # e podemos `set local role authenticated`. O conector de produção roda

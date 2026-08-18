@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/database.types';
 
 // A chave publishable é pública por design (vai no bundle do app). Pode ser
 // sobrescrita por variáveis EXPO_PUBLIC_* em tempo de build, se preferir.
@@ -15,7 +16,7 @@ const SUPABASE_ANON_KEY =
  * A sessão é persistida em AsyncStorage, então o operador continua logado
  * entre reaberturas e mesmo offline (o token é renovado quando a rede volta).
  */
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,

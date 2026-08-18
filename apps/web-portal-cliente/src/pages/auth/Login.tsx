@@ -19,7 +19,7 @@ export function Login() {
 
   useEffect(() => {
     if (!loading && session && profile?.ativo && hasPortalAccess(profile.role)) {
-      navigate('/notificacoes', { replace: true });
+      navigate('/inicio', { replace: true });
     }
   }, [loading, session, profile, navigate]);
 
@@ -39,7 +39,7 @@ export function Login() {
       setFormError(error);
       return;
     }
-    navigate('/notificacoes', { replace: true });
+    navigate('/inicio', { replace: true });
   }
 
   return (

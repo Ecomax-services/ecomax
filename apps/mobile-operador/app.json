@@ -8,8 +8,9 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "_comment_splash": "splash-logo.png é gerado, não desenhado à mão: parte de ecomax-logo.png, pinta o texto 'ECO' de branco (no original ele é verde-escuro e sumiria neste fundo) e compõe numa tela de 1200x1200. A tela grande é o que impede o `contain` de esticar um logo de 266px até a largura do aparelho — era essa ampliação que deixava o splash borrado.",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#0a2d0a"
     },
