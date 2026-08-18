@@ -3,6 +3,8 @@
     "name": "Ecomax Operador",
     "slug": "ecomax-operador",
     "version": "1.0.0",
+    "_comment_scheme": "Só vale em build nativo (EAS). Dentro do Expo Go o app responde por exp://, e é isso que Linking.createURL devolve lá — por isso o código nunca monta a URL à mão.",
+    "scheme": "ecomaxoperador",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

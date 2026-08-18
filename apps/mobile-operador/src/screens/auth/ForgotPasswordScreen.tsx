@@ -6,6 +6,7 @@ import { CenteredAuthLayout } from '@/components/CenteredAuthLayout';
 import { Input } from '@/components/Input';
 import { Button } from '@/components/Button';
 import { supabase } from '@/lib/supabase';
+import { enviarLinkDeRecuperacao } from '@/lib/recuperacaoSenha';
 import { colors, fonts } from '@/theme';
 import type { RootStackParamList } from '@/navigation/types';
 
@@ -25,7 +26,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
       return;
     }
     setSubmitting(true);
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim());
+    const { error: err } = await enviarLinkDeRecuperacao(email);
     setSubmitting(false);
     if (err && err.status && err.status >= 500) {
       setError('Não foi possível enviar agora. Verifique sua conexão e tente novamente.');

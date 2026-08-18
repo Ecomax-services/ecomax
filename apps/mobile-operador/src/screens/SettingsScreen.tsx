@@ -7,6 +7,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { LogoutSheet } from '@/components/LogoutSheet';
 import { useAuth } from '@/auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
+import { enviarLinkDeRecuperacao } from '@/lib/recuperacaoSenha';
 import { colors, fonts, radius } from '@/theme';
 import type { ConfigStackParamList } from '@/navigation/types';
 
@@ -27,7 +28,7 @@ export function SettingsScreen({ navigation }: Props) {
 
   async function handleChangePassword() {
     if (!email) return;
-    await supabase.auth.resetPasswordForEmail(email);
+    await enviarLinkDeRecuperacao(email);
     Alert.alert('Alterar senha', `Enviamos um link de redefinição para ${email}. Verifique seu e-mail.`);
   }
 

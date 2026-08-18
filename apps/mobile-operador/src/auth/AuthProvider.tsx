@@ -10,6 +10,16 @@ interface AuthContextValue {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  /**
+   * A sessão atual veio de um link de recuperação de senha, e não de um login.
+   *
+   * Precisa ser um estado à parte porque o link cria uma sessão válida: sem
+   * isto o app conclui "está logado" e leva a pessoa direto para a lista de OS,
+   * desmontando a tela de criar senha antes de ela digitar qualquer coisa. É
+   * avaliado ANTES de `authed` na navegação.
+   */
+  recovering: boolean;
+  encerrarRecuperacao: () => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -56,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -67,8 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, next) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, next) => {
       if (!active) return;
+      // O supabase-js emite PASSWORD_RECOVERY quando a sessão nasce de um link
+      // de recuperação. É o único sinal que distingue "entrou" de "clicou no
+      // link do e-mail" — os dois produzem uma sessão igualmente válida.
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
+      if (event === 'SIGNED_OUT') setRecovering(false);
       setSession(next);
       if (next) setProfile(await resolveProfile(next.user.id));
       else setProfile(null);
@@ -79,6 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  const encerrarRecuperacao = useCallback(() => setRecovering(false), []);
 
   const signIn = useCallback<AuthContextValue['signIn']>(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -104,7 +122,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{ session, profile, loading, recovering, encerrarRecuperacao, signIn, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );

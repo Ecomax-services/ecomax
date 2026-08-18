@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import * as Linking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -16,14 +18,28 @@ import { EmailSentScreen } from '@/screens/auth/EmailSentScreen';
 import { MainTabs } from '@/navigation/MainTabs';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { hasMobileAccess } from '@/lib/supabase';
+import { consumirLinkDeRecuperacao } from '@/lib/recuperacaoSenha';
 import { colors } from '@/theme';
 import type { RootStackParamList } from '@/navigation/types';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
-/** Alterna entre pilha de auth e app principal conforme a sessão. */
+/** Alterna entre pilha de auth, recuperação de senha e app principal. */
 function RootNavigator() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, recovering } = useAuth();
+
+  // O link do e-mail precisa virar sessão antes de qualquer decisão de rota. São
+  // dois caminhos: o app estava fechado (getInitialURL) ou estava aberto em
+  // segundo plano (evento 'url').
+  useEffect(() => {
+    Linking.getInitialURL().then((url) => {
+      if (url) consumirLinkDeRecuperacao(url);
+    });
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      consumirLinkDeRecuperacao(url);
+    });
+    return () => sub.remove();
+  }, []);
 
   if (loading) {
     return (
@@ -34,6 +50,17 @@ function RootNavigator() {
   }
 
   const authed = !!session && !!profile && profile.ativo && hasMobileAccess(profile.role);
+
+  // `recovering` é avaliado ANTES de `authed`, e essa ordem é a correção: o link
+  // de recuperação cria uma sessão válida, então `authed` também fica true e a
+  // pessoa cairia direto na lista de OS sem nunca ter definido a senha.
+  if (recovering) {
+    return (
+      <RootStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      </RootStack.Navigator>
+    );
+  }
 
   return (
     <RootStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>

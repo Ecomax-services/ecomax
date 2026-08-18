@@ -14,6 +14,39 @@
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      Rede de segurança para falha de boot. Se o bundle estoura antes do React
+      montar — variável de ambiente faltando, asset de um deploy antigo, erro de
+      import — o resultado normal é tela branca sem nenhuma pista, e quem está
+      testando não tem como reportar o que aconteceu. Isto precisa vir ANTES do
+      módulo para capturar o erro dele.
+    -->
+    <script>
+      (function () {
+        var mostrou = false;
+        function mostrar(msg) {
+          if (mostrou) return;
+          mostrou = true;
+          var el = document.getElementById('root');
+          if (!el || el.childElementCount > 0) return; // o app subiu; erro é de runtime
+          el.innerHTML =
+            '<div style="font:15px/1.6 system-ui,sans-serif;max-width:34rem;margin:12vh auto;padding:0 1.5rem;color:#1f2937">' +
+            '<h1 style="font-size:1.25rem;margin:0 0 .5rem">A aplicação não conseguiu iniciar</h1>' +
+            '<p style="margin:0 0 1rem;color:#6b7280">Recarregue a página. Se continuar, envie esta mensagem para o time de desenvolvimento.</p>' +
+            '<pre style="white-space:pre-wrap;word-break:break-word;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:.75rem;font-size:13px;margin:0">' +
+            String(msg).replace(/[<>&]/g, function (c) {
+              return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c];
+            }) +
+            '</pre></div>';
+        }
+        window.addEventListener('error', function (e) {
+          mostrar(e.message || e.error);
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          mostrar((e.reason && e.reason.message) || e.reason);
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
