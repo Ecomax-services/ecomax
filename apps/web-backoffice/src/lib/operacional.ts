@@ -466,7 +466,7 @@ export async function listOsProdutos(osId: string): Promise<OsProdutoRow[]> {
     };
   });
 }
-export async function addOsProduto(osId: string, input: { produto_id: string; qtd_recomendada: number; unidade: string | null; lote?: string | null; prazo_alvo?: string | null; observacao?: string | null }): Promise<void> {
+export async function addOsProduto(osId: string, input: { produto_id: string; qtd_recomendada: number; unidade: string | null; lote?: string | null; base_id?: string | null; prazo_alvo?: string | null; observacao?: string | null }): Promise<void> {
   const { error } = await supabase.from('os_produtos').insert({ os_id: osId, ...input });
   if (error) throw new Error(error.code === '23505' ? 'Produto já previsto nesta OS.' : error.message);
   await hist(osId, 'Produto previsto adicionado', null, input.produto_id);

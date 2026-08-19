@@ -2131,6 +2131,7 @@ export type Database = {
       }
       os_produtos: {
         Row: {
+          base_id: string | null
           created_at: string
           id: string
           lote: string | null
@@ -2143,6 +2144,7 @@ export type Database = {
           unidade: string | null
         }
         Insert: {
+          base_id?: string | null
           created_at?: string
           id?: string
           lote?: string | null
@@ -2155,6 +2157,7 @@ export type Database = {
           unidade?: string | null
         }
         Update: {
+          base_id?: string | null
           created_at?: string
           id?: string
           lote?: string | null
@@ -2167,6 +2170,20 @@ export type Database = {
           unidade?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "os_produtos_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_produtos_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "vw_bases"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "os_produtos_os_id_fkey"
             columns: ["os_id"]
@@ -2728,6 +2745,7 @@ export type Database = {
         Args: { r: Database["public"]["Enums"]["user_role"] }
         Returns: Database["public"]["Enums"]["app_key"][]
       }
+      baixar_estoque_os: { Args: { p_os_id: string }; Returns: number }
       cliente_in_my_os: { Args: { _cliente_id: string }; Returns: boolean }
       comercial_doc_escopo: { Args: { _name: string }; Returns: string }
       contar_pontos_preenchidos: {

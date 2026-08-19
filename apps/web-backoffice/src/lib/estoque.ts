@@ -867,3 +867,21 @@ export async function getKpisBases(): Promise<{ semMovimento30d: number; transfe
     transferenciasPendentes: pendentes.count ?? 0,
   };
 }
+
+/** Lotes com saldo de um produto, para escolher de onde a OS consome. */
+export interface LoteDisponivel {
+  id: string; lote: string; base_id: string; base: string; quantidade: number; validadeISO: string | null;
+}
+export async function listLotesDisponiveis(produtoId: string): Promise<LoteDisponivel[]> {
+  const { data, error } = await supabase
+    .from('estoque_lotes')
+    .select('id, lote, quantidade, validade, base_id, base:base_id(nome)')
+    .eq('produto_id', produtoId)
+    .gt('quantidade', 0)
+    .order('validade', { ascending: true, nullsFirst: false });
+  if (error) throw new Error(error.message);
+  return ((data as any[]) ?? []).map((l) => ({
+    id: l.id, lote: l.lote, base_id: l.base_id, base: one<any>(l.base)?.nome ?? '—',
+    quantidade: Number(l.quantidade), validadeISO: l.validade,
+  }));
+}

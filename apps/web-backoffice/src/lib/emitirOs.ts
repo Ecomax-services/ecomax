@@ -113,7 +113,6 @@ export async function aplicarAcao(
 
   if (acao.efeito === 'baixar_estoque') {
     const baixados = await baixarEstoqueDaOs(osId);
-    await registrar(osId, 'Baixa de estoque', null, `${baixados} produto(s)`);
     return { novoStatus: null, mensagem: `Estoque baixado para ${baixados} produto(s).` };
   }
 
@@ -135,41 +134,16 @@ export async function aplicarAcao(
 /**
  * Baixa do estoque o que foi efetivamente utilizado na OS.
  *
- * Só produtos com consumo informado: baixar pelo previsto lançaria movimentação
- * de algo que talvez não tenha sido aplicado. É idempotente por checar o
- * histórico — clicar duas vezes não baixa duas vezes.
+ * A regra inteira vive no banco (`baixar_estoque_os`): debitar o lote, gravar a
+ * movimentação e marcar o histórico têm que acontecer juntos ou não acontecer.
+ * Feito daqui, em três chamadas, uma falha no meio deixava movimentação sem
+ * lote debitado — o saldo exibido vem de `estoque_lotes`, então a OS registrava
+ * consumo e o estoque não caía.
+ *
+ * A função também recusa a segunda baixa e o consumo maior que o saldo.
  */
 export async function baixarEstoqueDaOs(osId: string): Promise<number> {
-  const { data: jaBaixado } = await supabase
-    .from('os_historico')
-    .select('id')
-    .eq('os_id', osId)
-    .eq('campo', 'Baixa de estoque')
-    .limit(1);
-  if (jaBaixado?.length) throw new Error('O estoque desta OS já foi baixado.');
-
-  const { data: itens, error } = await supabase
-    .from('os_produtos')
-    .select('produto_id, qtd_utilizada, lote, produto:produto_id(nome)')
-    .eq('os_id', osId)
-    .not('qtd_utilizada', 'is', null);
+  const { data, error } = await supabase.rpc('baixar_estoque_os', { p_os_id: osId });
   if (error) throw new Error(error.message);
-
-  const usados = ((itens as any[]) ?? []).filter((i) => Number(i.qtd_utilizada) > 0);
-  if (!usados.length) throw new Error('Nenhum produto teve consumo informado nesta OS.');
-
-  const ator = await actorId();
-  const { error: e } = await supabase.from('movimentacoes').insert(
-    usados.map((i) => ({
-      tipo: 'saida',
-      produto_id: i.produto_id,
-      quantidade: Number(i.qtd_utilizada),
-      lote: i.lote || null,
-      descricao: `Consumo na OS (baixa automática)`,
-      ator_id: ator,
-    })),
-  );
-  if (e) throw new Error(e.message);
-
-  return usados.length;
+  return Number(data ?? 0);
 }

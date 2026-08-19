@@ -15,7 +15,8 @@ import { useToast } from '@/components/ui/Toast';
 import { imprimirFicha } from '@/lib/impressao';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
-import type { Produto } from '@/lib/estoque';
+import type { Produto, LoteDisponivel } from '@/lib/estoque';
+import { listLotesDisponiveis } from '@/lib/estoque';
 import {
   getOrdemServico, updateDadosGerais, setOsStatus, cancelarOs, duplicarOs,
   listOsFuncionarios, addOsFuncionario, removeOsFuncionario,
@@ -488,7 +489,7 @@ function ProdutosTab({ os, editable }: { os: OrdemServicoDetail; editable: boole
         </table>
       </Card>
 
-      {addProd && <ProdutoPicker title="Adicionar produto do almoxarifado" loader={listProdutoOptions} onClose={() => setAddProd(false)} onPick={async (p, extra) => { try { await addOsProduto(os.id, { produto_id: p.id, qtd_recomendada: extra.qtd, unidade: p.un, lote: extra.lote || null, prazo_alvo: extra.prazo || null }); setAddProd(false); showToast('Produto adicionado'); load(); } catch (e) { showToast((e as Error).message); } }} withQtd />}
+      {addProd && <ProdutoPicker title="Adicionar produto do almoxarifado" loader={listProdutoOptions} onClose={() => setAddProd(false)} onPick={async (p, extra) => { try { await addOsProduto(os.id, { produto_id: p.id, qtd_recomendada: extra.qtd, unidade: p.un, lote: extra.lote || null, base_id: extra.base_id, prazo_alvo: extra.prazo || null }); setAddProd(false); showToast('Produto adicionado'); load(); } catch (e) { showToast((e as Error).message); } }} withQtd />}
       {addEquip && <ProdutoPicker title="Adicionar equipamento do inventário" loader={listEquipamentoOptions} onClose={() => setAddEquip(false)} onPick={async (p, extra) => { try { await addOsEquipamento(os.id, { produto_id: p.id, numero_serie: extra.serie || null }); setAddEquip(false); showToast('Equipamento adicionado'); load(); } catch (e) { showToast((e as Error).message); } }} withSerie />}
 
       {ajuste && (
@@ -802,18 +803,24 @@ function MultiCheck({ label, options, value, onChange }: { label: string; option
 // Seletor de produto/equipamento (modal com busca + indicador de estoque).
 function ProdutoPicker({ title, loader, onClose, onPick, withQtd, withSerie }: {
   title: string; loader: () => Promise<Produto[]>; onClose: () => void;
-  onPick: (p: Produto, extra: { qtd: number; lote: string; prazo: string; serie: string }) => void;
+  onPick: (p: Produto, extra: { qtd: number; lote: string; base_id: string | null; prazo: string; serie: string }) => void;
   withQtd?: boolean; withSerie?: boolean;
 }) {
   const [all, setAll] = useState<Produto[]>([]);
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<Produto | null>(null);
   const [qtd, setQtd] = useState('1');
-  const [lote, setLote] = useState('');
+  const [loteId, setLoteId] = useState('');
+  const [lotes, setLotes] = useState<LoteDisponivel[]>([]);
   const [prazo, setPrazo] = useState('');
   const [serie, setSerie] = useState('');
 
   useEffect(() => { loader().then(setAll).catch(() => {}); }, [loader]);
+  useEffect(() => {
+    setLoteId('');
+    if (!sel || !withQtd) { setLotes([]); return; }
+    listLotesDisponiveis(sel.id).then(setLotes).catch(() => setLotes([]));
+  }, [sel, withQtd]);
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return all.filter((p) => !s || `${p.name} ${p.cod} ${p.cat}`.toLowerCase().includes(s));
@@ -836,15 +843,31 @@ function ProdutoPicker({ title, loader, onClose, onPick, withQtd, withSerie }: {
         {sel && (
           <div className="mt-4 flex flex-wrap items-end gap-3">
             {withQtd && <TextField label="Qtd. recomendada" inputMode="decimal" className="w-[130px]" value={qtd} onChange={(e) => setQtd(e.target.value)} />}
-            {withQtd && <TextField label="Lote (opcional)" className="w-[130px]" value={lote} onChange={(e) => setLote(e.target.value)} />}
+            {withQtd && (
+              <SelectField label="Lote" className="w-[230px]" value={loteId} onChange={(e) => setLoteId(e.target.value)}>
+                <option value="">Qualquer lote (vence primeiro, sai primeiro)</option>
+                {lotes.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.lote} · {l.base} · {l.quantidade} {sel.un}{l.validadeISO ? ` · vence ${l.validadeISO.split('-').reverse().join('/')}` : ''}
+                  </option>
+                ))}
+              </SelectField>
+            )}
             {withQtd && <TextField type="date" label="Prazo alvo" className="w-[150px]" value={prazo} onChange={(e) => setPrazo(e.target.value)} />}
             {withSerie && <TextField label="Nº de série" className="w-[180px]" value={serie} onChange={(e) => setSerie(e.target.value)} />}
           </div>
         )}
+        {sel && withQtd && lotes.length === 0 && (
+          <p className="mt-3 text-[13px] text-ink-500">Este produto não tem lote com saldo — a baixa de estoque vai recusar o consumo.</p>
+        )}
       </div>
       <div className="flex gap-3 border-t border-ink-100 px-7 py-4">
         <Button variant="secondary" fullWidth onClick={onClose} className="h-[50px]">Cancelar</Button>
-        <Button fullWidth disabled={!sel} onClick={() => sel && onPick(sel, { qtd: Number(qtd.replace(',', '.')) || 0, lote, prazo, serie })} className="h-[50px]">Adicionar</Button>
+        <Button fullWidth disabled={!sel} onClick={() => {
+          if (!sel) return;
+          const l = lotes.find((x) => x.id === loteId) ?? null;
+          onPick(sel, { qtd: Number(qtd.replace(',', '.')) || 0, lote: l?.lote ?? '', base_id: l?.base_id ?? null, prazo, serie });
+        }} className="h-[50px]">Adicionar</Button>
       </div>
     </Modal>
   );
