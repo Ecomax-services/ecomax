@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, FileText, Printer, CheckCircle2, Copy, AlertTriangle,
@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Tabs } from '@/components/ui/Tabs';
 import { SelectField, SearchInput, TextField, TextareaField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
+import { imprimirFicha } from '@/lib/impressao';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import type { Produto } from '@/lib/estoque';
@@ -24,7 +25,7 @@ import {
   listOsAnexos, addAnexo, removerAnexo, anexoTipoLabel,
   listOsHistorico, listHistoricoAutores,
   listFuncionarioOptions, listProdutoOptions, listEquipamentoOptions, listTiposServico, listPragas,
-  osStatusTone, osStatusLabel, recorrenciaLabel, isReadOnly, fmtDateTime, urlAssinadaOperacional,
+  osStatusTone, osStatusLabel, recorrenciaLabel, isReadOnly, fmtDateTime, urlAssinadaOperacional, enviarAnexoOs,
   type OrdemServicoDetail, type OsStatus, type Recorrencia,
   type OsFuncionarioRow, type OsProdutoRow, type OsEquipamentoRow, type OsRelatorioRow, type OsAnexoRow,
   type HistoricoRow, type AnexoTipo, type FuncionarioOption,
@@ -65,6 +66,59 @@ export function OrdemServicoDetalhe() {
 
   const readOnly = os ? isReadOnly(os.status) : true;
   const editable = canEdit && !readOnly;
+
+  /**
+   * Monta a ficha da OS para impressão ou PDF.
+   *
+   * Reúne o que está nas abas — produtos e funcionários — porque um documento
+   * que só repete o cabeçalho não serve para levar a campo nem para arquivar.
+   */
+  const imprimirOs = async () => {
+    if (!os) return;
+    try {
+      const [funcs, prods] = await Promise.all([listOsFuncionarios(os.id), listOsProdutos(os.id)]);
+      const ok = imprimirFicha(
+        {
+          titulo: `Ordem de serviço ${os.codigo}`,
+          subtitulo: os.cliente,
+          campos: [
+            { rotulo: 'Status', valor: osStatusLabel[os.status] ?? os.status },
+            { rotulo: 'Tipos de serviço', valor: os.tipos_servico.join(', ') || '—' },
+            { rotulo: 'Data programada', valor: os.data_programada ? os.data_programada.split('-').reverse().join('/') : '—' },
+            { rotulo: 'Hora prevista', valor: os.hora_prevista ?? '—' },
+            { rotulo: 'Endereço de execução', valor: os.endereco_execucao ?? '—' },
+            { rotulo: 'Pragas-alvo', valor: os.pragas.join(', ') || '—' },
+            { rotulo: 'Check-in', valor: fmtDateTime(os.check_in_at) },
+            { rotulo: 'Check-out', valor: fmtDateTime(os.check_out_at) },
+            { rotulo: 'Assinatura do cliente', valor: os.assinatura_url ? 'Coletada' : 'Pendente' },
+          ],
+        },
+        [
+          {
+            titulo: 'Funcionários',
+            colunas: [
+              { titulo: 'Nome', valor: (f: OsFuncionarioRow) => f.nome },
+              { titulo: 'Cargo', valor: (f: OsFuncionarioRow) => f.cargo },
+            ],
+            linhas: funcs,
+          },
+          {
+            titulo: 'Produtos',
+            colunas: [
+              { titulo: 'Produto', valor: (p: OsProdutoRow) => p.produto },
+              { titulo: 'Recomendado', valor: (p: OsProdutoRow) => `${p.qtd_recomendada} ${p.unidade}`, numerica: true },
+              { titulo: 'Utilizado', valor: (p: OsProdutoRow) => (p.qtd_utilizada == null ? '—' : `${p.qtd_utilizada} ${p.unidade}`), numerica: true },
+              { titulo: 'Lote', valor: (p: OsProdutoRow) => p.lote || '—' },
+            ],
+            linhas: prods,
+          },
+        ],
+      );
+      if (!ok) showToast('O navegador bloqueou a janela. Autorize os pop-ups deste site.');
+    } catch (e) {
+      showToast((e as Error).message);
+    }
+  };
 
   const changeStatus = async (status: OsStatus, ok: string) => {
     try { await setOsStatus(id, status); showToast(ok); load(); } catch (e) { showToast((e as Error).message); }
@@ -120,8 +174,8 @@ export function OrdemServicoDetalhe() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" size="sm" onClick={() => showToast('Exportar PDF (em breve)')}><FileText className="h-4 w-4" />Exportar PDF</Button>
-              <Button variant="secondary" size="sm" onClick={() => showToast('Imprimir (em breve)')}><Printer className="h-4 w-4" />Imprimir</Button>
+              <Button variant="secondary" size="sm" onClick={imprimirOs}><FileText className="h-4 w-4" />Exportar PDF</Button>
+              <Button variant="secondary" size="sm" onClick={imprimirOs}><Printer className="h-4 w-4" />Imprimir</Button>
               {canCreate && <Button variant="secondary" size="sm" onClick={() => duplicarOs(id).then((n) => navigate(`/operacional/${n}?editar=1`)).catch((e) => showToast((e as Error).message))}><Copy className="h-4 w-4" />Duplicar</Button>}
               {editable && os.status === 'em_aberto' && <Button variant="secondary" size="sm" onClick={() => changeStatus('em_andamento', 'Execução iniciada')}>Iniciar execução</Button>}
               {editable && (os.status === 'em_aberto' || os.status === 'em_andamento') && <Button size="sm" onClick={() => setExecConfirm(true)}><CheckCircle2 className="h-4 w-4" />Marcar como executada</Button>}
@@ -487,7 +541,31 @@ function RelatoriosTab({ os, editable }: { os: OrdemServicoDetail; editable: boo
               <td className="px-4 py-3">{r.publicado ? <Badge tone="success">Publicado · {r.publicadoEm}</Badge> : <Badge tone="muted">Não publicado</Badge>}</td>
               <td className="px-4 py-3 pr-6 text-right">
                 <div className="inline-flex items-center gap-2">
-                  <button onClick={() => showToast('Baixar PDF (em breve)')} className="rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-ink-500 hover:bg-ink-50"><FileText className="h-4 w-4" /></button>
+                  {/* Relatório com arquivo abre o arquivo; sem arquivo, imprime
+                      o que existe. Antes o botão não fazia nem uma coisa nem outra. */}
+                  <button
+                    onClick={async () => {
+                      if (r.arquivoUrl) {
+                        const url = await urlAssinadaOperacional(r.arquivoUrl);
+                        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+                        else showToast('O arquivo deste relatório não está mais disponível.');
+                        return;
+                      }
+                      const ok = imprimirFicha({
+                        titulo: r.titulo,
+                        subtitulo: `Relatório técnico · ${os.codigo} · ${os.cliente}`,
+                        campos: [
+                          { rotulo: 'Emitido em', valor: r.criadoEm },
+                          { rotulo: 'Situação', valor: r.publicado ? `Publicado em ${r.publicadoEm}` : 'Não publicado' },
+                        ],
+                      });
+                      if (!ok) showToast('O navegador bloqueou a janela. Autorize os pop-ups deste site.');
+                    }}
+                    aria-label={`Abrir ${r.titulo}`}
+                    className="rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-ink-500 hover:bg-ink-50"
+                  >
+                    <FileText className="h-4 w-4" />
+                  </button>
                   {editable && !r.publicado && (
                     <button onClick={() => publicar(r)} disabled={!podePublicar} title={podePublicar ? '' : 'Só quando a OS estiver executada/concluída'} className="inline-flex items-center gap-1.5 rounded-lg bg-greenSoft px-2.5 py-1.5 text-[12px] font-semibold text-forest-900 disabled:opacity-40"><Share2 className="h-3.5 w-3.5" />Disponibilizar</button>
                   )}
@@ -519,14 +597,29 @@ function AnexosTab({ osId, editable }: { osId: string; editable: boolean }) {
   const [novo, setNovo] = useState(false);
   const [form, setForm] = useState<{ nome: string; tipo: AnexoTipo }>({ nome: '', tipo: 'foto' });
   const [del, setDel] = useState<OsAnexoRow | null>(null);
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const arquivoRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => { listOsAnexos(osId).then(setRows).catch((e) => showToast((e as Error).message)); }, [osId, showToast]);
   useEffect(() => { load(); }, [load]);
 
   const add = async () => {
-    if (!form.nome.trim()) return showToast('Informe o nome do arquivo.');
-    try { await addAnexo(osId, form.nome.trim(), form.tipo, null); setNovo(false); setForm({ nome: '', tipo: 'foto' }); showToast('Anexo adicionado'); load(); }
-    catch (e) { showToast((e as Error).message); }
+    if (!arquivo) return showToast('Escolha o arquivo.');
+    if (enviando) return;
+    setEnviando(true);
+    try {
+      // O arquivo sobe antes da linha: se o envio falhar, não fica um anexo
+      // listado que não existe em lugar nenhum.
+      const caminho = await enviarAnexoOs(osId, arquivo);
+      await addAnexo(osId, form.nome.trim() || arquivo.name, form.tipo, caminho);
+      setNovo(false); setForm({ nome: '', tipo: 'foto' }); setArquivo(null);
+      showToast('Anexo enviado'); load();
+    } catch (e) {
+      showToast((e as Error).message);
+    } finally {
+      setEnviando(false);
+    }
   };
   const remove = async () => { if (!del) return; try { await removerAnexo(osId, del.id, del.nome); setDel(null); showToast('Anexo excluído'); load(); } catch (e) { showToast((e as Error).message); } };
 
@@ -554,9 +647,31 @@ function AnexosTab({ osId, editable }: { osId: string; editable: boolean }) {
             <TextField label="Nome do arquivo" required value={form.nome} onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))} placeholder="Ex.: comprovante-visita.pdf" />
             <SelectField label="Tipo" value={form.tipo} onChange={(e) => setForm((s) => ({ ...s, tipo: e.target.value as AnexoTipo }))}
               options={(['foto', 'comprovante', 'autorizacao', 'extra', 'outro'] as AnexoTipo[]).map((t) => ({ value: t, label: anexoTipoLabel[t] }))} />
-            <div className="flex items-center gap-2 rounded-lg bg-ink-50 px-3.5 py-2.5 text-[13px] text-ink-500"><Upload className="h-4 w-4" />O upload do arquivo para o storage é feito na integração (em breve).</div>
+            <div>
+              <button
+                type="button"
+                onClick={() => arquivoRef.current?.click()}
+                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-ink-200 bg-ink-50 px-3.5 py-3 text-left text-[13px] text-ink-600 hover:border-forest-500"
+              >
+                <Upload className="h-4 w-4 shrink-0" />
+                {arquivo ? arquivo.name : 'Escolher arquivo (PDF, imagem ou documento · até 10 MB)'}
+              </button>
+              <input
+                ref={arquivoRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  e.target.value = '';
+                  setArquivo(f);
+                  // Sugere o nome do arquivo, que é o que a pessoa reconhece;
+                  // ela pode trocar por algo mais descritivo.
+                  if (f && !form.nome.trim()) setForm((s) => ({ ...s, nome: f.name }));
+                }}
+              />
+            </div>
           </div>
-          <div className="flex gap-3 px-7 pb-6"><Button variant="secondary" fullWidth onClick={() => setNovo(false)} className="h-[52px]">Cancelar</Button><Button fullWidth onClick={add} className="h-[52px]">Adicionar</Button></div>
+          <div className="flex gap-3 px-7 pb-6"><Button variant="secondary" fullWidth onClick={() => setNovo(false)} className="h-[52px]">Cancelar</Button><Button fullWidth onClick={add} disabled={enviando} className="h-[52px]">{enviando ? 'Enviando…' : 'Adicionar'}</Button></div>
         </Modal>
       )}
       <ConfirmDialog open={!!del} onClose={() => setDel(null)} onConfirm={remove} title={del ? `Excluir ${del.nome}` : ''} description="O anexo será removido permanentemente." confirmLabel="Excluir" destructive />

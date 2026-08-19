@@ -26,6 +26,23 @@ export function ClientesList() {
   const [debounced, setDebounced] = useState('');
   const [loading, setLoading] = useState(true);
   const [menu, setMenu] = useState<string | null>(null);
+
+  /**
+   * Copia o endereço do Portal do Cliente.
+   *
+   * Não é um link por cliente: o portal exige login, e quem decide o que a
+   * pessoa vê é o vínculo criado no convite. Um endereço "do cliente" daria a
+   * impressão de acesso direto, que não existe — e não deveria existir.
+   */
+  const copiarLinkPortal = async () => {
+    const url = import.meta.env.VITE_PORTAL_URL ?? 'https://cliente.ecomax.com.br';
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Endereço do portal copiado. O acesso é liberado pelo convite, na aba Usuários do portal.');
+    } catch {
+      showToast(`Copie manualmente: ${url}`);
+    }
+  };
   const [drawer, setDrawer] = useState<{ id: string | null } | null>(null);
 
   useEffect(() => {
@@ -97,8 +114,23 @@ export function ClientesList() {
                           {menu === c.id && (
                             <div className="absolute right-0 z-10 mt-1 w-52 rounded-xl border border-ink-100 bg-white py-1.5 shadow-modal">
                               {canEdit && <MenuItem onClick={() => { setMenu(null); setDrawer({ id: c.id }); }}>Editar cliente</MenuItem>}
-                              {canCreate && <MenuItem icon={FileBadge} onClick={() => { setMenu(null); showToast('MEC EPF: integração Omie (em breve)'); }}>Criar MEC EPF</MenuItem>}
-                              {canCreate && <MenuItem icon={Link2} onClick={() => { setMenu(null); showToast('Link do portal gerado (envio de e-mail em breve)'); }}>Gerar link do portal</MenuItem>}
+                              {/* MEC EPF nasce da integração com o Omie, que é escopo da Release 4
+    (Financeiro). Fica desabilitado e dizendo por quê, em vez de um botão
+    que parece funcionar e devolve um aviso. */}
+{canCreate && (
+  <MenuItem
+    icon={FileBadge}
+    disabled
+    title="Depende da integração Omie, prevista para a Release 4 (Financeiro)"
+  >
+    Criar MEC EPF · Release 4
+  </MenuItem>
+)}
+                              {canCreate && (
+  <MenuItem icon={Link2} onClick={() => { setMenu(null); copiarLinkPortal(); }}>
+    Copiar link do portal
+  </MenuItem>
+)}
                               {canEdit && <MenuItem border danger onClick={() => toggleAtivo(c)}>{c.ativo ? 'Inativar cliente' : 'Reativar cliente'}</MenuItem>}
                             </div>
                           )}
@@ -135,11 +167,13 @@ export function ClientesList() {
   );
 }
 
-function MenuItem({ children, onClick, icon: Icon, border, danger }: { children: React.ReactNode; onClick: () => void; icon?: React.ComponentType<{ className?: string }>; border?: boolean; danger?: boolean }) {
+function MenuItem({ children, onClick, icon: Icon, border, danger, disabled, title }: { children: React.ReactNode; onClick?: () => void; icon?: React.ComponentType<{ className?: string }>; border?: boolean; danger?: boolean; disabled?: boolean; title?: string }) {
   return (
     <button
       onClick={onClick}
-      className={cn('flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm hover:bg-ink-50', border && 'mt-1 border-t border-ink-100 pt-2.5', danger ? 'text-danger-bright' : 'text-ink-700')}
+      disabled={disabled}
+      title={title}
+      className={cn('flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm hover:bg-ink-50', border && 'mt-1 border-t border-ink-100 pt-2.5', danger ? 'text-danger-bright' : 'text-ink-700', disabled && 'cursor-not-allowed text-ink-400 hover:bg-transparent')}
     >
       {Icon && <Icon className="h-[16px] w-[16px]" />}{children}
     </button>

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { SelectField, SearchInput, TextField, TextareaField } from '@/components/ui/Field';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
+import { imprimirLista } from '@/lib/impressao';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import {
@@ -71,6 +72,49 @@ export function OperacionalList() {
       setRows(r.rows); setTotal(r.total); setTotalOs(r.totalOs);
     } catch (e) { showToast((e as Error).message); } finally { setLoading(false); }
   }, [debounced, fKind, fStatus, fCliente, fFuncionario, fTipo, fDe, fAte, sort, page, pageSize, showToast]);
+
+  /** Colunas do documento — as mesmas da tela, na mesma ordem. */
+  const COLUNAS_IMPRESSAO = [
+    { titulo: 'Número', valor: (r: OperacionalRow) => r.numero },
+    { titulo: 'Cliente', valor: (r: OperacionalRow) => r.cliente },
+    { titulo: 'Tipo de serviço', valor: (r: OperacionalRow) => r.tipo },
+    { titulo: 'Data', valor: (r: OperacionalRow) => r.data },
+    { titulo: 'Funcionários', valor: (r: OperacionalRow) => r.funcionarios },
+    { titulo: 'Status', valor: (r: OperacionalRow) => r.statusLabel },
+  ];
+
+  const exportarLista = () => {
+    // Exporta o que está na tela, com os filtros aplicados — um documento que
+    // ignorasse os filtros contradiria o que a pessoa acabou de montar.
+    const ok = imprimirLista(
+      {
+        titulo: 'Ordens de serviço e orçamentos',
+        subtitulo: `${rows.length} registro(s) com os filtros aplicados`,
+      },
+      COLUNAS_IMPRESSAO,
+      rows,
+    );
+    if (!ok) showToast('O navegador bloqueou a janela. Autorize os pop-ups deste site.');
+  };
+
+  const exportarUma = (r: OperacionalRow) => {
+    const ok = imprimirLista(
+      {
+        titulo: r.numero,
+        subtitulo: r.cliente,
+        campos: [
+          { rotulo: 'Tipo de serviço', valor: r.tipo },
+          { rotulo: 'Data', valor: r.data },
+          { rotulo: 'Status', valor: r.statusLabel },
+          { rotulo: 'Origem', valor: r.origemLabel },
+          { rotulo: 'Funcionários', valor: r.funcionarios },
+        ],
+      },
+      COLUNAS_IMPRESSAO,
+      [r],
+    );
+    if (!ok) showToast('O navegador bloqueou a janela. Autorize os pop-ups deste site.');
+  };
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [fKind, fStatus, fCliente, fFuncionario, fTipo, fDe, fAte]);
 
@@ -102,7 +146,8 @@ export function OperacionalList() {
         action={
           canCreate ? (
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => showToast('Novo orçamento: módulo Comercial (em breve)')}>Novo orçamento</Button>
+              <Button variant="secondary" onClick={() => navigate('/clientes')}>Novo orçamento</Button>
+              <Button variant="secondary" onClick={exportarLista}><FileText className="h-4 w-4" />Exportar lista</Button>
               <Button onClick={() => navigate('/operacional/nova')}><Plus className="h-5 w-5" />Nova ordem de serviço</Button>
             </div>
           ) : undefined
@@ -181,7 +226,7 @@ export function OperacionalList() {
                                 <MenuItem onClick={() => { setMenu(null); navigate(`/operacional/${r.id}`); }}>Visualizar</MenuItem>
                                 {canEdit && <MenuItem onClick={() => { setMenu(null); navigate(`/operacional/${r.id}?editar=1`); }}>Editar</MenuItem>}
                                 {canCreate && <MenuItem onClick={() => { setMenu(null); navigate(`/operacional/${r.id}?duplicar=1`); }}>Duplicar</MenuItem>}
-                                <MenuItem icon={FileText} onClick={() => { setMenu(null); showToast('Exportar PDF (em breve)'); }}>Exportar PDF</MenuItem>
+                                <MenuItem icon={FileText} onClick={() => { setMenu(null); exportarUma(r); }}>Exportar PDF</MenuItem>
                                 {canDelete && r.status !== 'cancelada' && r.status !== 'concluida' && (
                                   <MenuItem border danger onClick={() => { setMenu(null); setCancel(r); }}>Cancelar OS</MenuItem>
                                 )}

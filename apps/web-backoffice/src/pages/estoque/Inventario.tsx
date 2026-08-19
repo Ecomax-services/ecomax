@@ -147,8 +147,12 @@ export function Inventario() {
         </>
       ) : (
         <div className="flex flex-col items-center rounded-2xl border border-dashed border-ink-200 bg-white p-12 text-center">
-          <p className="text-[15px] font-semibold text-ink-800">Inventário por operador</p>
-          <p className="mt-1 text-[13px] text-ink-400">O controle de produtos em campo por operador depende do módulo Operacional (Ordens de Serviço) e estará disponível em breve.</p>
+          <p className="text-[15px] font-semibold text-ink-800">Inventário por operador · Release 4</p>
+          <p className="mt-1 max-w-[46ch] text-[13px] text-ink-400">
+            A contagem de produtos em poder de cada operador é feita no aplicativo de campo,
+            que entra na Release 4. Até lá, o consumo por ordem de serviço aparece na aba
+            Produtos da própria OS, em Operacional.
+          </p>
         </div>
       )}
 

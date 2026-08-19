@@ -9,7 +9,13 @@ import { SelectField, SearchInput, TextField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
-import { listBases, createBase, updateBase, inativarBase, listLotes, type BaseRow, type StockRow } from '@/lib/estoque';
+import {
+  listBases, createBase, updateBase, inativarBase, listLotes,
+  listTransferenciasDaBase, listPessoasDaBase, getKpisBases,
+  type BaseRow, type StockRow, type TransferenciaBase, type PessoaDaBase,
+} from '@/lib/estoque';
+
+const TH = 'px-3.5 py-2.5 text-left text-xs font-bold uppercase text-ink-400';
 import { listGestores } from '@/lib/funcionarios';
 import { maskCEP } from '@/lib/masks';
 
@@ -28,17 +34,26 @@ export function Bases() {
   const [drawer, setDrawer] = useState<{ base?: BaseRow; isNew: boolean } | null>(null);
   const [detail, setDetail] = useState<BaseRow | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>('dados');
+  const [transfs, setTransfs] = useState<TransferenciaBase[]>([]);
+  const [pessoas, setPessoas] = useState<PessoaDaBase[]>([]);
+  const [kpisExtra, setKpisExtra] = useState<{ semMovimento30d: number; transferenciasPendentes: number } | null>(null);
   const [detailLotes, setDetailLotes] = useState<StockRow[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    try { setList(await listBases()); } catch (e) { showToast((e as Error).message); }
+    try {
+      const [bases, kpis] = await Promise.all([listBases(), getKpisBases()]);
+      setList(bases);
+      setKpisExtra(kpis);
+    } catch (e) { showToast((e as Error).message); }
   }, [showToast]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { listGestores().then(setResps); }, []);
   useEffect(() => {
     if (detail && detailTab === 'estoque') listLotes(detail.id).then(setDetailLotes).catch(() => setDetailLotes([]));
+    if (detail && detailTab === 'hist') listTransferenciasDaBase(detail.id).then(setTransfs).catch(() => setTransfs([]));
+    if (detail && detailTab === 'ops') listPessoasDaBase(detail.id).then(setPessoas).catch(() => setPessoas([]));
   }, [detail, detailTab]);
 
   const openNew = () => { setForm(emptyForm); setDrawer({ isNew: true }); };
@@ -58,8 +73,8 @@ export function Bases() {
   const kpis = [
     { icon: Warehouse, tone: 'green' as const, label: 'Bases ativas', value: list.filter((b) => b.status === 'Ativa').length },
     { icon: TrendingDown, tone: 'red' as const, label: 'Bases inativas', value: list.filter((b) => b.status !== 'Ativa').length },
-    { icon: Clock, tone: 'muted' as const, label: 'Sem movimentação (30d)', value: 0 },
-    { icon: RefreshCw, tone: 'amber' as const, label: 'Transferências pendentes', value: 0 },
+    { icon: Clock, tone: 'muted' as const, label: 'Sem movimentação (30d)', value: kpisExtra?.semMovimento30d ?? 0 },
+    { icon: RefreshCw, tone: 'amber' as const, label: 'Transferências pendentes', value: kpisExtra?.transferenciasPendentes ?? 0 },
   ];
 
   const save = async () => {
@@ -214,8 +229,55 @@ export function Bases() {
             </table>
           </>
         )}
-        {detail && (detailTab === 'hist' || detailTab === 'ops') && (
-          <p className="py-10 text-center text-[13px] text-ink-400">Disponível em breve.</p>
+        {detail && detailTab === 'hist' && (
+          transfs.length === 0 ? (
+            <p className="py-10 text-center text-[13px] text-ink-400">Nenhuma transferência envolvendo esta base.</p>
+          ) : (
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-ink-50">
+                  <th className={TH}>Código</th><th className={TH}>Produto</th><th className={TH}>Sentido</th>
+                  <th className={TH}>Contraparte</th><th className={cn(TH, 'text-right')}>Qtd.</th>
+                  <th className={TH}>Situação</th><th className={TH}>Quando</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transfs.map((t) => (
+                  <tr key={t.id + t.sentido} className="border-t border-ink-100">
+                    <td className="px-3.5 py-3 text-sm font-semibold text-forest-900">{t.codigo}</td>
+                    <td className="px-3.5 py-3 text-sm text-ink-800">{t.produto}</td>
+                    <td className="px-3.5 py-3 text-sm text-ink-600">{t.sentido}</td>
+                    <td className="px-3.5 py-3 text-sm text-ink-600">{t.contraparte}</td>
+                    <td className="px-3.5 py-3 text-right text-sm font-semibold text-ink-900">{t.quantidade}</td>
+                    <td className="px-3.5 py-3 text-sm text-ink-600">{t.status}</td>
+                    <td className="px-3.5 py-3 text-sm text-ink-500">{t.quando}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        )}
+        {detail && detailTab === 'ops' && (
+          pessoas.length === 0 ? (
+            <p className="py-10 text-center text-[13px] text-ink-400">
+              Nenhum responsável definido para esta base. Defina em Dados cadastrais.
+            </p>
+          ) : (
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-ink-50"><th className={TH}>Pessoa</th><th className={TH}>Cargo</th><th className={TH}>Papel</th></tr>
+              </thead>
+              <tbody>
+                {pessoas.map((p) => (
+                  <tr key={p.id} className="border-t border-ink-100">
+                    <td className="px-3.5 py-3 text-sm font-medium text-ink-800">{p.nome}</td>
+                    <td className="px-3.5 py-3 text-sm text-ink-600">{p.cargo}</td>
+                    <td className="px-3.5 py-3 text-sm text-ink-600">{p.papel}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
         )}
       </Drawer>
     </>

@@ -756,3 +756,114 @@ export async function getProdutoKpis(): Promise<ProdutoKpis> {
 }
 
 export const reqStatusText = (s: ReqStatus) => reqStatusLabel[s] ?? s;
+
+// ============================================================
+// Detalhe da base: transferências e pessoas
+// ============================================================
+
+export interface TransferenciaBase {
+  id: string;
+  codigo: string;
+  produto: string;
+  sentido: 'Enviada' | 'Recebida';
+  contraparte: string;
+  quantidade: string;
+  status: string;
+  quando: string;
+}
+
+/**
+ * Transferências que passaram por esta base, nos dois sentidos.
+ *
+ * Duas consultas em vez de um `or` sobre origem e destino: cada linha precisa
+ * saber de que lado a base estava para dizer "enviada" ou "recebida", e isso
+ * se perde num filtro único.
+ */
+export async function listTransferenciasDaBase(baseId: string): Promise<TransferenciaBase[]> {
+  const campos =
+    'id, codigo, quantidade_enviada, quantidade_recebida, status, created_at, recebida_at, ' +
+    'produto:produto_id(nome), origem:base_origem_id(nome), destino:base_destino_id(nome)';
+
+  const [saidas, entradas] = await Promise.all([
+    supabase.from('transferencias').select(campos).eq('base_origem_id', baseId),
+    supabase.from('transferencias').select(campos).eq('base_destino_id', baseId),
+  ]);
+  if (saidas.error) throw new Error(saidas.error.message);
+  if (entradas.error) throw new Error(entradas.error.message);
+
+  const nome = (v: unknown) => {
+    const o = Array.isArray(v) ? v[0] : v;
+    return (o as { nome?: string })?.nome ?? '—';
+  };
+  const quando = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  const montar = (linhas: any[], sentido: 'Enviada' | 'Recebida'): TransferenciaBase[] =>
+    linhas.map((t) => ({
+      id: t.id,
+      codigo: t.codigo,
+      produto: nome(t.produto),
+      sentido,
+      contraparte: sentido === 'Enviada' ? nome(t.destino) : nome(t.origem),
+      // Enquanto em trânsito só existe o enviado; recebido diferente do enviado
+      // é divergência, e o documento precisa mostrar os dois números.
+      quantidade:
+        t.quantidade_recebida != null && t.quantidade_recebida !== t.quantidade_enviada
+          ? `${t.quantidade_enviada} → ${t.quantidade_recebida}`
+          : String(t.quantidade_enviada),
+      status: t.status,
+      quando: quando(t.recebida_at ?? t.created_at),
+    }));
+
+  return [...montar(saidas.data as any[], 'Enviada'), ...montar(entradas.data as any[], 'Recebida')]
+    .sort((a, b) => (a.quando < b.quando ? 1 : -1));
+}
+
+export interface PessoaDaBase {
+  id: string;
+  nome: string;
+  cargo: string;
+  papel: string;
+}
+
+/**
+ * Quem responde pela base.
+ *
+ * Não existe vínculo direto entre funcionário e base no banco, e inventar um
+ * seria adivinhar uma regra de negócio. O que existe é o responsável cadastrado
+ * — então é ele que a aba mostra, com o rótulo dizendo exatamente isso.
+ */
+export async function listPessoasDaBase(baseId: string): Promise<PessoaDaBase[]> {
+  const { data, error } = await supabase
+    .from('bases')
+    .select('responsavel:responsavel_id(id, nome_completo, cargo)')
+    .eq('id', baseId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  const r = Array.isArray(data?.responsavel) ? data?.responsavel[0] : data?.responsavel;
+  if (!r) return [];
+  return [{ id: r.id, nome: r.nome_completo, cargo: r.cargo ?? '—', papel: 'Responsável pela base' }];
+}
+
+/** Contadores dos dois indicadores que estavam fixos em zero. */
+export async function getKpisBases(): Promise<{ semMovimento30d: number; transferenciasPendentes: number }> {
+  const limite = new Date(Date.now() - 30 * 86_400_000).toISOString();
+
+  const [bases, movs, pendentes] = await Promise.all([
+    supabase.from('bases').select('id'),
+    // A movimentação não tem uma "base": tem origem e destino, e qualquer um
+    // dos dois conta como movimento para aquela base.
+    supabase.from('movimentacoes').select('base_origem_id, base_destino_id').gte('created_at', limite),
+    supabase.from('transferencias').select('id', { count: 'exact', head: true }).eq('status', 'em_transito'),
+  ]);
+  if (bases.error) throw new Error(bases.error.message);
+
+  const comMovimento = new Set(
+    ((movs.data as any[]) ?? []).flatMap((m) => [m.base_origem_id, m.base_destino_id]).filter(Boolean),
+  );
+  return {
+    semMovimento30d: ((bases.data as any[]) ?? []).filter((b) => !comMovimento.has(b.id)).length,
+    transferenciasPendentes: pendentes.count ?? 0,
+  };
+}

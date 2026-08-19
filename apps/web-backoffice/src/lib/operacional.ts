@@ -746,3 +746,72 @@ export function gerarCronograma(dataInicialIso: string, recorrencia: Recorrencia
 
 export const fmtDate = brDate;
 export const fmtDateTime = brDateTime;
+
+// ============================================================
+// Croqui (mapa de pontos) da OS
+// ============================================================
+
+/**
+ * Envia o croqui para o bucket do Operacional.
+ *
+ * Reaproveita a convenção `os/<os_id>/<tipo>/…` que as policies exigem. Como o
+ * croqui é escolhido ANTES de a OS existir, o caminho usa um identificador
+ * temporário até a OS ser criada — daí o parâmetro `osId` aceitar null.
+ */
+export async function enviarCroqui(osId: string | null, file: File): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+  if (!['pdf', 'png', 'jpg', 'jpeg'].includes(ext)) {
+    throw new Error('O croqui deve ser PDF ou imagem.');
+  }
+  if (file.size > 10 * 1024 * 1024) throw new Error('O croqui passa de 10 MB.');
+
+  // Sem OS ainda: o rascunho vai para uma pasta própria e é movido quando a OS
+  // nasce. Guardar sob um id inventado quebraria a policy, que confere o uuid.
+  const destino = osId ? `os/${osId}/mapa` : 'rascunho/mapa';
+  const caminho = `${destino}/${Date.now()}-croqui.${ext}`;
+
+  const { error } = await supabase.storage
+    .from('operacional-docs')
+    .upload(caminho, file, { contentType: file.type || undefined, upsert: false });
+  if (error) {
+    throw new Error(
+      error.message.toLowerCase().includes('row-level security')
+        ? 'Você não tem permissão para anexar o croqui.'
+        : error.message,
+    );
+  }
+  return caminho;
+}
+
+/** URL temporária do croqui. O bucket é privado. */
+export async function urlCroqui(caminho: string | null, segundos = 3600): Promise<string | null> {
+  if (!caminho) return null;
+  const { data } = await supabase.storage.from('operacional-docs').createSignedUrl(caminho, segundos);
+  return data?.signedUrl ?? null;
+}
+
+/**
+ * Envia um anexo da OS para o bucket do Operacional.
+ *
+ * Usa o mesmo caminho `os/<os_id>/anexo/…` que as policies exigem — o operador
+ * grava por lá pelo aplicativo, e o backoffice pela tela de anexos.
+ */
+export async function enviarAnexoOs(osId: string, file: File): Promise<string> {
+  if (file.size > 10 * 1024 * 1024) throw new Error('O arquivo passa de 10 MB.');
+  const base = file.name
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9.]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'arquivo';
+  const caminho = `os/${osId}/anexo/${Date.now()}-${base}`;
+
+  const { error } = await supabase.storage
+    .from('operacional-docs')
+    .upload(caminho, file, { contentType: file.type || undefined, upsert: false });
+  if (error) {
+    throw new Error(
+      error.message.toLowerCase().includes('row-level security')
+        ? 'Você não tem permissão para anexar arquivos nesta OS.'
+        : error.message,
+    );
+  }
+  return caminho;
+}
