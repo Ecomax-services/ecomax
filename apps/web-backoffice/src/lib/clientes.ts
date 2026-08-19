@@ -166,10 +166,32 @@ export async function listPortalUsuarios(clienteId: string): Promise<PortalUsuar
   }));
 }
 /** "Convidar" cria o usuário como 'convidado'. O envio de e-mail é feito por infra externa (adiado). */
-export async function convidarPortalUsuario(clienteId: string, nome: string, email: string, perfil: string): Promise<void> {
-  const { error } = await supabase.from('cliente_portal_usuarios').insert({ cliente_id: clienteId, nome, email, perfil, status: 'convidado' });
-  if (error) throw new Error(error.message);
-  await audit('portal_usuario_convidado', { cliente_id: clienteId, email });
+export interface ConvitePortalResultado {
+  profile_id: string;
+  email_enviado: boolean;
+  email_erro?: string;
+}
+
+/**
+ * Convida alguém para o Portal do Cliente.
+ *
+ * Passa pela Edge Function porque criar o login exige service_role. Antes daqui
+ * esta função só inseria a linha em cliente_portal_usuarios: ninguém recebia
+ * e-mail e, sobretudo, nenhuma conta era criada — a pessoa convidada não tinha
+ * como entrar. A auditoria também é gravada lá, junto do resto da operação.
+ */
+export async function convidarPortalUsuario(
+  clienteId: string,
+  nome: string,
+  email: string,
+  perfil: string,
+): Promise<ConvitePortalResultado> {
+  const { data, error } = await supabase.functions.invoke('funcionarios-admin', {
+    body: { action: 'invite_portal', cliente_id: clienteId, nome, email, perfil },
+  });
+  const msg = (data as { error?: string } | null)?.error;
+  if (error || msg) throw new Error(msg || error!.message);
+  return data as ConvitePortalResultado;
 }
 export async function setPortalUsuarioStatus(id: string, status: PortalStatus): Promise<void> {
   const { error } = await supabase.from('cliente_portal_usuarios').update({ status }).eq('id', id);

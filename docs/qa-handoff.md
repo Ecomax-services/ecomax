@@ -1,5 +1,11 @@
 # Entrega para o QA interno
 
+| Onde | Endereço |
+|---|---|
+| Backoffice | https://painel.ecomax.com.br |
+| Portal do Cliente | https://cliente.ecomax.com.br |
+| App do Operador | Expo Go (ver limitação abaixo) |
+
 ## O que você precisa fazer antes (3 itens, todos no painel)
 
 Nenhum é código — eu não tenho acesso a esses painéis.
@@ -32,19 +38,14 @@ Para confirmar o diagnóstico:
 npx vercel inspect dpl_2snWdECspu1dPBp3EvaZ5sK7Kizp --logs
 ```
 
-### 3. Supabase · secrets da Edge Function
+### 3. Supabase · Redirect URLs
 
-O e-mail de primeiro acesso precisa saber para qual app mandar a pessoa. Sem
-isso, operador e cliente recebem link para o Backoffice, onde não têm acesso.
+As secrets da Edge Function **já estão configuradas** com os domínios definitivos
+(`painel.ecomax.com.br` e `cliente.ecomax.com.br`).
 
-```bash
-npx supabase secrets set --project-ref imnfcffmzzukabhsotul \
-  APP_URL_BACKOFFICE=https://<dominio-do-backoffice> \
-  APP_URL_PORTAL=https://<dominio-do-portal>
-```
-
-E em Authentication → URL Configuration, acrescentar os dois domínios à
-allow-list de Redirect URLs (a lista completa está em `deploy-vercel.md`).
+Falta a allow-list: Authentication → URL Configuration → Redirect URLs. A lista
+completa está em `deploy-vercel.md`. Sem os dois domínios lá, o link de
+recuperação é redirecionado para o Site URL em vez de abrir onde deveria.
 
 ---
 

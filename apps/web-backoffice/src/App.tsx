@@ -20,6 +20,10 @@ import { EstoqueSaldo } from '@/pages/estoque/EstoqueSaldo';
 import { ClientesList } from '@/pages/clientes/ClientesList';
 import { ClienteDetalhe } from '@/pages/clientes/ClienteDetalhe';
 import { OperacionalList } from '@/pages/operacional/OperacionalList';
+import { ComercialHub } from '@/pages/comercial/ComercialHub';
+import { FollowUps } from '@/pages/comercial/FollowUps';
+import { Garantias } from '@/pages/comercial/Garantias';
+import { GarantiaDetalhe } from '@/pages/comercial/GarantiaDetalhe';
 import { CriarOrdemServico } from '@/pages/operacional/CriarOrdemServico';
 import { OrdemServicoDetalhe } from '@/pages/operacional/OrdemServicoDetalhe';
 import { Configuracoes } from '@/pages/configuracoes/Configuracoes';
@@ -42,6 +46,15 @@ export const router = createBrowserRouter([
         children: [
           { path: '/clientes', element: <ClientesList /> },
           { path: '/clientes/:id', element: <ClienteDetalhe /> },
+        ],
+      },
+      {
+        element: <RequireModule module="comercial" />,
+        children: [
+          { path: '/comercial', element: <ComercialHub /> },
+          { path: '/comercial/follow-ups', element: <FollowUps /> },
+          { path: '/comercial/garantias', element: <Garantias /> },
+          { path: '/comercial/garantias/:id', element: <GarantiaDetalhe /> },
         ],
       },
       {

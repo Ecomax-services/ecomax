@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Tabs } from '@/components/ui/Tabs';
 import { SelectField, SearchInput, TextField, TextareaField } from '@/components/ui/Field';
+import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
@@ -415,9 +416,35 @@ function PortalModal({ clienteId, canEdit, onClose }: { clienteId: string; canEd
   const load = useCallback(() => { listPortalUsuarios(clienteId).then(setRows).catch((e) => showToast((e as Error).message)); }, [clienteId, showToast]);
   useEffect(() => { load(); }, [load]);
 
+  // O perfil vem do catálogo em vez de ser digitado. Como texto livre, os
+  // primeiros usos já produziram três grafias para o mesmo papel, e o filtro
+  // por perfil não encontrava ninguém.
+  const [perfis, setPerfis] = useState<string[]>([]);
+  useEffect(() => {
+    listCatalogoAtivos('perfis_portal')
+      .then((v) => {
+        setPerfis(v);
+        setForm((f) => ({ ...f, perfil: f.perfil || v[0] || '' }));
+      })
+      .catch(() => {});
+  }, []);
+
   const convidar = async () => {
     if (!form.nome.trim() || !form.email.trim()) return showToast('Informe nome e e-mail.');
-    try { await convidarPortalUsuario(clienteId, form.nome.trim(), form.email.trim(), form.perfil.trim() || 'Usuário'); setForm({ nome: '', email: '', perfil: '' }); setAdding(false); showToast('Convite registrado (envio de e-mail em breve)'); load(); }
+    try {
+      const r = await convidarPortalUsuario(clienteId, form.nome.trim(), form.email.trim(), form.perfil.trim() || 'Usuário');
+      setForm({ nome: '', email: '', perfil: '' });
+      setAdding(false);
+      // O aviso diz o que houve de fato. Antes afirmava "envio de e-mail em
+      // breve", que era honesto sobre não enviar e inútil para quem esperava o
+      // convite chegar.
+      showToast(
+        r.email_enviado
+          ? `Convite enviado para ${form.email.trim()}`
+          : `Acesso criado, mas o e-mail não saiu (${r.email_erro ?? 'motivo desconhecido'}). Peça à pessoa para usar "Esqueci minha senha" no portal.`,
+      );
+      load();
+    }
     catch (e) { showToast((e as Error).message); }
   };
   const setStatus = async (u: PortalUsuarioRow, status: 'ativo' | 'inativo' | 'convidado') => {
@@ -435,7 +462,12 @@ function PortalModal({ clienteId, canEdit, onClose }: { clienteId: string; canEd
           <div className="mb-4 flex flex-col gap-3 rounded-[10px] border border-forest-accent bg-forest-50/40 p-3.5">
             <div className="grid grid-cols-2 gap-3">
               <TextField label="Nome" value={form.nome} onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))} placeholder="Nome do usuário" />
-              <TextField label="Perfil" value={form.perfil} onChange={(e) => setForm((s) => ({ ...s, perfil: e.target.value }))} placeholder="Ex.: Gestor do cliente" />
+              <SelectField
+                label="Perfil"
+                value={form.perfil}
+                onChange={(e) => setForm((s) => ({ ...s, perfil: e.target.value }))}
+                options={perfis.length ? perfis.map((p) => ({ value: p, label: p })) : [{ value: '', label: 'Carregando…' }]}
+              />
             </div>
             <TextField label="E-mail" value={form.email} onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))} placeholder="usuario@cliente.com" />
             <div className="flex gap-2">
