@@ -140,6 +140,7 @@ export type Database = {
           prazo_padrao: number | null
           template_mensagem: string | null
           updated_at: string
+          valor: string | null
         }
         Insert: {
           ativo?: boolean
@@ -155,6 +156,7 @@ export type Database = {
           prazo_padrao?: number | null
           template_mensagem?: string | null
           updated_at?: string
+          valor?: string | null
         }
         Update: {
           ativo?: boolean
@@ -170,6 +172,7 @@ export type Database = {
           prazo_padrao?: number | null
           template_mensagem?: string | null
           updated_at?: string
+          valor?: string | null
         }
         Relationships: []
       }
@@ -2746,6 +2749,13 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_key"][]
       }
       baixar_estoque_os: { Args: { p_os_id: string }; Returns: number }
+      catalogo_uso: {
+        Args: { _catalogo: string }
+        Returns: {
+          nome: string
+          uso: number
+        }[]
+      }
       cliente_in_my_os: { Args: { _cliente_id: string }; Returns: boolean }
       comercial_doc_escopo: { Args: { _name: string }; Returns: string }
       contar_pontos_preenchidos: {

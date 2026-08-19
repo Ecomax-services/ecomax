@@ -63,44 +63,22 @@ async function audit(acao: string, detalhes?: Json): Promise<void> {
 }
 
 /**
- * Contagem de uso por item de um catálogo, a partir dos consumidores reais.
- * Catálogos sem consumidor implementado retornam mapa vazio (uso 0).
+ * Contagem de uso por item, vinda do banco (`catalogo_uso`).
+ *
+ * Antes isto era feito aqui: cinco dos doze catálogos tinham contador, e cada
+ * um puxava a tabela consumidora inteira para o navegador para contar. Os
+ * outros sete apareciam sempre como "—" — e, sem uso, a tela oferecia Excluir.
+ *
+ * O Status de OS errava mesmo tendo contador: o catálogo guarda o rótulo
+ * ("Em aberto") e a OS guarda o slug ("em_aberto"). Quem resolve isso é a
+ * coluna `catalogo_itens.valor`, lida pela função — não um dicionário aqui.
  */
-/** Tabelas e colunas que este contador percorre. Literais, para o client tipado
- *  conferir os nomes em vez de aceitar qualquer string. */
-type Consumidor =
-  | ['produtos', 'categoria' | 'unidade']
-  | ['funcionarios', 'setor' | 'cargo'];
-
 async function catalogoUso(catalogo: string): Promise<Record<string, number>> {
-  const countBy = async (...[table, col]: Consumidor) => {
-    const { data } = await supabase.from(table).select(col);
-    const map: Record<string, number> = {};
-    (data as Record<string, string | null>[] | null)?.forEach((r) => {
-      const v = r[col];
-      if (v) map[v] = (map[v] ?? 0) + 1;
-    });
-    return map;
-  };
-  switch (catalogo) {
-    case 'categorias_produto': return countBy('produtos', 'categoria');
-    case 'unidades': return countBy('produtos', 'unidade');
-    case 'setores': return countBy('funcionarios', 'setor');
-    case 'cargos': return countBy('funcionarios', 'cargo');
-    case 'motivos_ajuste': {
-      // Motivo fica embutido na descrição da movimentação de ajuste.
-      const { data } = await supabase.from('movimentacoes').select('descricao').eq('tipo', 'ajuste');
-      const map: Record<string, number> = {};
-      (data as { descricao: string | null }[] | null)?.forEach((r) => {
-        const d = r.descricao ?? '';
-        for (const it of ['Correção de contagem', 'Perda / avaria', 'Vencimento', 'Devolução']) {
-          if (d.includes(it)) map[it] = (map[it] ?? 0) + 1;
-        }
-      });
-      return map;
-    }
-    default: return {};
-  }
+  const { data, error } = await supabase.rpc('catalogo_uso', { _catalogo: catalogo });
+  if (error) throw new Error(error.message);
+  const map: Record<string, number> = {};
+  (data ?? []).forEach((r) => { map[r.nome] = Number(r.uso); });
+  return map;
 }
 
 export async function listCatalogoItens(catalogo: string): Promise<CatalogoItem[]> {
@@ -151,7 +129,8 @@ export async function setCatalogoItemAtivo(id: string, ativo: boolean): Promise<
   await audit(ativo ? 'catalogo_item_ativado' : 'catalogo_item_inativado', { id });
 }
 
-/** Exclui um item. Só permitido quando não está em uso (validado na tela). */
+/** Exclui um item. Um trigger no banco recusa se o item estiver em uso — a tela
+ *  esconde o botão, mas quem chamar a API direto esbarra na mesma regra. */
 export async function deleteCatalogoItem(id: string): Promise<void> {
   const { error } = await supabase.from('catalogo_itens').delete().eq('id', id);
   if (error) throw new Error(error.message);
