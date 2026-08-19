@@ -13,7 +13,7 @@ export interface CatalogoMeta {
   colored: boolean;
   /** Tipos de serviço: guarda template de mensagem + prazo padrão do link público. */
   servico?: boolean;
-  /** Agrupador da coluna lateral. São 19 catálogos — lista solta fica ilegível. */
+  /** Agrupador da coluna lateral. São 18 catálogos — lista solta fica ilegível. */
   grupo: string;
   /**
    * Conjunto de valores preso por check constraint no banco (`status_os`,
@@ -23,7 +23,7 @@ export interface CatalogoMeta {
   fixo?: boolean;
 }
 
-/** Os 19 catálogos auxiliares. `key` bate com a coluna `catalogo` do banco. */
+/** Os 18 catálogos auxiliares. `key` bate com a coluna `catalogo` do banco. */
 export const CATALOGOS: CatalogoMeta[] = [
   // Operacional
   { key: 'status_os', label: 'Status de OS', colored: true, grupo: 'Operacional', fixo: true },
@@ -44,7 +44,6 @@ export const CATALOGOS: CatalogoMeta[] = [
   { key: 'documentos_colaborador', label: 'Documentos do colaborador', colored: false, grupo: 'Documentos' },
 
   // Estoque
-  { key: 'tipos_produto', label: 'Tipos de produto', colored: false, grupo: 'Estoque' },
   { key: 'categorias_produto', label: 'Categorias de produto', colored: false, grupo: 'Estoque' },
   { key: 'unidades', label: 'Unidades de medida', colored: false, grupo: 'Estoque' },
   { key: 'motivos_ajuste', label: 'Motivos de ajuste de estoque', colored: false, grupo: 'Estoque' },

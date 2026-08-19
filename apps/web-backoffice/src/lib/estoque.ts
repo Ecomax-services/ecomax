@@ -21,6 +21,8 @@ export interface Produto {
   forn: string;
   fornecedor_id: string | null;
   status: 'Ativo' | 'Inativo';
+  /** Notas internas. */
+  obs: string;
   alert: AlertLevel;
   noForn?: boolean;
 }
@@ -151,6 +153,7 @@ export async function listProdutos(): Promise<Produto[]> {
     stock: Number(p.estoque_total), min: Number(p.estoque_min), max: p.estoque_max == null ? 0 : Number(p.estoque_max),
     forn: p.fornecedor_razao ?? '—', fornecedor_id: p.fornecedor_id,
     status: p.ativo ? 'Ativo' : 'Inativo',
+    obs: p.observacao ?? '',
     alert: produtoAlert(Number(p.estoque_total), Number(p.estoque_min), p.estoque_max == null ? null : Number(p.estoque_max)),
     noForn: !p.fornecedor_id,
   }));
@@ -159,6 +162,7 @@ export async function listProdutos(): Promise<Produto[]> {
 export interface ProdutoInput {
   codigo: string; nome: string; categoria: string; unidade: string;
   estoque_min: number; estoque_max: number | null; fornecedor_id: string | null;
+  observacao: string | null;
 }
 export async function createProduto(p: ProdutoInput) {
   const { error } = await supabase.from('produtos').insert(p);

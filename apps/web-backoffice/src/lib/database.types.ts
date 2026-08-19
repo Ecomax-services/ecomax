@@ -2328,6 +2328,7 @@ export type Database = {
           fornecedor_id: string | null
           id: string
           nome: string
+          observacao: string | null
           registro_anvisa: string | null
           unidade: string
           updated_at: string
@@ -2346,6 +2347,7 @@ export type Database = {
           fornecedor_id?: string | null
           id?: string
           nome: string
+          observacao?: string | null
           registro_anvisa?: string | null
           unidade: string
           updated_at?: string
@@ -2364,6 +2366,7 @@ export type Database = {
           fornecedor_id?: string | null
           id?: string
           nome?: string
+          observacao?: string | null
           registro_anvisa?: string | null
           unidade?: string
           updated_at?: string
@@ -2722,6 +2725,7 @@ export type Database = {
           fornecedor_razao: string | null
           id: string | null
           nome: string | null
+          observacao: string | null
           unidade: string | null
           updated_at: string | null
         }
@@ -2750,6 +2754,13 @@ export type Database = {
       }
       baixar_estoque_os: { Args: { p_os_id: string }; Returns: number }
       catalogo_uso: {
+        Args: { _catalogo: string }
+        Returns: {
+          nome: string
+          uso: number
+        }[]
+      }
+      catalogo_uso_interno: {
         Args: { _catalogo: string }
         Returns: {
           nome: string
