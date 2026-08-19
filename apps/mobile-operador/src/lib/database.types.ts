@@ -1600,6 +1600,41 @@ export type Database = {
           },
         ]
       }
+      orcamento_itens: {
+        Row: {
+          created_at: string
+          frequencia: string
+          id: string
+          orcamento_id: string
+          tipo_controle: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          frequencia: string
+          id?: string
+          orcamento_id: string
+          tipo_controle: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          frequencia?: string
+          id?: string
+          orcamento_id?: string
+          tipo_controle?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamento_itens_orcamento_id_fkey"
+            columns: ["orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orcamentos: {
         Row: {
           cliente_id: string
@@ -1607,6 +1642,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           data: string
+          gestor_id: string | null
           id: string
           observacao: string | null
           status: string
@@ -1619,6 +1655,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data?: string
+          gestor_id?: string | null
           id?: string
           observacao?: string | null
           status?: string
@@ -1631,6 +1668,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data?: string
+          gestor_id?: string | null
           id?: string
           observacao?: string | null
           status?: string
@@ -1643,6 +1681,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orcamentos_gestor_id_fkey"
+            columns: ["gestor_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
             referencedColumns: ["id"]
           },
         ]
@@ -1659,16 +1704,23 @@ export type Database = {
           check_out_lng: number | null
           cliente_id: string
           codigo: string
+          contato: string | null
           created_at: string
           created_by: string | null
           data_programada: string | null
+          data_validade: string | null
           descricao: string | null
           duracao_estimada: string | null
+          email_enviado: boolean
+          email_enviado_em: string | null
           endereco_execucao: string | null
           epis: string[]
+          etapa: string | null
           funcionario_integrado_id: string | null
+          hora_comprometida: string | null
           hora_prevista: string | null
           id: string
+          inicio_execucao: string | null
           mapa_pontos_url: string | null
           necessita_relatorio: boolean
           observacoes: string | null
@@ -1679,6 +1731,7 @@ export type Database = {
           recorrencia: string
           responsavel_admin_id: string | null
           status: string
+          termino_execucao: string | null
           tipos_servico: string[]
           updated_at: string
         }
@@ -1693,16 +1746,23 @@ export type Database = {
           check_out_lng?: number | null
           cliente_id: string
           codigo?: string
+          contato?: string | null
           created_at?: string
           created_by?: string | null
           data_programada?: string | null
+          data_validade?: string | null
           descricao?: string | null
           duracao_estimada?: string | null
+          email_enviado?: boolean
+          email_enviado_em?: string | null
           endereco_execucao?: string | null
           epis?: string[]
+          etapa?: string | null
           funcionario_integrado_id?: string | null
+          hora_comprometida?: string | null
           hora_prevista?: string | null
           id?: string
+          inicio_execucao?: string | null
           mapa_pontos_url?: string | null
           necessita_relatorio?: boolean
           observacoes?: string | null
@@ -1713,6 +1773,7 @@ export type Database = {
           recorrencia?: string
           responsavel_admin_id?: string | null
           status?: string
+          termino_execucao?: string | null
           tipos_servico?: string[]
           updated_at?: string
         }
@@ -1727,16 +1788,23 @@ export type Database = {
           check_out_lng?: number | null
           cliente_id?: string
           codigo?: string
+          contato?: string | null
           created_at?: string
           created_by?: string | null
           data_programada?: string | null
+          data_validade?: string | null
           descricao?: string | null
           duracao_estimada?: string | null
+          email_enviado?: boolean
+          email_enviado_em?: string | null
           endereco_execucao?: string | null
           epis?: string[]
+          etapa?: string | null
           funcionario_integrado_id?: string | null
+          hora_comprometida?: string | null
           hora_prevista?: string | null
           id?: string
+          inicio_execucao?: string | null
           mapa_pontos_url?: string | null
           necessita_relatorio?: boolean
           observacoes?: string | null
@@ -1747,6 +1815,7 @@ export type Database = {
           recorrencia?: string
           responsavel_admin_id?: string | null
           status?: string
+          termino_execucao?: string | null
           tipos_servico?: string[]
           updated_at?: string
         }
@@ -1977,6 +2046,82 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "os_historico_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      os_plano_pontos: {
+        Row: {
+          id: string
+          identificacao: string | null
+          numero: number
+          observacao: string | null
+          plano_id: string
+          preenchido_em: string | null
+          preenchido_por: string | null
+          situacao: string
+        }
+        Insert: {
+          id?: string
+          identificacao?: string | null
+          numero: number
+          observacao?: string | null
+          plano_id: string
+          preenchido_em?: string | null
+          preenchido_por?: string | null
+          situacao?: string
+        }
+        Update: {
+          id?: string
+          identificacao?: string | null
+          numero?: number
+          observacao?: string | null
+          plano_id?: string
+          preenchido_em?: string | null
+          preenchido_por?: string | null
+          situacao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_plano_pontos_plano_id_fkey"
+            columns: ["plano_id"]
+            isOneToOne: false
+            referencedRelation: "os_planos_controle"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      os_planos_controle: {
+        Row: {
+          created_at: string
+          frequencia: string | null
+          id: string
+          os_id: string
+          pontos_previstos: number
+          tipo_controle: string
+        }
+        Insert: {
+          created_at?: string
+          frequencia?: string | null
+          id?: string
+          os_id: string
+          pontos_previstos?: number
+          tipo_controle: string
+        }
+        Update: {
+          created_at?: string
+          frequencia?: string | null
+          id?: string
+          os_id?: string
+          pontos_previstos?: number
+          tipo_controle?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_planos_controle_os_id_fkey"
             columns: ["os_id"]
             isOneToOne: false
             referencedRelation: "ordens_servico"
@@ -2585,6 +2730,10 @@ export type Database = {
       }
       cliente_in_my_os: { Args: { _cliente_id: string }; Returns: boolean }
       comercial_doc_escopo: { Args: { _name: string }; Returns: string }
+      contar_pontos_preenchidos: {
+        Args: { _plano_id: string }
+        Returns: number
+      }
       current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]

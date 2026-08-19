@@ -19,6 +19,7 @@ import { Bases } from '@/pages/estoque/Bases';
 import { EstoqueSaldo } from '@/pages/estoque/EstoqueSaldo';
 import { ClientesList } from '@/pages/clientes/ClientesList';
 import { ClienteDetalhe } from '@/pages/clientes/ClienteDetalhe';
+import { ElaborarOrcamento } from '@/pages/clientes/ElaborarOrcamento';
 import { OperacionalList } from '@/pages/operacional/OperacionalList';
 import { ComercialHub } from '@/pages/comercial/ComercialHub';
 import { FollowUps } from '@/pages/comercial/FollowUps';
@@ -26,6 +27,7 @@ import { Garantias } from '@/pages/comercial/Garantias';
 import { GarantiaDetalhe } from '@/pages/comercial/GarantiaDetalhe';
 import { CriarOrdemServico } from '@/pages/operacional/CriarOrdemServico';
 import { OrdemServicoDetalhe } from '@/pages/operacional/OrdemServicoDetalhe';
+import { EmitirOs } from '@/pages/operacional/EmitirOs';
 import { Configuracoes } from '@/pages/configuracoes/Configuracoes';
 import { CadastrosAuxiliares } from '@/pages/configuracoes/CadastrosAuxiliares';
 import { MeuPerfil } from '@/pages/configuracoes/MeuPerfil';
@@ -46,6 +48,7 @@ export const router = createBrowserRouter([
         children: [
           { path: '/clientes', element: <ClientesList /> },
           { path: '/clientes/:id', element: <ClienteDetalhe /> },
+          { path: '/clientes/orcamentos/:id', element: <ElaborarOrcamento /> },
         ],
       },
       {
@@ -63,6 +66,7 @@ export const router = createBrowserRouter([
           { path: '/operacional', element: <OperacionalList /> },
           { path: '/operacional/nova', element: <CriarOrdemServico /> },
           { path: '/operacional/:id', element: <OrdemServicoDetalhe /> },
+          { path: '/operacional/:id/emitir', element: <EmitirOs /> },
         ],
       },
       {

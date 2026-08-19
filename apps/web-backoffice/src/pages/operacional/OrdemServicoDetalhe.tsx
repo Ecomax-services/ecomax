@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, FileText, Printer, CheckCircle2, Copy, AlertTriangle,
-  MapPin, PenLine, Camera, Lock, Upload, Share2,
+  MapPin, PenLine, Camera, Lock, Upload, Share2, Send,
 } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { Button } from '@/components/ui/Button';
@@ -176,6 +176,7 @@ export function OrdemServicoDetalhe() {
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" size="sm" onClick={imprimirOs}><FileText className="h-4 w-4" />Exportar PDF</Button>
               <Button variant="secondary" size="sm" onClick={imprimirOs}><Printer className="h-4 w-4" />Imprimir</Button>
+              {canEdit && <Button variant="secondary" size="sm" onClick={() => navigate(`/operacional/${id}/emitir`)}><Send className="h-4 w-4" />Emitir</Button>}
               {canCreate && <Button variant="secondary" size="sm" onClick={() => duplicarOs(id).then((n) => navigate(`/operacional/${n}?editar=1`)).catch((e) => showToast((e as Error).message))}><Copy className="h-4 w-4" />Duplicar</Button>}
               {editable && os.status === 'em_aberto' && <Button variant="secondary" size="sm" onClick={() => changeStatus('em_andamento', 'Execução iniciada')}>Iniciar execução</Button>}
               {editable && (os.status === 'em_aberto' || os.status === 'em_andamento') && <Button size="sm" onClick={() => setExecConfirm(true)}><CheckCircle2 className="h-4 w-4" />Marcar como executada</Button>}

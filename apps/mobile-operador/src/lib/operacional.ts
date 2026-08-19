@@ -5,17 +5,24 @@ import type { TablesUpdate } from '@/lib/database.types';
 // ============================================================
 // Status
 // ============================================================
-export type OsStatus = 'em_aberto' | 'em_andamento' | 'executada' | 'concluida' | 'cancelada';
+// Espelha as situações do Backoffice; sem as novas, o app mostraria o valor cru.
+export type OsStatus =
+  | 'em_aberto' | 'emitida' | 'confirmada' | 'em_andamento'
+  | 'executada' | 'concluida' | 'remarcada' | 'nao_executada' | 'cancelada';
 
 /** Etiqueta + cores (fiéis ao catálogo status_os do back office). */
 export const osTag: Record<OsStatus, { label: string; bg: string; fg: string }> = {
   em_aberto: { label: 'Em aberto', bg: '#e8eefc', fg: '#3056b5' },
+  emitida: { label: 'Emitida', bg: '#e8eefc', fg: '#3056b5' },
+  confirmada: { label: 'Confirmada', bg: '#e8eefc', fg: '#3056b5' },
+  remarcada: { label: 'Remarcada', bg: '#fdebd0', fg: '#b45309' },
+  nao_executada: { label: 'Não executada', bg: '#eeeff1', fg: '#5b6470' },
   em_andamento: { label: 'Em andamento', bg: '#fdebd0', fg: '#b45309' },
   executada: { label: 'Executada', bg: '#d3f7d3', fg: '#155015' },
   concluida: { label: 'Concluída', bg: '#a3eba3', fg: '#0f3f0f' },
   cancelada: { label: 'Cancelada', bg: '#ffddd5', fg: '#a81400' },
 };
-export const isReadOnly = (s: OsStatus) => s === 'concluida' || s === 'cancelada';
+export const isReadOnly = (s: OsStatus) => s === 'concluida' || s === 'cancelada' || s === 'nao_executada';
 
 // ============================================================
 // Helpers
@@ -116,11 +123,15 @@ export async function registrarCheckIn(osId: string, statusAtual: OsStatus): Pro
   // de coluna errado vira erro de compilação, e não um update silenciosamente
   // ignorado pelo PostgREST.
   const patch: TablesUpdate<'ordens_servico'> = { check_in_at: agora };
-  if (statusAtual === 'em_aberto') patch.status = 'em_andamento';
+  // Qualquer situação anterior à execução vira "em andamento" no check-in. Só
+  // 'em_aberto' deixaria de fora a OS emitida e a confirmada, que são
+  // justamente as que chegam ao operador pelo fluxo novo.
+  const ANTES_DA_EXECUCAO: OsStatus[] = ['em_aberto', 'emitida', 'confirmada'];
+  if (ANTES_DA_EXECUCAO.includes(statusAtual)) patch.status = 'em_andamento';
   const { error } = await supabase.from('ordens_servico').update(patch).eq('id', osId);
   if (error) throw new Error(error.message);
   await hist(osId, 'Check-in (app)', null, brTime(agora));
-  if (patch.status) await hist(osId, 'Status', osTag.em_aberto.label, osTag.em_andamento.label);
+  if (patch.status) await hist(osId, 'Status', osTag[statusAtual]?.label ?? statusAtual, osTag.em_andamento.label);
 }
 export async function registrarCheckOut(osId: string): Promise<void> {
   const ts = new Date().toISOString();
