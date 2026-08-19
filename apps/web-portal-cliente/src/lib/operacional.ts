@@ -1,13 +1,23 @@
 import { supabase } from '@/lib/supabase';
 
-export type OsStatus = 'em_aberto' | 'em_andamento' | 'executada' | 'concluida' | 'cancelada';
+// Espelha as situações do Backoffice. Sem as quatro novas, o portal mostraria o
+// valor cru do banco ("nao_executada") na tela do cliente.
+export type OsStatus =
+  | 'em_aberto' | 'emitida' | 'confirmada' | 'em_andamento'
+  | 'executada' | 'concluida' | 'remarcada' | 'nao_executada' | 'cancelada';
 
 export const osStatusLabel: Record<OsStatus, string> = {
-  em_aberto: 'Em aberto', em_andamento: 'Em andamento', executada: 'Executada', concluida: 'Concluída', cancelada: 'Cancelada',
+  em_aberto: 'Em aberto', emitida: 'Emitida', confirmada: 'Confirmada',
+  em_andamento: 'Em andamento', executada: 'Executada', concluida: 'Concluída',
+  remarcada: 'Remarcada', nao_executada: 'Não executada', cancelada: 'Cancelada',
 };
 /** Classes Tailwind disponíveis no portal (tokens enxutos). */
 export const osStatusClass: Record<OsStatus, string> = {
   em_aberto: 'bg-infoTag-bg text-infoTag-fg',
+  emitida: 'bg-infoTag-bg text-infoTag-fg',
+  confirmada: 'bg-infoTag-bg text-infoTag-fg',
+  remarcada: 'bg-warnTag-bg text-warnTag-fg',
+  nao_executada: 'bg-ink-50 text-ink-500',
   em_andamento: 'bg-warnTag-bg text-warnTag-fg',
   executada: 'bg-forest-100 text-forest-900',
   concluida: 'bg-forest-100 text-forest-900',
@@ -27,7 +37,8 @@ export interface MinhaOs {
 }
 
 /** Status que contam como "aberta" no indicador da tela. */
-const ABERTAS: OsStatus[] = ['em_aberto', 'em_andamento'];
+// Do ponto de vista do cliente, tudo que ainda não foi executado está aberto.
+const ABERTAS: OsStatus[] = ['em_aberto', 'emitida', 'confirmada', 'em_andamento'];
 export const contaAbertas = (os: MinhaOs[]) => os.filter((o) => ABERTAS.includes(o.status)).length;
 
 export async function listMinhasOs(): Promise<MinhaOs[]> {

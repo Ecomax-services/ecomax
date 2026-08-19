@@ -55,27 +55,48 @@ export const isPastDate = (iso: string) => !!iso && iso < todayIso();
 // ============================================================
 // Status
 // ============================================================
-export type OsStatus = 'em_aberto' | 'em_andamento' | 'executada' | 'concluida' | 'cancelada';
+/**
+ * Situações da OS.
+ *
+ * As cinco originais ficam com o mesmo nome de propósito: estão em uso no app
+ * do operador e no portal, e renomeá-las quebraria os dois de uma vez. As
+ * quatro novas vêm do fluxo de dez ações da tela de emissão.
+ */
+export type OsStatus =
+  | 'em_aberto' | 'emitida' | 'confirmada' | 'em_andamento'
+  | 'executada' | 'concluida' | 'remarcada' | 'nao_executada' | 'cancelada';
 
 /** Tons fiéis ao catálogo `status_os` (cores do seed de Configurações). */
 export const osStatusTone: Record<OsStatus, BadgeTone> = {
   em_aberto: 'info',
+  emitida: 'info',
+  confirmada: 'info',
   em_andamento: 'warn',
   executada: 'success',
   concluida: 'successStrong',
+  remarcada: 'softWarn',
+  nao_executada: 'muted',
   cancelada: 'danger',
 };
 export const osStatusLabel: Record<OsStatus, string> = {
   em_aberto: 'Em aberto',
+  emitida: 'Emitida',
+  confirmada: 'Confirmada',
   em_andamento: 'Em andamento',
   executada: 'Executada',
   concluida: 'Concluída',
+  remarcada: 'Remarcada',
+  nao_executada: 'Não executada',
   cancelada: 'Cancelada',
 };
-export const OS_STATUSES: OsStatus[] = ['em_aberto', 'em_andamento', 'executada', 'concluida', 'cancelada'];
+export const OS_STATUSES: OsStatus[] = [
+  'em_aberto', 'emitida', 'confirmada', 'em_andamento',
+  'executada', 'concluida', 'remarcada', 'nao_executada', 'cancelada',
+];
 
-/** OS concluída/cancelada é somente leitura (regra do board). */
-export const isReadOnly = (status: OsStatus) => status === 'concluida' || status === 'cancelada';
+/** Situação final: a OS não aceita mais edição nem ação de fluxo. */
+export const isReadOnly = (status: OsStatus) =>
+  status === 'concluida' || status === 'cancelada' || status === 'nao_executada';
 
 export type Recorrencia = 'nenhuma' | 'semanal' | 'mensal' | 'trimestral';
 export const recorrenciaLabel: Record<Recorrencia, string> = {
@@ -231,6 +252,15 @@ export interface OrdemServicoDetail {
   endereco_execucao: string | null;
   responsavel_admin_id: string | null;
   responsavel: string | null;
+  // Bloco "Dados da execução" da tela de emissão (3.1.3).
+  hora_comprometida: string | null;
+  inicio_execucao: string | null;
+  termino_execucao: string | null;
+  etapa: string | null;
+  contato: string | null;
+  data_validade: string | null;
+  email_enviado: boolean;
+  email_enviado_em: string | null;
   funcionario_integrado_id: string | null;
   integrado: string | null;
   observacoes: string | null;
@@ -263,6 +293,14 @@ export async function getOrdemServico(id: string): Promise<OrdemServicoDetail> {
     data_programada: o.data_programada, hora_prevista: o.hora_prevista, duracao_estimada: o.duracao_estimada,
     recorrencia: o.recorrencia, endereco_execucao: o.endereco_execucao,
     responsavel_admin_id: o.responsavel_admin_id, responsavel: one(o.responsavel, 'nome_completo'),
+    hora_comprometida: o.hora_comprometida ?? null,
+    inicio_execucao: o.inicio_execucao ?? null,
+    termino_execucao: o.termino_execucao ?? null,
+    etapa: o.etapa ?? null,
+    contato: o.contato ?? null,
+    data_validade: o.data_validade ?? null,
+    email_enviado: !!o.email_enviado,
+    email_enviado_em: o.email_enviado_em ?? null,
     funcionario_integrado_id: o.funcionario_integrado_id, integrado: one(o.integrado, 'nome_completo'),
     observacoes: o.observacoes, pragas: o.pragas ?? [], epis: o.epis ?? [],
     necessita_relatorio: o.necessita_relatorio, outros_documentos: o.outros_documentos,
@@ -428,7 +466,7 @@ export async function listOsProdutos(osId: string): Promise<OsProdutoRow[]> {
     };
   });
 }
-export async function addOsProduto(osId: string, input: { produto_id: string; qtd_recomendada: number; unidade: string | null; lote?: string | null; prazo_alvo?: string | null; observacao?: string | null }): Promise<void> {
+export async function addOsProduto(osId: string, input: { produto_id: string; qtd_recomendada: number; unidade: string | null; lote?: string | null; base_id?: string | null; prazo_alvo?: string | null; observacao?: string | null }): Promise<void> {
   const { error } = await supabase.from('os_produtos').insert({ os_id: osId, ...input });
   if (error) throw new Error(error.code === '23505' ? 'Produto já previsto nesta OS.' : error.message);
   await hist(osId, 'Produto previsto adicionado', null, input.produto_id);
@@ -746,3 +784,72 @@ export function gerarCronograma(dataInicialIso: string, recorrencia: Recorrencia
 
 export const fmtDate = brDate;
 export const fmtDateTime = brDateTime;
+
+// ============================================================
+// Croqui (mapa de pontos) da OS
+// ============================================================
+
+/**
+ * Envia o croqui para o bucket do Operacional.
+ *
+ * Reaproveita a convenção `os/<os_id>/<tipo>/…` que as policies exigem. Como o
+ * croqui é escolhido ANTES de a OS existir, o caminho usa um identificador
+ * temporário até a OS ser criada — daí o parâmetro `osId` aceitar null.
+ */
+export async function enviarCroqui(osId: string | null, file: File): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+  if (!['pdf', 'png', 'jpg', 'jpeg'].includes(ext)) {
+    throw new Error('O croqui deve ser PDF ou imagem.');
+  }
+  if (file.size > 10 * 1024 * 1024) throw new Error('O croqui passa de 10 MB.');
+
+  // Sem OS ainda: o rascunho vai para uma pasta própria e é movido quando a OS
+  // nasce. Guardar sob um id inventado quebraria a policy, que confere o uuid.
+  const destino = osId ? `os/${osId}/mapa` : 'rascunho/mapa';
+  const caminho = `${destino}/${Date.now()}-croqui.${ext}`;
+
+  const { error } = await supabase.storage
+    .from('operacional-docs')
+    .upload(caminho, file, { contentType: file.type || undefined, upsert: false });
+  if (error) {
+    throw new Error(
+      error.message.toLowerCase().includes('row-level security')
+        ? 'Você não tem permissão para anexar o croqui.'
+        : error.message,
+    );
+  }
+  return caminho;
+}
+
+/** URL temporária do croqui. O bucket é privado. */
+export async function urlCroqui(caminho: string | null, segundos = 3600): Promise<string | null> {
+  if (!caminho) return null;
+  const { data } = await supabase.storage.from('operacional-docs').createSignedUrl(caminho, segundos);
+  return data?.signedUrl ?? null;
+}
+
+/**
+ * Envia um anexo da OS para o bucket do Operacional.
+ *
+ * Usa o mesmo caminho `os/<os_id>/anexo/…` que as policies exigem — o operador
+ * grava por lá pelo aplicativo, e o backoffice pela tela de anexos.
+ */
+export async function enviarAnexoOs(osId: string, file: File): Promise<string> {
+  if (file.size > 10 * 1024 * 1024) throw new Error('O arquivo passa de 10 MB.');
+  const base = file.name
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9.]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'arquivo';
+  const caminho = `os/${osId}/anexo/${Date.now()}-${base}`;
+
+  const { error } = await supabase.storage
+    .from('operacional-docs')
+    .upload(caminho, file, { contentType: file.type || undefined, upsert: false });
+  if (error) {
+    throw new Error(
+      error.message.toLowerCase().includes('row-level security')
+        ? 'Você não tem permissão para anexar arquivos nesta OS.'
+        : error.message,
+    );
+  }
+  return caminho;
+}

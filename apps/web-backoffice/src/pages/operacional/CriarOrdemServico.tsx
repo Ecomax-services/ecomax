@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Check, Save, Upload, X } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
@@ -8,12 +8,14 @@ import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SelectField, SearchInput, TextField, TextareaField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
+import { buscarCep, cepCompleto } from '@/lib/cep';
+import { maskCEP } from '@/lib/masks';
 import { cn } from '@/lib/cn';
 import type { Produto } from '@/lib/estoque';
 import {
   listClienteOptions, getClienteResumo, listFuncionarioOptions, listTiposServico, listPragas,
   deriveEpis, listProdutoOptions, listEquipamentoOptions, gerarCronograma, createOrdemServico,
-  iniciarOsDeOrcamento, recorrenciaLabel, isPastDate,
+  iniciarOsDeOrcamento, recorrenciaLabel, isPastDate, enviarCroqui,
   type Recorrencia, type NovaOsInput, type FuncionarioOption, type ClienteResumo,
 } from '@/lib/operacional';
 
@@ -52,6 +54,30 @@ export function CriarOrdemServico() {
   const [integradoId, setIntegradoId] = useState('');
   const [responsavelId, setResponsavelId] = useState('');
   const [endereco, setEndereco] = useState('');
+  const [cep, setCep] = useState('');
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [enviandoCroqui, setEnviandoCroqui] = useState(false);
+  const croquiRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Preenche o endereço de execução a partir do CEP.
+   *
+   * O número não vem do CEP — só a rua —, então o campo fica pronto para a
+   * pessoa completar em vez de fingir que já está certo.
+   */
+  const preencherPorCep = async (valor: string) => {
+    if (!cepCompleto(valor) || buscandoCep) return;
+    setBuscandoCep(true);
+    try {
+      const e = await buscarCep(valor);
+      setEndereco([e.logradouro, e.bairro, [e.cidade, e.uf].filter(Boolean).join('/')].filter(Boolean).join(', '));
+      showToast('Endereço preenchido pelo CEP — confira o número');
+    } catch (err) {
+      showToast((err as Error).message);
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
   const [observacoes, setObservacoes] = useState('');
   const [necessitaRelatorio, setNecessitaRelatorio] = useState(false);
   const [outrosDocs, setOutrosDocs] = useState('');
@@ -152,7 +178,7 @@ export function CriarOrdemServico() {
                   <SelectField label="Cliente" required value={clienteId} onChange={(e) => setClienteId(e.target.value)}
                     options={[{ value: '', label: 'Selecione o cliente…' }, ...clientes.map((c) => ({ value: c.id, label: c.nome }))]} />
                 </div>
-                <div className="flex items-end"><Button variant="secondary" className="w-full" onClick={() => showToast('Cadastrar cliente: use Gestão de Clientes (em breve inline)')}><Plus className="h-4 w-4" />Cadastrar novo cliente</Button></div>
+                <div className="flex items-end"><Button variant="secondary" className="w-full" onClick={() => navigate('/clientes?novo=1')}><Plus className="h-4 w-4" />Cadastrar novo cliente</Button></div>
               </div>
               {resumo && (
                 <div className="grid grid-cols-1 gap-3 rounded-xl bg-ink-50 px-4 py-3 text-[13px] md:grid-cols-3">
@@ -174,7 +200,28 @@ export function CriarOrdemServico() {
                 <SelectField label="Funcionário integrado / parceiro (opcional)" value={integradoId} onChange={(e) => setIntegradoId(e.target.value)} options={funcOpts} />
                 <SelectField label="Responsável administrativo" value={responsavelId} onChange={(e) => setResponsavelId(e.target.value)} options={funcOpts} />
               </div>
-              <TextField label="Endereço de execução" value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Preenchido do cliente, editável" />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <div>
+                  <TextField
+                    label="CEP"
+                    inputMode="numeric"
+                    value={cep}
+                    placeholder="00000-000"
+                    onChange={(e) => {
+                      const v = maskCEP(e.target.value);
+                      setCep(v);
+                      // Busca assim que os oito dígitos entram, sem esperar o
+                      // blur: quem cola o CEP não tira o foco do campo.
+                      if (cepCompleto(v)) preencherPorCep(v);
+                    }}
+                    onBlur={() => preencherPorCep(cep)}
+                  />
+                  {buscandoCep && <p className="mt-1 text-xs text-ink-400">Consultando…</p>}
+                </div>
+                <div className="md:col-span-3">
+                  <TextField label="Endereço de execução" value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Preenchido do cliente ou pelo CEP, editável" />
+                </div>
+              </div>
               <TextareaField label="Observações" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Instruções, restrições de acesso, etc." />
               <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
                 <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" className="h-4 w-4 accent-forest-600" checked={necessitaRelatorio} onChange={(e) => setNecessitaRelatorio(e.target.checked)} />Necessita relatório técnico</label>
@@ -266,7 +313,42 @@ export function CriarOrdemServico() {
                   <p className="mb-1.5 text-[13px] font-semibold text-ink-800">Mapa de pontos (croqui — serviços de monitoramento)</p>
                   {mapaPontos
                     ? <div className="inline-flex items-center gap-2 rounded-lg bg-forest-50 px-3 py-2 text-[13px] text-forest-700"><Check className="h-4 w-4" />Croqui anexado <button onClick={() => setMapaPontos(null)} className="text-ink-400 hover:text-danger-bright"><X className="h-3.5 w-3.5" /></button></div>
-                    : <Button variant="secondary" size="sm" onClick={() => { setMapaPontos('seed/mapa-pontos.pdf'); showToast('Croqui anexado (upload real em breve)'); }}><Upload className="h-4 w-4" />Enviar croqui (PDF/imagem)</Button>}
+                    : (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={enviandoCroqui}
+                          onClick={() => croquiRef.current?.click()}
+                        >
+                          <Upload className="h-4 w-4" />
+                          {enviandoCroqui ? 'Enviando…' : 'Enviar croqui (PDF/imagem)'}
+                        </Button>
+                        <input
+                          ref={croquiRef}
+                          type="file"
+                          accept=".pdf,image/png,image/jpeg"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const f = e.target.files?.[0];
+                            e.target.value = '';
+                            if (!f) return;
+                            setEnviandoCroqui(true);
+                            try {
+                              // A OS ainda não existe aqui, então o arquivo vai
+                              // para a pasta de rascunho e é referenciado pelo
+                              // caminho quando ela for criada.
+                              setMapaPontos(await enviarCroqui(null, f));
+                              showToast('Croqui anexado');
+                            } catch (err) {
+                              showToast((err as Error).message);
+                            } finally {
+                              setEnviandoCroqui(false);
+                            }
+                          }}
+                        />
+                      </>
+                    )}
                 </div>
               )}
             </div>

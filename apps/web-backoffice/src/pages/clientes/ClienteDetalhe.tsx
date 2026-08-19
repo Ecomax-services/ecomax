@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, UsersRound, PackageCheck, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, UsersRound, PackageCheck, AlertTriangle, Repeat } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -11,6 +11,7 @@ import { Tabs } from '@/components/ui/Tabs';
 import { SelectField, SearchInput, TextField, TextareaField } from '@/components/ui/Field';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { useToast } from '@/components/ui/Toast';
+import { criarOrcamento as criarOrcamentoVazio, criarOsDeOrcamento } from '@/lib/orcamentos';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { maskPhone, maskDecimal, maskDate } from '@/lib/masks';
@@ -245,6 +246,7 @@ function ContatoModal({ clienteId, tipo, onClose, onDone, showToast }: { cliente
 // ---------------- Orçamentos ----------------
 function OrcamentosTab({ clienteId, canCreate, canEdit }: { clienteId: string; canCreate: boolean; canEdit: boolean }) {
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<OrcamentoRow[]>([]);
   const [statusF, setStatusF] = useState('todos');
   const [novo, setNovo] = useState(false);
@@ -272,7 +274,16 @@ function OrcamentosTab({ clienteId, canCreate, canEdit }: { clienteId: string; c
     <div className="rounded-2xl border border-ink-100 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
         <SelectField value={statusF} onChange={(e) => setStatusF(e.target.value)} options={[{ value: 'todos', label: 'Todos os status' }, { value: 'em_elaboracao', label: 'Em elaboração' }, { value: 'aprovado', label: 'Aprovado' }, { value: 'cancelado', label: 'Cancelado' }]} />
-        {canCreate && <Button size="sm" onClick={() => setNovo(true)}><Plus className="h-4 w-4" />Novo orçamento</Button>}
+        {canCreate && (
+          <Button size="sm" onClick={async () => {
+            // Cria vazio e abre a tela de elaboração: o valor total sai da grade
+            // de tipos de controle, não de um campo digitado no modal.
+            try { navigate(`/clientes/orcamentos/${await criarOrcamentoVazio(clienteId)}`); }
+            catch (e) { showToast((e as Error).message); }
+          }}>
+            <Plus className="h-4 w-4" />Novo orçamento
+          </Button>
+        )}
       </div>
       <table className="w-full border-collapse">
         <thead>
@@ -297,12 +308,36 @@ function OrcamentosTab({ clienteId, canCreate, canEdit }: { clienteId: string; c
               <td className="px-4 py-3 text-center text-sm text-ink-500">{o.osCount}</td>
               <td className="px-4 py-3"><Badge tone={orcStatusTone[o.status]}>{orcStatusLabel[o.status]}</Badge></td>
               <td className="px-4 py-3 pr-6 text-right">
-                {canEdit && o.status === 'em_elaboracao' ? (
-                  <div className="inline-flex gap-2">
-                    <button onClick={() => changeStatus(o, 'aprovado')} className="rounded-lg bg-greenSoft px-2.5 py-1.5 text-[12px] font-semibold text-forest-900">Aprovar</button>
-                    <button onClick={() => changeStatus(o, 'cancelado')} className="rounded-lg border border-ink-200 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-ink-500">Cancelar</button>
-                  </div>
-                ) : <span className="text-[13px] text-ink-300">—</span>}
+                <div className="inline-flex flex-wrap justify-end gap-2">
+                  <button
+                    onClick={() => navigate(`/clientes/orcamentos/${o.id}`)}
+                    className="rounded-lg border border-ink-200 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-ink-700"
+                  >
+                    Elaborar
+                  </button>
+                  {canEdit && o.status === 'em_elaboracao' && (
+                    <>
+                      <button onClick={() => changeStatus(o, 'aprovado')} className="rounded-lg bg-greenSoft px-2.5 py-1.5 text-[12px] font-semibold text-forest-900">Aprovar</button>
+                      <button onClick={() => changeStatus(o, 'cancelado')} className="rounded-lg border border-ink-200 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-ink-500">Cancelar</button>
+                    </>
+                  )}
+                  {/* Só orçamento aprovado gera OS: emitir de um em elaboração
+                      comprometeria serviço que ainda não foi fechado. */}
+                  {canCreate && o.status === 'aprovado' && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const osId = await criarOsDeOrcamento(o.id);
+                          showToast('OS criada com os planos contratados');
+                          navigate(`/operacional/${osId}/emitir`);
+                        } catch (e) { showToast((e as Error).message); }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-forest-500 px-2.5 py-1.5 text-[12px] font-semibold text-white"
+                    >
+                      <Repeat className="h-3.5 w-3.5" />Criar OS recorrente
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
