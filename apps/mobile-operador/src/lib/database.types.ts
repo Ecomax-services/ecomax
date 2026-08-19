@@ -2584,6 +2584,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_key"][]
       }
       cliente_in_my_os: { Args: { _cliente_id: string }; Returns: boolean }
+      comercial_doc_escopo: { Args: { _name: string }; Returns: string }
       current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
@@ -2592,6 +2593,7 @@ export type Database = {
         Args: { _funcionario_id: string }
         Returns: boolean
       }
+      garantias_marcar_a_renovar: { Args: never; Returns: number }
       has_app_access: {
         Args: { app: Database["public"]["Enums"]["app_key"] }
         Returns: boolean

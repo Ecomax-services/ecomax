@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import {
   criarFollowUp, atualizarFollowUp, hojeIso, FUP_STATUS, type FollowUpRow,
 } from '@/lib/comercial';
+import { Anexos } from './Anexos';
 
 const RASCUNHO = 'ecomax.fup.rascunho';
 const MAX_DESC = 1000;
@@ -188,6 +189,18 @@ export function FollowUpDrawer({
           {form.status === 'Concluído' && !form.descricao.trim() && (
             <p className="rounded-lg bg-[#fff4f0] px-3.5 py-2.5 text-[13px] text-danger">
               Descreva o que foi feito antes de concluir.
+            </p>
+          )}
+
+          {/* Anexar exige um follow-up já salvo: o arquivo é guardado sob o id
+              dele, e não existe id antes de gravar. */}
+          {editando ? (
+            <div className="border-t border-ink-100 pt-4">
+              <Anexos escopo="follow-up" id={followUp!.id} />
+            </div>
+          ) : (
+            <p className="border-t border-ink-100 pt-4 text-[13px] text-ink-400">
+              Salve o follow-up para poder anexar arquivos.
             </p>
           )}
         </div>

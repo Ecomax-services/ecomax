@@ -251,6 +251,19 @@ export async function listFupAnexos(followUpId: string): Promise<AnexoRow[]> {
   }));
 }
 
+export async function listGarantiaAnexos(garantiaId: string): Promise<AnexoRow[]> {
+  const { data, error } = await supabase
+    .from('comercial_garantia_anexos')
+    .select('id, nome, tipo, tamanho_bytes, arquivo_url, created_at')
+    .eq('garantia_id', garantiaId)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as any[]).map((a) => ({
+    id: a.id, nome: a.nome, tipo: a.tipo ?? 'Outro', tamanho: tamanhoBr(a.tamanho_bytes),
+    arquivoUrl: a.arquivo_url, autor: '—', criadoEm: brDateTime(a.created_at),
+  }));
+}
+
 export async function renomearAnexo(tabela: 'fup' | 'garantia', id: string, nome: string): Promise<void> {
   const t = tabela === 'fup' ? 'comercial_fup_anexos' : 'comercial_garantia_anexos';
   const { error } = await supabase.from(t).update({ nome }).eq('id', id);

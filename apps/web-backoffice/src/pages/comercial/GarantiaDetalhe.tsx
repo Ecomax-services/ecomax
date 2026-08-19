@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
+import { Anexos } from './Anexos';
 import {
   getGarantia, mudarStatusGarantia, listHistoricoGarantia, listServicosGarantia,
   addServicoGarantia, removeServicoGarantia, listLinksGarantia, gerarLinkGarantia, revogarLink,
@@ -201,6 +202,11 @@ export function GarantiaDetalhe() {
               </div>
             ))}
           </Card>
+        </div>
+
+        {/* Anexos — seção do detalhe, não modal sobreposto (nota 9). */}
+        <div className="mt-5 rounded-2xl border border-ink-100 bg-white px-6 py-5">
+          <Anexos escopo="garantia" id={id} />
         </div>
 
         {/* Linha do tempo */}
