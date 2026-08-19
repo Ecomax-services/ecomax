@@ -45,6 +45,14 @@ export function CadastrosAuxiliares() {
 
   const meta = useMemo<CatalogoMeta>(() => CATALOGOS.find((c) => c.key === catKey)!, [catKey]);
 
+  // Agrupa preservando a ordem de CATALOGOS — o Map mantém a ordem de inserção,
+  // então o grupo aparece onde seu primeiro catálogo aparece na lista.
+  const grupos = useMemo(() => {
+    const m = new Map<string, CatalogoMeta[]>();
+    CATALOGOS.forEach((c) => m.set(c.grupo, [...(m.get(c.grupo) ?? []), c]));
+    return [...m.entries()];
+  }, []);
+
   const load = useCallback(async () => {
     try { setItems(await listCatalogoItens(catKey)); } catch (e) { showToast((e as Error).message); }
   }, [catKey, showToast]);
@@ -113,20 +121,24 @@ export function CadastrosAuxiliares() {
 
         <div className="grid grid-cols-[240px_1fr] gap-5">
           {/* Lista de catálogos */}
-          <div className="rounded-2xl border border-ink-100 bg-white p-2">
-            <p className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-ink-400">Catálogos</p>
-            {CATALOGOS.map((c) => (
-              <button
-                key={c.key}
-                onClick={() => { setCatKey(c.key); setSearch(''); }}
-                className={cn(
-                  'flex w-full items-center justify-between gap-2 rounded-[10px] px-4 py-3 text-left text-sm transition-colors',
-                  c.key === catKey ? 'border border-forest-accent bg-forest-50 font-semibold text-forest-900' : 'border border-transparent font-medium text-ink-700 hover:bg-ink-50',
-                )}
-              >
-                {c.label}
-                {c.key === catKey && <span className="text-xs font-bold text-forest-700">{items.length}</span>}
-              </button>
+          <div className="self-start rounded-2xl border border-ink-100 bg-white p-2">
+            {grupos.map(([grupo, cats]) => (
+              <div key={grupo} className="mb-1 last:mb-0">
+                <p className="px-3 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-400">{grupo}</p>
+                {cats.map((c) => (
+                  <button
+                    key={c.key}
+                    onClick={() => { setCatKey(c.key); setSearch(''); }}
+                    className={cn(
+                      'flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2.5 text-left text-[13px] leading-tight transition-colors',
+                      c.key === catKey ? 'border border-forest-accent bg-forest-50 font-semibold text-forest-900' : 'border border-transparent font-medium text-ink-700 hover:bg-ink-50',
+                    )}
+                  >
+                    <span>{c.label}</span>
+                    {c.key === catKey && <span className="shrink-0 text-xs font-bold text-forest-700">{items.length}</span>}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
 
@@ -137,7 +149,7 @@ export function CadastrosAuxiliares() {
                 <span className="text-[17px] font-bold text-ink-900">{meta.label}</span>
                 <span className="text-[13px] text-ink-400">{items.length} itens cadastrados</span>
               </div>
-              {canCreate && <Button onClick={openNew}><Plus className="h-5 w-5" />Novo item</Button>}
+              {canCreate && !meta.fixo && <Button onClick={openNew}><Plus className="h-5 w-5" />Novo item</Button>}
             </div>
 
             <SearchInput containerClassName="mb-4 w-[280px]" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar item" />
@@ -170,7 +182,7 @@ export function CadastrosAuxiliares() {
                         <div className="inline-flex justify-end gap-2">
                           {canEdit && <ActionBtn onClick={() => openEdit(it)}>Editar</ActionBtn>}
                           {canEdit && <ActionBtn onClick={() => toggleAtivo(it)}>{it.ativo ? 'Inativar' : 'Ativar'}</ActionBtn>}
-                          {canDelete && it.uso === 0 && <ActionBtn danger onClick={() => setConfirmDel(it)}>Excluir</ActionBtn>}
+                          {canDelete && !meta.fixo && it.uso === 0 && <ActionBtn danger onClick={() => setConfirmDel(it)}>Excluir</ActionBtn>}
                         </div>
                       </td>
                     </tr>
@@ -178,7 +190,9 @@ export function CadastrosAuxiliares() {
                 </tbody>
               </table>
               <p className="border-t border-ink-100 px-6 py-3.5 text-[13px] text-ink-400">
-                Itens com uso registrado podem ser inativados, mas não excluídos.
+                {meta.fixo
+                  ? 'Este conjunto é fixo no banco: dá para renomear, recolorir e reordenar, mas não criar nem excluir — um item novo aqui não poderia ser usado pelo módulo.'
+                  : 'Itens com uso registrado podem ser inativados, mas não excluídos.'}
               </p>
             </div>
           </div>
