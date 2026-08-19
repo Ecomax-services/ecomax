@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -16,6 +17,7 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { Logo } from '@/components/ui/Logo';
 import { useAuth } from '@/auth/AuthProvider';
+import { unreadCount } from '@/lib/notificacoes';
 import type { UserRole, ModuleKey } from '@/lib/supabase';
 
 const roleLabels: Record<UserRole, string> = {
@@ -39,7 +41,6 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   to: string;
-  badge?: number;
   disabled?: boolean;
   /** Módulo para checagem de permissão de leitura. Sem módulo = sempre visível. */
   module?: ModuleKey;
@@ -54,16 +55,27 @@ const items: NavItem[] = [
   { label: 'Relatórios', icon: BarChart3, to: '/relatorios', disabled: true, module: 'relatorios' },
   { label: 'Financeiro', icon: Wallet, to: '/financeiro', disabled: true, module: 'financeiro' },
   { label: 'Gestão de Usuários', icon: UserCog, to: '/usuarios', module: 'gestao_usuarios' },
-  { label: 'Notificações', icon: Bell, to: '/notificacoes', badge: 2 },
+  { label: 'Notificações', icon: Bell, to: '/notificacoes' },
   { label: 'Configurações', icon: Settings, to: '/configuracoes', module: 'configuracoes' },
 ];
 
 /** Sidebar do Backoffice (Figma node 148:331). 240px, fundo verde escuro. */
 export function Sidebar({ onLogout }: { onLogout: () => void }) {
   const { profile, can } = useAuth();
+  const { pathname } = useLocation();
   const nome = profile?.nome_completo ?? 'Usuário';
   const cargo = profile ? roleLabels[profile.role] : '';
   const visibleItems = items.filter((item) => !item.module || can(item.module, 'ler'));
+  const [naoLidas, setNaoLidas] = useState(0);
+
+  // Reconta a cada navegação. O badge era o literal `2`: não refletia nada e
+  // continuava lá depois de marcar tudo como lido. Recontar ao trocar de rota
+  // cobre o caso real — sair da tela de notificações e ver o número certo.
+  useEffect(() => {
+    let vivo = true;
+    unreadCount().then((n) => vivo && setNaoLidas(n)).catch(() => {});
+    return () => { vivo = false; };
+  }, [pathname]);
   return (
     <aside className="fixed inset-y-0 left-0 flex w-60 flex-col bg-forest-900 text-white">
       {/* Logo + divisória */}
@@ -83,9 +95,9 @@ export function Sidebar({ onLogout }: { onLogout: () => void }) {
               )}
               <Icon className={cn('h-[18px] w-[18px] shrink-0', !active && 'opacity-65')} />
               <span className={cn('flex-1 truncate', !active && 'opacity-65')}>{item.label}</span>
-              {item.badge ? (
+              {item.to === '/notificacoes' && naoLidas > 0 ? (
                 <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger-bright px-1.5 text-[11px] font-semibold leading-none text-white">
-                  {item.badge}
+                  {naoLidas > 99 ? '99+' : naoLidas}
                 </span>
               ) : null}
             </>
