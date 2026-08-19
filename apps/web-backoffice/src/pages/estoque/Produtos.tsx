@@ -34,7 +34,7 @@ type SortKey = 'name' | 'cat' | 'stock' | 'status';
 const UNIDADES_FALLBACK = ['L', 'mL', 'kg', 'g', 'un', 'par'];
 const CATEGORIAS_FALLBACK = ['Inseticida', 'Raticida', 'Larvicida', 'Desinfetante', 'Equipamento', 'EPI'];
 
-const emptyForm = { nome: '', codigo: '', categoria: 'Inseticida', unidade: 'un', min: '', max: '', fornecedor_id: '' };
+const emptyForm = { nome: '', codigo: '', categoria: 'Inseticida', unidade: 'un', min: '', max: '', fornecedor_id: '', observacao: '' };
 
 export function Produtos() {
   const navigate = useNavigate();
@@ -82,7 +82,7 @@ export function Produtos() {
     setCodeErr('');
     setForm(
       d.product
-        ? { nome: d.product.name, codigo: d.product.cod, categoria: d.product.cat, unidade: d.product.un, min: String(d.product.min), max: String(d.product.max || ''), fornecedor_id: d.product.fornecedor_id ?? '' }
+        ? { nome: d.product.name, codigo: d.product.cod, categoria: d.product.cat, unidade: d.product.un, min: String(d.product.min), max: String(d.product.max || ''), fornecedor_id: d.product.fornecedor_id ?? '', observacao: d.product.obs }
         : emptyForm,
     );
     setDrawer(d);
@@ -139,6 +139,7 @@ export function Produtos() {
       const payload = {
         codigo: form.codigo.trim(), nome: form.nome.trim(), categoria: form.categoria, unidade: form.unidade,
         estoque_min: Number(form.min) || 0, estoque_max: form.max ? Number(form.max) : null, fornecedor_id: form.fornecedor_id || null,
+        observacao: form.observacao.trim() || null,
       };
       if (drawer?.isNew) {
         if (await codigoExists(payload.codigo)) { setSaving(false); return setCodeErr('Código já cadastrado.'); }
@@ -267,7 +268,7 @@ export function Produtos() {
               <TextField label="Estoque máximo" inputMode="numeric" value={form.max} onChange={(e) => up('max', maskInt(e.target.value))} placeholder="0" />
             </div>
             <SelectField label="Fornecedor principal" value={form.fornecedor_id} onChange={(e) => up('fornecedor_id', e.target.value)} options={[{ value: '', label: 'Sem fornecedor' }, ...fornOpts.map((f) => ({ value: f.id, label: f.nome }))]} />
-            <TextareaField label="Observações" placeholder="Notas internas" />
+            <TextareaField label="Observações" placeholder="Notas internas" value={form.observacao} onChange={(e) => up('observacao', e.target.value)} />
           </div>
         )}
       </Drawer>
