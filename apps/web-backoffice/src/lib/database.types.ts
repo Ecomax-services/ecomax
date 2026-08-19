@@ -405,6 +405,7 @@ export type Database = {
           bairro: string | null
           cep: string | null
           cidade: string | null
+          classificacao_abc: string | null
           cnpj: string | null
           complemento: string | null
           cpf: string | null
@@ -428,6 +429,7 @@ export type Database = {
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
+          classificacao_abc?: string | null
           cnpj?: string | null
           complemento?: string | null
           cpf?: string | null
@@ -451,6 +453,7 @@ export type Database = {
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
+          classificacao_abc?: string | null
           cnpj?: string | null
           complemento?: string | null
           cpf?: string | null
@@ -470,6 +473,322 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      comercial_follow_ups: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          created_by: string | null
+          data_acao: string
+          data_registro: string
+          descricao: string | null
+          id: string
+          orcamento_id: string | null
+          responsavel_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          created_by?: string | null
+          data_acao: string
+          data_registro?: string
+          descricao?: string | null
+          id?: string
+          orcamento_id?: string | null
+          responsavel_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          created_by?: string | null
+          data_acao?: string
+          data_registro?: string
+          descricao?: string | null
+          id?: string
+          orcamento_id?: string | null
+          responsavel_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comercial_follow_ups_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comercial_follow_ups_orcamento_id_fkey"
+            columns: ["orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comercial_fup_anexos: {
+        Row: {
+          arquivo_url: string | null
+          created_at: string
+          created_by: string | null
+          follow_up_id: string
+          id: string
+          nome: string
+          tamanho_bytes: number | null
+          tipo: string | null
+        }
+        Insert: {
+          arquivo_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          follow_up_id: string
+          id?: string
+          nome: string
+          tamanho_bytes?: number | null
+          tipo?: string | null
+        }
+        Update: {
+          arquivo_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          follow_up_id?: string
+          id?: string
+          nome?: string
+          tamanho_bytes?: number | null
+          tipo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comercial_fup_anexos_follow_up_id_fkey"
+            columns: ["follow_up_id"]
+            isOneToOne: false
+            referencedRelation: "comercial_follow_ups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comercial_garantia_anexos: {
+        Row: {
+          arquivo_url: string | null
+          created_at: string
+          created_by: string | null
+          garantia_id: string
+          id: string
+          nome: string
+          tamanho_bytes: number | null
+          tipo: string | null
+        }
+        Insert: {
+          arquivo_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          garantia_id: string
+          id?: string
+          nome: string
+          tamanho_bytes?: number | null
+          tipo?: string | null
+        }
+        Update: {
+          arquivo_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          garantia_id?: string
+          id?: string
+          nome?: string
+          tamanho_bytes?: number | null
+          tipo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comercial_garantia_anexos_garantia_id_fkey"
+            columns: ["garantia_id"]
+            isOneToOne: false
+            referencedRelation: "comercial_garantias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comercial_garantia_historico: {
+        Row: {
+          actor_id: string | null
+          campo: string
+          comentario: string | null
+          created_at: string
+          garantia_id: string
+          id: string
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          campo: string
+          comentario?: string | null
+          created_at?: string
+          garantia_id: string
+          id?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          campo?: string
+          comentario?: string | null
+          created_at?: string
+          garantia_id?: string
+          id?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comercial_garantia_historico_garantia_id_fkey"
+            columns: ["garantia_id"]
+            isOneToOne: false
+            referencedRelation: "comercial_garantias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comercial_garantia_links: {
+        Row: {
+          aberto_em: string | null
+          created_at: string
+          created_by: string | null
+          expira_em: string
+          garantia_id: string
+          id: string
+          respondido_em: string | null
+          resposta: string | null
+          revogado: boolean
+          token: string
+        }
+        Insert: {
+          aberto_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          expira_em: string
+          garantia_id: string
+          id?: string
+          respondido_em?: string | null
+          resposta?: string | null
+          revogado?: boolean
+          token: string
+        }
+        Update: {
+          aberto_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          expira_em?: string
+          garantia_id?: string
+          id?: string
+          respondido_em?: string | null
+          resposta?: string | null
+          revogado?: boolean
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comercial_garantia_links_garantia_id_fkey"
+            columns: ["garantia_id"]
+            isOneToOne: false
+            referencedRelation: "comercial_garantias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comercial_garantia_servicos: {
+        Row: {
+          created_at: string
+          garantia_id: string
+          id: string
+          observacao: string | null
+          tipo_servico: string
+        }
+        Insert: {
+          created_at?: string
+          garantia_id: string
+          id?: string
+          observacao?: string | null
+          tipo_servico: string
+        }
+        Update: {
+          created_at?: string
+          garantia_id?: string
+          id?: string
+          observacao?: string | null
+          tipo_servico?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comercial_garantia_servicos_garantia_id_fkey"
+            columns: ["garantia_id"]
+            isOneToOne: false
+            referencedRelation: "comercial_garantias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comercial_garantias: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          created_by: string | null
+          data_contato_renovacao: string | null
+          data_execucao: string | null
+          data_validade: string
+          id: string
+          observacao: string | null
+          os_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          created_by?: string | null
+          data_contato_renovacao?: string | null
+          data_execucao?: string | null
+          data_validade: string
+          id?: string
+          observacao?: string | null
+          os_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          created_by?: string | null
+          data_contato_renovacao?: string | null
+          data_execucao?: string | null
+          data_validade?: string
+          id?: string
+          observacao?: string | null
+          os_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comercial_garantias_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comercial_garantias_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: true
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cotacao_respostas: {
         Row: {
@@ -688,6 +1007,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      filtros_salvos: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          created_by: string | null
+          favorito: boolean
+          id: string
+          modulo: string
+          nome: string
+          regras: Json
+          updated_at: string
+          visibilidade: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          created_by?: string | null
+          favorito?: boolean
+          id?: string
+          modulo: string
+          nome: string
+          regras?: Json
+          updated_at?: string
+          visibilidade?: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          created_by?: string | null
+          favorito?: boolean
+          id?: string
+          modulo?: string
+          nome?: string
+          regras?: Json
+          updated_at?: string
+          visibilidade?: string
+        }
+        Relationships: []
       }
       fornecedor_contatos: {
         Row: {
