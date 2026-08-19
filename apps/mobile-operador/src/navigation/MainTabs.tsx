@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +8,7 @@ import {
 } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NotificationsScreen } from '@/screens/NotificationsScreen';
+import { contarNaoLidas } from '@/lib/notificacoes';
 import { OsListScreen } from '@/screens/os/OsListScreen';
 import { OsDetailScreen } from '@/screens/os/OsDetailScreen';
 import { AgendaScreen } from '@/screens/AgendaScreen';
@@ -40,15 +42,24 @@ function ConfigStack() {
 }
 
 type IconName = keyof typeof MaterialIcons.glyphMap;
-const META: Record<string, { label: string; icon: IconName; badge?: number }> = {
+const META: Record<string, { label: string; icon: IconName }> = {
   OS: { label: 'OS', icon: 'assignment' },
   Agenda: { label: 'Agenda', icon: 'calendar-today' },
-  Notificacoes: { label: 'Notif.', icon: 'notifications', badge: 2 },
+  Notificacoes: { label: 'Notif.', icon: 'notifications' },
   Config: { label: 'Config.', icon: 'settings' },
 };
 
 function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const [naoLidas, setNaoLidas] = useState(0);
+
+  // Reconta a cada troca de aba. O badge era o literal `2`: não refletia nada e
+  // continuava lá depois de marcar tudo como lido.
+  useEffect(() => {
+    let vivo = true;
+    contarNaoLidas().then((n) => vivo && setNaoLidas(n)).catch(() => {});
+    return () => { vivo = false; };
+  }, [state.index]);
   return (
     <View style={[styles.bar, { paddingBottom: insets.bottom || 12 }]}>
       {state.routes.map((route, index) => {
@@ -66,9 +77,9 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             {focused && <View style={styles.indicator} />}
             <View>
               <MaterialIcons name={meta.icon} size={22} color={color} />
-              {meta.badge ? (
+              {route.name === 'Notificacoes' && naoLidas > 0 ? (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{meta.badge}</Text>
+                  <Text style={styles.badgeText}>{naoLidas > 99 ? '99+' : naoLidas}</Text>
                 </View>
               ) : null}
             </View>

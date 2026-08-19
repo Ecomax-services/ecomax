@@ -41,6 +41,14 @@ export async function listNotificacoes(): Promise<NotifItem[]> {
     return { id: r.id, kind, tagLabel: KIND_TAG[kind], datetime: fmtDateTime(r.created_at), title: r.titulo, description: r.descricao ?? '', read: r.lida };
   });
 }
+/** Quantas não lidas o usuário tem. A RLS já escopa por profile/role, então a
+ *  contagem sai certa sem filtro extra aqui. */
+export async function contarNaoLidas(): Promise<number> {
+  const { count, error } = await supabase
+    .from('notificacoes').select('id', { count: 'exact', head: true }).eq('lida', false);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
 export async function markRead(id: string): Promise<void> {
   const { error } = await supabase.from('notificacoes').update({ lida: true }).eq('id', id);
   if (error) throw new Error(error.message);
