@@ -3,9 +3,11 @@ import { supabase } from '@/lib/supabase';
 /**
  * Estado de um documento com validade (ASO, CNH).
  *
- * NOTA: esta regra existe duplicada no backoffice (`lib/funcionarios.ts` e
- * `lib/clientes.ts`, hoje com comportamentos divergentes). A consolidação em
- * `packages/core` está planejada — ao mexer aqui, conferir lá também.
+ * A mesma regra vive no backoffice, em `lib/documentos.ts` — lá ela já é única
+ * para as quatro telas que perguntavam. Enquanto não existe um pacote
+ * compartilhado, estas duas cópias precisam continuar dizendo a mesma coisa:
+ * meia-noite local como referência, o documento vale **até** a data impressa, e
+ * ausência é pendência, não dispensa. Ao mexer aqui, conferir lá.
  */
 /**
  * `ausente` é documento que falta, não documento dispensado. O perfil lista CNH
