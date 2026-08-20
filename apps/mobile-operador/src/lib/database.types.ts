@@ -133,6 +133,7 @@ export type Database = {
           cor_fg: string | null
           created_at: string
           created_by: string | null
+          garantia_meses: number | null
           id: string
           nome: string
           observacao: string | null
@@ -149,6 +150,7 @@ export type Database = {
           cor_fg?: string | null
           created_at?: string
           created_by?: string | null
+          garantia_meses?: number | null
           id?: string
           nome: string
           observacao?: string | null
@@ -165,6 +167,7 @@ export type Database = {
           cor_fg?: string | null
           created_at?: string
           created_by?: string | null
+          garantia_meses?: number | null
           id?: string
           nome?: string
           observacao?: string | null
