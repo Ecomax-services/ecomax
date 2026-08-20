@@ -9,6 +9,7 @@ import {
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NotificationsScreen } from '@/screens/NotificationsScreen';
 import { contarNaoLidas, assinarNaoLidas } from '@/lib/notificacoes';
+import { assinarPrefBadge, carregarPrefBadge } from '@/lib/preferencias';
 import { OsListScreen } from '@/screens/os/OsListScreen';
 import { OsDetailScreen } from '@/screens/os/OsDetailScreen';
 import { AgendaScreen } from '@/screens/AgendaScreen';
@@ -52,11 +53,20 @@ const META: Record<string, { label: string; icon: IconName }> = {
 function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const [naoLidas, setNaoLidas] = useState(0);
+  const [mostrarBadge, setMostrarBadge] = useState(true);
 
   // Assina o contador: quem marca como lida avisa, e o badge cai na hora — antes
   // ele só recontava na troca de aba, então ler uma notificação estando na aba
   // Notificações deixava o número velho na tela.
   useEffect(() => assinarNaoLidas(setNaoLidas), []);
+
+  // A preferência comanda o badge de verdade — antes a chave gravava um valor
+  // que ninguém lia. Assinar (e não só ler no mount) faz o número sumir no
+  // mesmo toque, sem sair da tela de Preferências.
+  useEffect(() => {
+    carregarPrefBadge().catch(() => {});
+    return assinarPrefBadge(setMostrarBadge);
+  }, []);
 
   // A troca de aba ainda dispara uma releitura, para pegar o que mudou fora
   // deste aparelho.
@@ -82,7 +92,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             {focused && <View style={styles.indicator} />}
             <View>
               <MaterialIcons name={meta.icon} size={22} color={color} />
-              {route.name === 'Notificacoes' && naoLidas > 0 ? (
+              {route.name === 'Notificacoes' && mostrarBadge && naoLidas > 0 ? (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{naoLidas > 99 ? '99+' : naoLidas}</Text>
                 </View>

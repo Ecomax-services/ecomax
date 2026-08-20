@@ -26,13 +26,14 @@ export function ForgotPasswordScreen({ navigation }: Props) {
       return;
     }
     setSubmitting(true);
-    const { error: err } = await enviarLinkDeRecuperacao(email);
-    setSubmitting(false);
-    if (err && err.status && err.status >= 500) {
-      setError('Não foi possível enviar agora. Verifique sua conexão e tente novamente.');
-      return;
+    try {
+      await enviarLinkDeRecuperacao(email);
+      navigation.navigate('EmailSent');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSubmitting(false);
     }
-    navigation.navigate('EmailSent');
   }
 
   return (

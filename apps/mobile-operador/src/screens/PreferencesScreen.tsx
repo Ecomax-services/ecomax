@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, ImageBackground, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { carregarPrefBadge, definirPrefBadge, carregarPrefEmail, definirPrefEmail } from '@/lib/preferencias';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Toggle } from '@/components/Toggle';
@@ -10,31 +10,27 @@ import type { ConfigStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<ConfigStackParamList, 'Preferencias'>;
 
-/** Tela 3.2 - Preferências (node 83:615). Persistidas no dispositivo (AsyncStorage). */
+/**
+ * Tela 3.2 - Preferências (node 83:615).
+ *
+ * As duas chaves gravavam no aparelho e ninguém lia o valor: desligar não mudava
+ * nada. Agora a do app comanda o badge de verdade, e a de e-mail vive no perfil
+ * (por usuário, não por aparelho) — desabilitada enquanto nada no sistema envia
+ * notificação por e-mail, para não prometer o que não existe.
+ */
 export function PreferencesScreen({ navigation }: Props) {
-  const [inApp, setInApp] = useState(false);
+  const [inApp, setInApp] = useState(true);
   const [email, setEmail] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const [a, e] = await Promise.all([
-        AsyncStorage.getItem('ecomax.pref.inApp'),
-        AsyncStorage.getItem('ecomax.pref.email'),
-      ]);
-      if (a !== null) setInApp(a === 'true');
-      if (e !== null) setEmail(e === 'true');
-    })();
+    carregarPrefBadge().then(setInApp).catch(() => {});
+    carregarPrefEmail().then(setEmail).catch(() => {});
   }, []);
 
   const toggleInApp = () => {
     const v = !inApp;
     setInApp(v);
-    AsyncStorage.setItem('ecomax.pref.inApp', String(v));
-  };
-  const toggleEmail = () => {
-    const v = !email;
-    setEmail(v);
-    AsyncStorage.setItem('ecomax.pref.email', String(v));
+    definirPrefBadge(v).catch(() => {});
   };
 
   return (
@@ -51,16 +47,20 @@ export function PreferencesScreen({ navigation }: Props) {
         <View style={styles.card}>
           <Row
             title="Notificações no app"
-            sub="Receber alertas dentro do aplicativo"
+            sub="Mostrar o contador de não lidas na aba Notificações"
             value={inApp}
             onChange={toggleInApp}
           />
           <View style={styles.divider} />
+          {/* Guardada no perfil e desabilitada: a preferência é por usuário, não
+              por aparelho, mas nada no sistema envia notificação por e-mail
+              ainda — deixar clicável prometeria um recurso que não existe. */}
           <Row
             title="Notificações por e-mail"
-            sub="Receber cópia das notificações por e-mail"
+            sub="Indisponível — o envio por e-mail ainda não foi liberado"
             value={email}
-            onChange={toggleEmail}
+            onChange={() => {}}
+            disabled
           />
         </View>
       </ImageBackground>
@@ -73,14 +73,16 @@ function Row({
   sub,
   value,
   onChange,
+  disabled,
 }: {
   title: string;
   sub: string;
   value: boolean;
   onChange: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, disabled && { opacity: 0.5 }]} pointerEvents={disabled ? 'none' : 'auto'}>
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle}>{title}</Text>
         <Text style={styles.rowSub}>{sub}</Text>
