@@ -270,15 +270,13 @@ export async function listOrcamentos(clienteId: string): Promise<OrcamentoRow[]>
     observacao: o.observacao ?? '', valor: brl(Number(o.valor_total)), osCount: 0,
   }));
 }
-export async function createOrcamento(clienteId: string, input: { observacao: string | null; valor_total: number }): Promise<void> {
-  const { error } = await supabase.from('orcamentos').insert({ cliente_id: clienteId, observacao: input.observacao, valor_total: input.valor_total, created_by: await actorId() });
-  if (error) throw new Error(error.message);
-  await audit('orcamento_criado', { cliente_id: clienteId });
-}
-export async function updateOrcamento(id: string, input: { observacao?: string | null; valor_total?: number }): Promise<void> {
-  const { error } = await supabase.from('orcamentos').update(input).eq('id', id);
-  if (error) throw new Error(error.message);
-}
+/**
+ * O valor de um orçamento é a soma dos itens, mantida pelo trigger
+ * `recalcular_total_orcamento`. Havia aqui um `createOrcamento`/`updateOrcamento`
+ * que gravava um `valor_total` digitado à mão — um segundo dono do mesmo número,
+ * que o trigger sobrescrevia no primeiro item adicionado. O modal que os chamava
+ * já estava inalcançável; sumiram os três.
+ */
 export async function setOrcamentoStatus(id: string, status: OrcStatus): Promise<void> {
   const { error } = await supabase.from('orcamentos').update({ status }).eq('id', id);
   if (error) throw new Error(error.message);
