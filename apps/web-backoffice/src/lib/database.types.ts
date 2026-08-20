@@ -2502,6 +2502,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "requisicoes_aprovado_por_fkey"
+            columns: ["aprovado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "requisicoes_aprovador_id_fkey"
             columns: ["aprovador_id"]
             isOneToOne: false
@@ -2534,6 +2541,13 @@ export type Database = {
             columns: ["produto_id"]
             isOneToOne: false
             referencedRelation: "vw_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requisicoes_solicitante_id_fkey"
+            columns: ["solicitante_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

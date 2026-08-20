@@ -604,13 +604,24 @@ export async function aprovarCotacao(cotacaoId: string): Promise<string> {
 export async function listRequisicoes(): Promise<ReqRow[]> {
   const { data, error } = await supabase
     .from('requisicoes')
-    .select('id, codigo, produto_id, quantidade, valor, status, nota_fiscal_url, aprovado_em, produto:produto_id(nome), fornecedor:fornecedor_id(razao_social), aprovador:aprovador_id(nome_completo)')
+    .select(
+      'id, codigo, produto_id, quantidade, valor, status, nota_fiscal_url, aprovado_em, ' +
+      'produto:produto_id(nome), fornecedor:fornecedor_id(razao_social), ' +
+      // Três pessoas diferentes: quem pediu, quem foi designado para aprovar, e
+      // quem aprovou de fato. A tela mostrava traço nas duas primeiras.
+      'solicitante:solicitante_id(nome_completo), designado:aprovador_id(nome_completo), aprovadoPor:aprovado_por(nome_completo)',
+    )
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data as any[]).map((r) => ({
     id: r.id, cod: r.codigo, produto_id: r.produto_id, prod: one<any>(r.produto)?.nome ?? '—', qtd: r.quantidade ?? '—',
     forn: one<any>(r.fornecedor)?.razao_social ?? '—', valor: brl(r.valor == null ? null : Number(r.valor)),
-    solic: '—', aprovador: one<any>(r.aprovador)?.nome_completo ?? '—',
+    solic: one<any>(r.solicitante)?.nome_completo ?? '—',
+    // Aprovada já tem responsável de verdade; antes disso vale o designado.
+    // Mostrar o designado ao lado da data de aprovação dizia que ninguém
+    // aprovou, com o nome gravado no banco.
+    aprovador: one<any>(r.aprovadoPor)?.nome_completo
+      ?? one<any>(r.designado)?.nome_completo ?? '—',
     aprovadoEm: r.aprovado_em ? new Date(r.aprovado_em).toLocaleDateString('pt-BR') : null,
     status: r.status as ReqStatus, notaUrl: r.nota_fiscal_url,
   }));
@@ -750,10 +761,16 @@ export async function getProdutoKpis(): Promise<ProdutoKpis> {
     supabase.from('cotacoes').select('id', { count: 'exact', head: true }).in('status', ['aguardando', 'respondida']),
     supabase.from('requisicoes').select('id', { count: 'exact', head: true }).eq('status', 'aguardando_aprovacao'),
   ]);
+  // Os cartões se leem como um retrato do estoque em operação, então "abaixo do
+  // mínimo" e "sem fornecedor" contam só produto ativo. Antes varriam a lista
+  // inteira: a tela dizia 19 abaixo do mínimo com 19 produtos ativos, e os 2
+  // extras eram inativos — repor produto desativado não é trabalho de ninguém.
+  // O "sem fornecedor" só não mostrava diferença porque os inativos têm um.
+  const ativos = prods.filter((p) => p.status === 'Ativo');
   return {
-    ativos: prods.filter((p) => p.status === 'Ativo').length,
-    abaixoMin: prods.filter((p) => p.alert === 'low').length,
-    semForn: prods.filter((p) => p.noForn).length,
+    ativos: ativos.length,
+    abaixoMin: ativos.filter((p) => p.alert === 'low').length,
+    semForn: ativos.filter((p) => p.noForn).length,
     cotacoesAbertas: cotOpen ?? 0,
     reqAprovar: reqOpen ?? 0,
   };
