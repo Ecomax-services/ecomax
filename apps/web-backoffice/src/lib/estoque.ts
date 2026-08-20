@@ -901,7 +901,11 @@ export async function getKpisBases(): Promise<{ semMovimento30d: number; transfe
   const limite = new Date(Date.now() - 30 * 86_400_000).toISOString();
 
   const [bases, movs, pendentes] = await Promise.all([
-    supabase.from('bases').select('id'),
+    // Só base ativa: uma base desativada não tem movimento por definição, e
+    // apontá-la como "sem movimentação" manda alguém investigar o que já foi
+    // decidido. O cartão fica ao lado de "Bases ativas" e "Bases inativas", que
+    // já separam as duas coisas.
+    supabase.from('bases').select('id').eq('ativo', true),
     // A movimentação não tem uma "base": tem origem e destino, e qualquer um
     // dos dois conta como movimento para aquela base.
     supabase.from('movimentacoes').select('base_origem_id, base_destino_id').gte('created_at', limite),
