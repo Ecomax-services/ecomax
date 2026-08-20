@@ -603,7 +603,12 @@ export async function getResumoComercial(): Promise<ResumoComercial> {
       .eq('data_acao', hoje).eq('status', 'Em espera')),
     conta(supabase.from('comercial_follow_ups').select('id', { count: 'exact', head: true })
       .lt('data_acao', hoje).eq('status', 'Em espera')),
+    // Só 'Em vigor': uma garantia já Renovada, Expirada ou Recusada não está
+    // "vencendo" — o assunto foi resolvido. Contá-la manda o comercial cobrar
+    // um cliente que já respondeu. É o mesmo recorte da rotina que marca
+    // "A renovar" no banco (garantias_marcar_a_renovar), que sempre filtrou.
     conta(supabase.from('comercial_garantias').select('id', { count: 'exact', head: true })
+      .eq('status', 'Em vigor')
       .gte('data_validade', hoje).lte('data_validade', em60)),
     conta(supabase.from('comercial_garantias').select('id', { count: 'exact', head: true })
       .eq('status', 'Aguardando Retorno')),
