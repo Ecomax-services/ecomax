@@ -13,7 +13,7 @@ import { maskCEP } from '@/lib/masks';
 import { cn } from '@/lib/cn';
 import type { Produto } from '@/lib/estoque';
 import {
-  listClienteOptions, getClienteResumo, listFuncionarioOptions, listTiposServico, listPragas,
+  listClienteOptions, getClienteResumo, listFuncionarioOptions, listTiposServico, listPragas, bloqueioLabel,
   deriveEpis, listProdutoOptions, listEquipamentoOptions, gerarCronograma, createOrdemServico,
   iniciarOsDeOrcamento, recorrenciaLabel, isPastDate, enviarCroqui,
   type Recorrencia, type NovaOsInput, type FuncionarioOption, type ClienteResumo,
@@ -156,7 +156,7 @@ export function CriarOrdemServico() {
     catch (e) { showToast((e as Error).message); } finally { setSaving(false); setConfirmOpen(false); }
   };
 
-  const funcOpts = [{ value: '', label: '—' }, ...funcionarios.map((f) => ({ value: f.id, label: f.bloqueado ? `${f.nome} (doc. vencido)` : f.nome }))];
+  const funcOpts = [{ value: '', label: '—' }, ...funcionarios.map((f) => ({ value: f.id, label: f.bloqueado ? `${f.nome} (${bloqueioLabel(f.motivo)})` : f.nome }))];
 
   return (
     <>
@@ -453,7 +453,7 @@ function FuncionariosPicker({ label, funcionarios, value, onChange }: { label: s
         {funcionarios.length === 0 && <span className="text-[13px] text-ink-400">Nenhum funcionário ativo.</span>}
         {funcionarios.map((f) => (
           <button key={f.id} type="button" onClick={() => toggle(f.id, f.bloqueado)} disabled={f.bloqueado && !value.includes(f.id)}
-            title={f.bloqueado ? 'ASO/CNH vencido — bloqueado para novas OS' : ''}
+            title={f.bloqueado ? `ASO/CNH ${f.motivo === 'ausente' ? 'não cadastrado' : 'vencido'} — bloqueado para novas OS` : ''}
             className={cn('rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors', value.includes(f.id) ? 'border-forest-accent bg-forest-50 text-forest-700' : 'border-ink-200 bg-white text-ink-500 hover:bg-ink-50', f.bloqueado && 'cursor-not-allowed opacity-50')}>
             {f.nome}{f.bloqueado && ' ⚠'}
           </button>
