@@ -175,7 +175,7 @@ export function CadastrosAuxiliares() {
                           <span className="text-sm font-medium text-ink-800">{it.nome}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3.5 text-center text-sm text-ink-600">{it.uso > 0 ? `${it.uso} registros` : '—'}</td>
+                      <td className="px-4 py-3.5 text-center text-sm text-ink-600">{it.uso > 0 ? `${it.uso} ${it.uso === 1 ? 'registro' : 'registros'}` : '—'}</td>
                       <td className="px-4 py-3.5 text-center"><Badge tone={it.ativo ? 'success' : 'muted'}>{it.ativo ? 'Ativo' : 'Inativo'}</Badge></td>
                       <td className="px-4 py-3.5 pr-6 text-right">
                         {!canEdit && !canDelete && <span className="text-[13px] text-ink-400">—</span>}
