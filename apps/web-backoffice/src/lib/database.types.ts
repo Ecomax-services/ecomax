@@ -2768,11 +2768,23 @@ export type Database = {
           ultimo_login: string
         }[]
       }
+      ajuste_estoque: {
+        Args: {
+          p_base_id: string
+          p_delta: number
+          p_lote?: string
+          p_motivo: string
+          p_observacao?: string
+          p_produto_id: string
+        }
+        Returns: number
+      }
       apps_for_role: {
         Args: { r: Database["public"]["Enums"]["user_role"] }
         Returns: Database["public"]["Enums"]["app_key"][]
       }
       baixar_estoque_os: { Args: { p_os_id: string }; Returns: number }
+      cancelar_transferencia: { Args: { p_id: string }; Returns: undefined }
       catalogo_uso: {
         Args: { _catalogo: string }
         Returns: {
@@ -2793,9 +2805,30 @@ export type Database = {
         Args: { _plano_id: string }
         Returns: number
       }
+      criar_transferencia: {
+        Args: {
+          p_base_destino_id: string
+          p_base_origem_id: string
+          p_lote: string
+          p_motivo?: string
+          p_produto_id: string
+          p_quantidade: number
+        }
+        Returns: string
+      }
       current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      estoque_somar: {
+        Args: {
+          p_base_id: string
+          p_delta: number
+          p_lote: string
+          p_produto_id: string
+          p_validade?: string
+        }
+        Returns: number
       }
       funcionario_in_my_os: {
         Args: { _funcionario_id: string }
@@ -2833,6 +2866,14 @@ export type Database = {
           p_quantidade: number
           p_requisicao_id: string
           p_validade?: string
+        }
+        Returns: undefined
+      }
+      receber_transferencia: {
+        Args: {
+          p_id: string
+          p_justificativa?: string
+          p_quantidade_recebida: number
         }
         Returns: undefined
       }
