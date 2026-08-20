@@ -130,12 +130,17 @@ const DOC_META: Record<DocState, { icon: keyof typeof MaterialIcons.glyphMap; co
   ok: { icon: 'check-circle', color: colors.primary, texto: (v) => `Válido até ${v}` },
   soon: { icon: 'schedule', color: colors.warnFg, texto: (v) => `Vence em ${v}` },
   expired: { icon: 'warning', color: colors.danger, texto: (v) => `Vencido em ${v}` },
-  na: { icon: 'remove-circle-outline', color: colors.neutral400, texto: () => 'Não se aplica' },
+  // Cinza e "Não se aplica" diziam ao operador que o documento era dispensável.
+  // Falta de ASO ou CNH impede trabalhar em campo — o aviso tem que aparecer.
+  ausente: { icon: 'error-outline', color: colors.warnFg, texto: () => 'Não enviado' },
 };
 
 function DocRow({ titulo, validade, estado }: { titulo: string; validade: string; estado: DocState }) {
-  const meta = DOC_META[estado];
-  const alerta = estado === 'expired' || estado === 'soon';
+  // Sem o fallback, um estado que não esteja no mapa derruba a tela inteira do
+  // perfil com "Cannot read property 'icon' of undefined" — caro demais para
+  // uma linha de documento.
+  const meta = DOC_META[estado] ?? DOC_META.ausente;
+  const alerta = estado === 'expired' || estado === 'soon' || estado === 'ausente';
   return (
     <View style={styles.docRow}>
       <MaterialIcons name={meta.icon} size={18} color={meta.color} />

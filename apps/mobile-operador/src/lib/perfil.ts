@@ -7,12 +7,17 @@ import { supabase } from '@/lib/supabase';
  * `lib/clientes.ts`, hoje com comportamentos divergentes). A consolidação em
  * `packages/core` está planejada — ao mexer aqui, conferir lá também.
  */
-export type DocState = 'ok' | 'soon' | 'expired' | 'na';
+/**
+ * `ausente` é documento que falta, não documento dispensado. O perfil lista CNH
+ * e ASO para todo operador, então a ausência nunca significa "não se aplica" —
+ * significa que ninguém enviou, e para trabalho de campo os dois são exigidos.
+ */
+export type DocState = 'ok' | 'soon' | 'expired' | 'ausente';
 
 const DIA = 86400000;
 
 export function docState(iso: string | null): DocState {
-  if (!iso) return 'na';
+  if (!iso) return 'ausente';
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   const venc = new Date(iso + 'T00:00:00').getTime();
