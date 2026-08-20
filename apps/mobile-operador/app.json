@@ -14,21 +14,31 @@
       "resizeMode": "contain",
       "backgroundColor": "#0a2d0a"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "br.com.ecomax.operador"
+      "bundleIdentifier": "br.com.ecomax.operador",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "O Ecomax Operador registra onde o check-in e o check-out da ordem de serviço aconteceram, como comprovação do atendimento."
+      }
     },
     "android": {
       "package": "br.com.ecomax.operador",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a2d0a"
-      }
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
-    }
+    },
+    "_comment_localizacao": "Localização só em primeiro plano: o app carimba check-in e check-out, não acompanha o operador. Pedir permissão de segundo plano exigiria justificativa na loja para um dado que o produto não usa."
   }
 }

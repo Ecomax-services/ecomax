@@ -84,11 +84,30 @@ export function OsDetailScreen({ route, navigation }: Props) {
     await run(() => registrarFoto(id, asset.uri, nome), 'Foto anexada');
   };
 
-  const run = async (fn: () => Promise<void>, ok?: string) => {
+  const run = async (fn: () => Promise<unknown>, ok?: string) => {
     setBusy(true);
     try { await fn(); if (ok) Alert.alert(ok); load(); }
     catch (e) { Alert.alert('Erro', (e as Error).message); }
     finally { setBusy(false); }
+  };
+
+  /**
+   * Check-in e check-out avisam quando a coordenada não entrou.
+   *
+   * O registro acontece de qualquer forma — se avisasse só no sucesso, o
+   * operador sairia do local achando que a localização foi gravada.
+   */
+  const registrarComGps = (fn: () => Promise<{ comGps: boolean }>, rotulo: string) => async () => {
+    setBusy(true);
+    try {
+      const { comGps } = await fn();
+      Alert.alert(rotulo, comGps ? 'Localização registrada.' : 'Registrado sem localização — o GPS não respondeu ou a permissão foi negada.');
+      load();
+    } catch (e) {
+      Alert.alert('Erro', (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const salvarTodoConsumo = async () => {
@@ -150,9 +169,17 @@ export function OsDetailScreen({ route, navigation }: Props) {
             <CheckState label="Check-in" time={brTime(os.checkInAt)} done={!!os.checkInAt} />
             <CheckState label="Check-out" time={brTime(os.checkOutAt)} done={!!os.checkOutAt} />
           </View>
-          {!readOnly && !os.checkInAt && <Button label="Registrar check-in" onPress={() => run(() => registrarCheckIn(id, os.status), 'Check-in registrado')} />}
-          {!readOnly && os.checkInAt && !os.checkOutAt && <Button label="Registrar check-out" variant="outlineGreen" onPress={() => run(() => registrarCheckOut(id), 'Check-out registrado')} />}
-          <Text style={styles.hint}>A localização (GPS) do check-in ainda não é registrada.</Text>
+          {!readOnly && !os.checkInAt && <Button label="Registrar check-in" onPress={registrarComGps(() => registrarCheckIn(id, os.status), 'Check-in registrado')} />}
+          {!readOnly && os.checkInAt && !os.checkOutAt && <Button label="Registrar check-out" variant="outlineGreen" onPress={registrarComGps(() => registrarCheckOut(id), 'Check-out registrado')} />}
+          {/* O aviso era fixo e dizia que o GPS não era registrado, mesmo depois
+              de passar a ser. Agora conta o que de fato está gravado nesta OS. */}
+          <Text style={styles.hint}>
+            {os.checkInLat != null && os.checkInLng != null
+              ? `Local do check-in: ${os.checkInLat.toFixed(5)}, ${os.checkInLng.toFixed(5)}`
+              : os.checkInAt
+                ? 'Check-in registrado sem localização.'
+                : 'A localização é registrada junto com o check-in, se o aparelho permitir.'}
+          </Text>
         </Section>
 
         {/* Produtos / consumo */}
