@@ -91,6 +91,9 @@ export const osStatusLabel: Record<OsStatus, string> = {
   nao_executada: 'Não executada',
   cancelada: 'Cancelada',
 };
+/** O que a coluna Data mostra quando a OS ainda não foi programada. */
+export const SEM_DATA_PROGRAMADA = 'A programar';
+
 export const OS_STATUSES: OsStatus[] = [
   'em_aberto', 'emitida', 'confirmada', 'em_andamento',
   'executada', 'concluida', 'remarcada', 'nao_executada', 'cancelada',
@@ -174,7 +177,14 @@ export async function listOperacional(opts: ListOpts = {}): Promise<{ rows: Oper
     return {
       id: o.id, kind: 'os', numero: o.codigo, clienteId: o.cliente_id, cliente: nome(o.cliente),
       tipo: (o.tipos_servico as string[] | null ?? []).join(', ') || '—',
-      data: brDate(o.data_programada ?? o.created_at), dataSort: o.data_programada ?? o.created_at,
+      // A coluna diz "Data" e a pergunta é "quando esta OS acontece". Sem data
+      // programada não há resposta — mostrar a data de criação no lugar cria
+      // uma que não existe: o documento impresso diz "Data programada —" e a
+      // Agenda do operador, que só conhece `data_programada`, simplesmente não
+      // exibe a OS. Hoje 8 das 12 OS estão assim, 3 delas do operador de QA.
+      // Ordenar continua usando `created_at`, que é só critério de ordem.
+      data: o.data_programada ? brDate(o.data_programada) : SEM_DATA_PROGRAMADA,
+      dataSort: o.data_programada ?? o.created_at,
       funcionarios: funcs.length ? funcs.join(', ') : '—',
       status: st, statusLabel: osStatusLabel[st] ?? st, statusTone: osStatusTone[st] ?? 'muted',
       valor: '—', origem, origemLabel: origem === 'avulsa' ? 'Avulsa' : 'A partir de orçamento',
