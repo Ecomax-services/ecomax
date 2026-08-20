@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/theme';
+import { msgErro } from '@/lib/erros';
 
 export type NotifKind = 'os' | 'info' | 'warn';
 
@@ -37,7 +38,7 @@ function fmtDateTime(iso: string): string {
 /** Notificações do operador (RLS filtra por para_profile_id = auth.uid()). */
 export async function listNotificacoes(): Promise<NotifItem[]> {
   const { data, error } = await supabase.from('notificacoes').select('*').order('created_at', { ascending: false }).limit(100);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((r) => {
     const kind = mapKind(r.tipo);
     return { id: r.id, kind, tagLabel: KIND_TAG[kind], datetime: fmtDateTime(r.created_at), title: r.titulo, description: r.descricao ?? '', read: r.lida, osId: r.os_id ?? null };
@@ -65,18 +66,18 @@ export function assinarNaoLidas(fn: OuvinteNaoLidas): () => void {
 export async function contarNaoLidas(): Promise<number> {
   const { count, error } = await supabase
     .from('notificacoes').select('id', { count: 'exact', head: true }).eq('lida', false);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   naoLidasAtual = count ?? 0;
   ouvintes.forEach((fn) => fn(naoLidasAtual));
   return naoLidasAtual;
 }
 export async function markRead(id: string): Promise<void> {
   const { error } = await supabase.from('notificacoes').update({ lida: true }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await contarNaoLidas();
 }
 export async function markAllRead(): Promise<void> {
   const { error } = await supabase.from('notificacoes').update({ lida: true }).eq('lida', false);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await contarNaoLidas();
 }

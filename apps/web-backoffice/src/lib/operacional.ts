@@ -6,6 +6,7 @@ import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { criarNotificacao } from '@/lib/notificacoes';
 import { avaliarDocumentos, type MotivoBloqueio } from '@/lib/documentos';
 import { hojeISO, diaISO } from '@/lib/datas';
+import { msgErro } from '@/lib/erros';
 
 // ============================================================
 // Helpers
@@ -293,7 +294,7 @@ export async function getOrdemServico(id: string): Promise<OrdemServicoDetail> {
     .from('ordens_servico')
     .select('*, cliente:cliente_id(nome), orcamento:orcamento_id(codigo), responsavel:responsavel_admin_id(nome_completo), integrado:funcionario_integrado_id(nome_completo)')
     .eq('id', id).single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const o = data as any;
   const one = (r: any, k: string) => (Array.isArray(r) ? r[0]?.[k] : r?.[k]) ?? null;
   return {
@@ -359,7 +360,7 @@ export async function updateDadosGerais(id: string, patch: DadosGeraisPatch): Pr
   }
   const before = await getOrdemServico(id);
   const { error } = await supabase.from('ordens_servico').update(patch).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   // Histórico por-campo (só o que mudou).
   for (const k of Object.keys(patch) as (keyof DadosGeraisPatch)[]) {
     const antes = fmt((before as any)[k]);
@@ -377,7 +378,7 @@ export async function setOsStatus(id: string, status: OsStatus): Promise<void> {
     throw new Error('Assinatura do cliente é obrigatória para marcar como executada.');
   }
   const { error } = await supabase.from('ordens_servico').update({ status }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(id, 'Status', osStatusLabel[os.status], osStatusLabel[status]);
   await audit('os_status', { os_id: id, de: os.status, para: status });
   if (status === 'executada') await notify('os_executada_portal', { os_id: id });
@@ -389,7 +390,7 @@ export async function cancelarOs(id: string, motivo: string): Promise<void> {
   const os = await getOrdemServico(id);
   if (isReadOnly(os.status)) throw new Error('OS já finalizada.');
   const { error } = await supabase.from('ordens_servico').update({ status: 'cancelada', cancelamento_motivo: motivo.trim() }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(id, 'Status', osStatusLabel[os.status], 'Cancelada');
   await hist(id, 'Motivo do cancelamento', null, motivo.trim());
   await audit('os_cancelada', { os_id: id, motivo });
@@ -406,7 +407,7 @@ export async function duplicarOs(id: string): Promise<string> {
     pragas: o.pragas, epis: o.epis, necessita_relatorio: o.necessita_relatorio,
     outros_documentos: o.outros_documentos, created_by: await actorId(),
   }).select('id').single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const novoId = (data as any).id;
   // Copia produtos e equipamentos previstos (sem consumo).
   const [{ data: prods }, { data: equips }] = await Promise.all([
@@ -434,7 +435,7 @@ export async function listOsFuncionarios(osId: string): Promise<OsFuncionarioRow
     .from('os_funcionarios')
     .select('id, funcionario_id, funcionario:funcionario_id(nome_completo, cargo, aso_validade, cnh_validade)')
     .eq('os_id', osId).order('created_at');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const hoje = hojeISO();
   return (data as any[]).map((v) => {
     const f = Array.isArray(v.funcionario) ? v.funcionario[0] : v.funcionario;
@@ -450,7 +451,7 @@ export async function addOsFuncionario(osId: string, funcionarioId: string): Pro
   // 23514 vem do trigger que recusa equipe em rascunho: a criação de OS já não
   // vinculava ninguém a rascunho, mas esta tela não tinha a mesma guarda.
   if (error) throw new Error(
-    error.code === '23505' ? 'Funcionário já vinculado a esta OS.' : error.message,
+    error.code === '23505' ? 'Funcionário já vinculado a esta OS.' : msgErro(error),
   );
   await hist(osId, 'Funcionário vinculado', null, funcionarioId);
   await notify('os_funcionario_vinculado', { os_id: osId, funcionario_id: funcionarioId }); // → app mobile
@@ -465,7 +466,7 @@ export async function addOsFuncionario(osId: string, funcionarioId: string): Pro
 }
 export async function removeOsFuncionario(osId: string, vinculoId: string, nome: string): Promise<void> {
   const { error } = await supabase.from('os_funcionarios').delete().eq('id', vinculoId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Funcionário removido', nome, null);
   await notify('os_funcionario_removido', { os_id: osId }); // → app mobile
   await audit('os_func_remove', { os_id: osId, vinculo: vinculoId });
@@ -484,7 +485,7 @@ export async function listOsProdutos(osId: string): Promise<OsProdutoRow[]> {
     .from('os_produtos')
     .select('*, produto:produto_id(codigo, nome, unidade)')
     .eq('os_id', osId).order('created_at');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((r) => {
     const p = Array.isArray(r.produto) ? r.produto[0] : r.produto;
     const used = r.qtd_utilizada == null ? null : Number(r.qtd_utilizada);
@@ -498,20 +499,20 @@ export async function listOsProdutos(osId: string): Promise<OsProdutoRow[]> {
 }
 export async function addOsProduto(osId: string, input: { produto_id: string; qtd_recomendada: number; unidade: string | null; lote?: string | null; base_id?: string | null; prazo_alvo?: string | null; observacao?: string | null }): Promise<void> {
   const { error } = await supabase.from('os_produtos').insert({ os_id: osId, ...input });
-  if (error) throw new Error(error.code === '23505' ? 'Produto já previsto nesta OS.' : error.message);
+  if (error) throw new Error(error.code === '23505' ? 'Produto já previsto nesta OS.' : msgErro(error));
   await hist(osId, 'Produto previsto adicionado', null, input.produto_id);
 }
 /** Ajuste manual do consumo (o valor "oficial" vem do app; ajuste fica registrado no histórico). */
 export async function ajustarQtdUtilizada(osId: string, itemId: string, qtd: number | null): Promise<void> {
   const { data: before } = await supabase.from('os_produtos').select('qtd_utilizada').eq('id', itemId).single();
   const { error } = await supabase.from('os_produtos').update({ qtd_utilizada: qtd }).eq('id', itemId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Consumo (ajuste manual)', (before as any)?.qtd_utilizada?.toString() ?? null, qtd?.toString() ?? null);
   await audit('os_consumo_ajuste', { os_id: osId, item: itemId, qtd });
 }
 export async function removeOsProduto(osId: string, itemId: string): Promise<void> {
   const { error } = await supabase.from('os_produtos').delete().eq('id', itemId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Produto previsto removido', itemId, null);
 }
 
@@ -523,7 +524,7 @@ export async function listOsEquipamentos(osId: string): Promise<OsEquipamentoRow
     .from('os_equipamentos')
     .select('*, produto:produto_id(nome, codigo), responsavel:responsavel_id(nome_completo)')
     .eq('os_id', osId).order('created_at');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((r) => {
     const p = Array.isArray(r.produto) ? r.produto[0] : r.produto;
     const resp = Array.isArray(r.responsavel) ? r.responsavel[0] : r.responsavel;
@@ -532,12 +533,12 @@ export async function listOsEquipamentos(osId: string): Promise<OsEquipamentoRow
 }
 export async function addOsEquipamento(osId: string, input: { produto_id: string; numero_serie?: string | null; responsavel_id?: string | null }): Promise<void> {
   const { error } = await supabase.from('os_equipamentos').insert({ os_id: osId, ...input });
-  if (error) throw new Error(error.code === '23505' ? 'Equipamento já vinculado a esta OS.' : error.message);
+  if (error) throw new Error(error.code === '23505' ? 'Equipamento já vinculado a esta OS.' : msgErro(error));
   await hist(osId, 'Equipamento adicionado', null, input.produto_id);
 }
 export async function removeOsEquipamento(osId: string, itemId: string): Promise<void> {
   const { error } = await supabase.from('os_equipamentos').delete().eq('id', itemId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Equipamento removido', itemId, null);
 }
 
@@ -549,7 +550,7 @@ export interface OsRelatorioRow {
 }
 export async function listOsRelatorios(osId: string): Promise<OsRelatorioRow[]> {
   const { data, error } = await supabase.from('os_relatorios').select('*').eq('os_id', osId).order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((r) => ({
     id: r.id, titulo: r.titulo, arquivoUrl: r.arquivo_url, publicado: r.publicado,
     publicadoEm: r.publicado_at ? brDateTime(r.publicado_at) : '—', criadoEm: brDateTime(r.created_at),
@@ -557,7 +558,7 @@ export async function listOsRelatorios(osId: string): Promise<OsRelatorioRow[]> 
 }
 export async function emitirRelatorio(osId: string, titulo: string, arquivoUrl: string | null): Promise<void> {
   const { error } = await supabase.from('os_relatorios').insert({ os_id: osId, titulo, arquivo_url: arquivoUrl, created_by: await actorId() });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Relatório técnico emitido', null, titulo);
   await audit('os_relatorio_emitido', { os_id: osId, titulo });
 }
@@ -567,7 +568,7 @@ export async function publicarRelatorio(osId: string, relatorioId: string, osSta
     throw new Error('Disponível apenas quando a OS estiver executada ou concluída.');
   }
   const { error } = await supabase.from('os_relatorios').update({ publicado: true, publicado_at: new Date().toISOString() }).eq('id', relatorioId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Relatório disponibilizado ao cliente', null, relatorioId);
   await notify('relatorio_publicado_portal', { os_id: osId, relatorio_id: relatorioId }); // → portal do cliente
   const { data: osrow } = await supabase.from('ordens_servico').select('cliente_id, codigo').eq('id', osId).single();
@@ -578,7 +579,7 @@ export async function publicarRelatorio(osId: string, relatorioId: string, osSta
 }
 export async function removerRelatorio(osId: string, relatorioId: string): Promise<void> {
   const { error } = await supabase.from('os_relatorios').delete().eq('id', relatorioId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Relatório removido', relatorioId, null);
 }
 
@@ -606,7 +607,7 @@ export async function urlAssinadaOperacional(caminho: string, segundos = 60 * 60
 export interface OsAnexoRow { id: string; nome: string; tipo: AnexoTipo; tipoLabel: string; arquivoUrl: string | null; criadoEm: string; }
 export async function listOsAnexos(osId: string): Promise<OsAnexoRow[]> {
   const { data, error } = await supabase.from('os_anexos').select('*').eq('os_id', osId).order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((a) => ({
     id: a.id, nome: a.nome, tipo: a.tipo, tipoLabel: anexoTipoLabel[a.tipo as AnexoTipo] ?? a.tipo,
     arquivoUrl: a.arquivo_url, criadoEm: brDateTime(a.created_at),
@@ -614,12 +615,12 @@ export async function listOsAnexos(osId: string): Promise<OsAnexoRow[]> {
 }
 export async function addAnexo(osId: string, nome: string, tipo: AnexoTipo, arquivoUrl: string | null): Promise<void> {
   const { error } = await supabase.from('os_anexos').insert({ os_id: osId, nome, tipo, arquivo_url: arquivoUrl, created_by: await actorId() });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Anexo adicionado', null, nome);
 }
 export async function removerAnexo(osId: string, anexoId: string, nome: string): Promise<void> {
   const { error } = await supabase.from('os_anexos').delete().eq('id', anexoId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Anexo removido', nome, null);
 }
 
@@ -633,7 +634,7 @@ export async function listOsHistorico(osId: string, filtro?: { de?: string; ate?
   if (filtro?.ate) q = q.lte('created_at', filtro.ate + 'T23:59:59');
   if (filtro?.actorId) q = q.eq('actor_id', filtro.actorId);
   const { data, error } = await q;
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const rows = data as any[];
   const nomes = await resolveActorNames(rows.map((r) => r.actor_id));
   return rows.map((r) => ({
@@ -706,7 +707,7 @@ export async function createOrdemServico(input: NovaOsInput): Promise<string> {
     outros_documentos: input.outros_documentos, mapa_pontos_url: input.mapa_pontos_url,
     created_by: await actorId(),
   }).select('id, codigo').single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const osId = (data as any).id;
   const codigo = (data as any).codigo;
 
@@ -735,7 +736,7 @@ export async function createOrdemServico(input: NovaOsInput): Promise<string> {
 /** Converte um orçamento aprovado em OS (pré-preenche o cliente e vincula o orçamento). */
 export async function iniciarOsDeOrcamento(orcamentoId: string): Promise<{ clienteId: string; cliente: string; codigo: string } | null> {
   const { data, error } = await supabase.from('orcamentos').select('id, codigo, cliente_id, cliente:cliente_id(nome)').eq('id', orcamentoId).single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const o = data as any;
   const cliente = (Array.isArray(o.cliente) ? o.cliente[0]?.nome : o.cliente?.nome) ?? '—';
   return { clienteId: o.cliente_id, cliente, codigo: o.codigo };
@@ -746,7 +747,7 @@ export async function iniciarOsDeOrcamento(orcamentoId: string): Promise<{ clien
 // ============================================================
 export async function listClienteOptions(): Promise<{ id: string; nome: string }[]> {
   const { data, error } = await supabase.from('clientes').select('id, nome').eq('ativo', true).order('nome');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((c) => ({ id: c.id, nome: c.nome }));
 }
 
@@ -768,7 +769,7 @@ export interface FuncionarioOption { id: string; nome: string; cargo: string; bl
 /** Funcionários ativos; `bloqueado` quando ASO/CNH estão vencidos ou faltando. */
 export async function listFuncionarioOptions(): Promise<FuncionarioOption[]> {
   const { data, error } = await supabase.from('funcionarios').select('id, nome_completo, cargo, aso_validade, cnh_validade').eq('ativo', true).order('nome_completo');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const hoje = hojeISO();
   return (data as any[]).map((f) => {
     const motivo = avaliarDocumentos(f.cargo, f.aso_validade, f.cnh_validade, hoje);

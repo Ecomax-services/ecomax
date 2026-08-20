@@ -10,6 +10,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { listClientes, setClienteAtivo, type ClienteRow } from '@/lib/clientes';
 import { ClienteFormDrawer } from '@/pages/clientes/ClienteFormDrawer';
+import { copiar } from '@/lib/clipboard';
 
 export function ClientesList() {
   const navigate = useNavigate();
@@ -36,12 +37,9 @@ export function ClientesList() {
    */
   const copiarLinkPortal = async () => {
     const url = import.meta.env.VITE_PORTAL_URL ?? 'https://cliente.ecomax.com.br';
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('Endereço do portal copiado. O acesso é liberado pelo convite, na aba Usuários do portal.');
-    } catch {
-      showToast(`Copie manualmente: ${url}`);
-    }
+    showToast(await copiar(url)
+      ? 'Endereço do portal copiado. O acesso é liberado pelo convite, na aba Usuários do portal.'
+      : `Copie manualmente: ${url}`);
   };
   const [drawer, setDrawer] = useState<{ id: string | null } | null>(null);
 

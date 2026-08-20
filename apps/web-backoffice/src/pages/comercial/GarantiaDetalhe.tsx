@@ -12,6 +12,7 @@ import { cn } from '@/lib/cn';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { Anexos } from './Anexos';
 import { useCatalogo } from '@/lib/useCatalogo';
+import { copiar } from '@/lib/clipboard';
 import {
   getGarantia, mudarStatusGarantia, listHistoricoGarantia, listServicosGarantia,
   addServicoGarantia, removeServicoGarantia, listLinksGarantia, gerarLinkGarantia, revogarLink,
@@ -46,19 +47,39 @@ export function GarantiaDetalhe() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [dias, setDias] = useState(30);
   const [novoServico, setNovoServico] = useState('');
+  const [notFound, setNotFound] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const [gar, srv, hist, lks] = await Promise.all([
         getGarantia(id), listServicosGarantia(id), listHistoricoGarantia(id), listLinksGarantia(id),
       ]);
+      // `getGarantia` usa `maybeSingle`: id inexistente devolve null sem erro,
+      // então o catch abaixo nunca disparava e a tela ficava em "Carregando…"
+      // para sempre. As telas de OS, cliente e funcionário já distinguem "ainda
+      // carregando" de "não existe"; esta era a única que faltava.
+      if (!gar) { setNotFound(true); return; }
       setG(gar); setServicos(srv); setHistorico(hist); setLinks(lks);
-    } catch (e) { showToast((e as Error).message); }
+    } catch (e) {
+      setNotFound(true);
+      showToast((e as Error).message);
+    }
   }, [id, showToast]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { listCatalogoAtivos('tipos_servico').then(setTiposServico).catch(() => {}); }, []);
 
+  if (notFound) {
+    return (
+      <>
+        <Topbar title="Garantia" breadcrumb="Início  /  Comercial  /  Garantias" />
+        <div className="flex-1 px-8 py-6">
+          <p className="text-sm text-ink-500">Garantia não encontrada.</p>
+          <Button variant="secondary" className="mt-3" onClick={() => navigate('/comercial/garantias')}>Voltar para a lista</Button>
+        </div>
+      </>
+    );
+  }
   if (!g) {
     return (
       <>
@@ -81,8 +102,12 @@ export function GarantiaDetalhe() {
   const gerar = async () => {
     try {
       const l = await gerarLinkGarantia(id, g.status, dias);
-      await navigator.clipboard.writeText(l.url).catch(() => {});
-      setLinkOpen(false); showToast('Link gerado e copiado'); load();
+      // O link foi gerado de qualquer forma; só a cópia pode falhar. Dizer
+      // "copiado" sem ter copiado faria a pessoa colar um vazio no e-mail.
+      const copiou = await copiar(l.url);
+      setLinkOpen(false);
+      showToast(copiou ? 'Link gerado e copiado' : 'Link gerado. Copie pelo botão ao lado do endereço, na lista abaixo.');
+      load();
     } catch (e) { showToast((e as Error).message); }
   };
 
@@ -184,7 +209,7 @@ export function GarantiaDetalhe() {
                 <div className="flex items-center gap-2">
                   <code className="min-w-0 flex-1 truncate rounded bg-ink-50 px-2 py-1 text-[12px] text-ink-600">{l.url}</code>
                   <button
-                    onClick={() => navigator.clipboard.writeText(l.url).then(() => showToast('Link copiado'))}
+                    onClick={async () => showToast(await copiar(l.url) ? 'Link copiado' : 'Não foi possível copiar. Selecione o endereço ao lado e copie manualmente.')}
                     aria-label="Copiar link" className="shrink-0 text-ink-400 hover:text-ink-900"
                   >
                     <Copy className="h-4 w-4" />

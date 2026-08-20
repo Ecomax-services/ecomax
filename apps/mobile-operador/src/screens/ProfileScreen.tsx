@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -25,12 +25,22 @@ export function ProfileScreen({ navigation }: Props) {
   const { profile, session, signOut } = useAuth();
   const [logout, setLogout] = useState(false);
   const [dados, setDados] = useState<MeuPerfil | null>(null);
+  const [falhou, setFalhou] = useState(false);
   const nome = profile?.nome_completo ?? 'Operador';
   const email = session?.user.email ?? '—';
 
-  useEffect(() => {
-    getMeuPerfil().then(setDados).catch(() => setDados(null));
+  // `catch(() => setDados(null))` deixava a seção de documentos em "Carregando…"
+  // para sempre — e quem mais topa com isso é justamente quem está em campo,
+  // com a rede oscilando. Falha precisa aparecer, e com um jeito de tentar de
+  // novo sem sair da tela.
+  const carregar = useCallback(() => {
+    setFalhou(false);
+    getMeuPerfil()
+      .then((d) => { setDados(d); })
+      .catch(() => { setDados(null); setFalhou(true); });
   }, []);
+
+  useEffect(carregar, [carregar]);
 
   async function handleChangePassword() {
     if (!session?.user.email) return;
@@ -70,7 +80,13 @@ export function ProfileScreen({ navigation }: Props) {
           </View>
 
           <Text style={styles.section}>DOCUMENTOS</Text>
-          {dados === null && <Text style={styles.docEmpty}>Carregando…</Text>}
+          {dados === null && !falhou && <Text style={styles.docEmpty}>Carregando…</Text>}
+          {falhou && (
+            <View>
+              <Text style={styles.docEmpty}>Não foi possível carregar seus documentos. Verifique a conexão.</Text>
+              <Button label="Tentar de novo" variant="outlineGreen" style={{ height: 44, marginHorizontal: 16 }} onPress={carregar} />
+            </View>
+          )}
           {dados?.semCadastro && (
             <Text style={styles.docEmpty}>
               Seu login ainda não está vinculado a um cadastro de funcionário. Fale com o administrador.

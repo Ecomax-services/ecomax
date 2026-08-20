@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import { msgErro } from '@/lib/erros';
 
 /**
  * Preferências do operador.
@@ -63,5 +64,5 @@ export async function definirPrefEmail(v: boolean): Promise<void> {
   const { data: p } = await supabase.from('profiles').select('preferencias').eq('id', id).single();
   const prefs = { ...((p?.preferencias ?? {}) as Record<string, unknown>), notificacoes_email: v };
   const { error } = await supabase.from('profiles').update({ preferencias: prefs }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }

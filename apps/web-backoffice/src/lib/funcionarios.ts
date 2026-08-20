@@ -3,6 +3,7 @@ import type { Json, TablesUpdate } from '@/lib/database.types';
 import type { Usuario } from '@/data/usuarios';
 import { docState, SEM_DATA } from '@/lib/documentos';
 import { hojeISO, emDiasISO } from '@/lib/datas';
+import { msgErro } from '@/lib/erros';
 export { docState };
 
 /** Linha crua da tabela `funcionarios` (subconjunto usado pela UI). */
@@ -118,7 +119,7 @@ export async function listFuncionarios(
   }
 
   const { data, count, error } = await q.order('nome_completo').range(from, from + pageSize - 1);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return { rows: (data as FuncionarioRow[]).map(toUsuario), total: count ?? 0 };
 }
 
@@ -164,7 +165,7 @@ export interface AcessoStatus { bloqueado: boolean; ultimoLogin: string | null; 
 export async function acessoStatus(profileId: string | null): Promise<AcessoStatus> {
   if (!profileId) return { bloqueado: false, ultimoLogin: null };
   const { data, error } = await supabase.rpc('acesso_status', { _profile_id: profileId });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const r = Array.isArray(data) ? data[0] : data;
   return { bloqueado: r?.bloqueado === true, ultimoLogin: r?.ultimo_login ?? null };
 }
@@ -175,7 +176,7 @@ export async function getFuncionario(id: string): Promise<FuncionarioRow | null>
     .select('*, gestor:gestor_id(nome_completo)')
     .eq('id', id)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as FuncionarioRow) ?? null;
 }
 
@@ -186,7 +187,7 @@ export async function getFuncionario(id: string): Promise<FuncionarioRow | null>
  */
 export async function updateFuncionario(id: string, patch: TablesUpdate<'funcionarios'>): Promise<void> {
   const { error } = await supabase.from('funcionarios').update(patch).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 async function currentUserId(): Promise<string | null> {
@@ -217,7 +218,7 @@ export async function setAtivo(id: string, ativo: boolean, nome: string): Promis
 
 export async function bulkSetAtivo(ids: string[], ativo: boolean): Promise<void> {
   const { error } = await supabase.from('funcionarios').update({ ativo }).in('id', ids);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await logAuditoria(null, ativo ? 'bulk_ativado' : 'bulk_inativado', { ids });
 }
 
@@ -236,14 +237,14 @@ export async function listAuditoria(funcionarioId: string): Promise<AuditoriaRow
     .eq('funcionario_id', funcionarioId)
     .order('created_at', { ascending: false })
     .limit(50);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as AuditoriaRow[]) ?? [];
 }
 
 /** Valores distintos de um campo (para os selects de filtro). */
 export async function distinctValues(field: 'cargo' | 'setor'): Promise<string[]> {
   const { data, error } = await supabase.from('funcionarios').select(field);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const set = new Set<string>();
   (data as Record<string, string>[]).forEach((r) => r[field] && set.add(r[field]));
   return [...set].sort();
@@ -254,7 +255,7 @@ export async function listGestores(): Promise<{ id: string; nome: string }[]> {
     .from('funcionarios')
     .select('id, nome_completo')
     .order('nome_completo');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as { id: string; nome_completo: string }[]).map((r) => ({ id: r.id, nome: r.nome_completo }));
 }
 
@@ -264,7 +265,7 @@ export async function listPerfisAcesso(): Promise<{ id: string; nome: string }[]
     .select('id, nome')
     .eq('ativo', true)
     .order('nome');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as { id: string; nome: string }[]) ?? [];
 }
 
@@ -273,7 +274,7 @@ export async function cpfExists(cpf: string): Promise<boolean> {
     .from('funcionarios')
     .select('id', { count: 'exact', head: true })
     .eq('cpf', cpf);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (count ?? 0) > 0;
 }
 
@@ -288,7 +289,7 @@ export async function uploadFuncionarioFile(file: File, folder: string, kind: st
   const { error } = await supabase.storage
     .from(DOCS_BUCKET)
     .upload(path, file, { upsert: true, contentType: file.type || undefined });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return path;
 }
 
@@ -349,7 +350,7 @@ export function resetSenha(funcionarioId: string, email: string, profileId?: str
 
 export async function alterarPerfilAcesso(profileId: string, perfilId: string): Promise<void> {
   const { error } = await supabase.from('profiles').update({ perfil_acesso_id: perfilId }).eq('id', profileId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 export function setBloqueioLogin(
@@ -409,7 +410,7 @@ export async function listOsDoFuncionario(funcionarioId: string): Promise<OsDoFu
     .from('os_funcionarios')
     .select('os:os_id(id, codigo, status, data_programada, check_in_at, check_out_at, cliente:cliente_id(nome))')
     .eq('funcionario_id', funcionarioId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 
   const hhmm = (iso: string | null) =>
     iso ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;

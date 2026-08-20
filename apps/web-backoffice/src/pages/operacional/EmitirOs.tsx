@@ -34,6 +34,7 @@ export function EmitirOs() {
   const podeEditar = can('operacional', 'editar');
 
   const [os, setOs] = useState<OrdemServicoDetail | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [planos, setPlanos] = useState<PlanoControle[]>([]);
   const [plano, setPlano] = useState<PlanoControle | null>(null);
   const [pontos, setPontos] = useState<PontoPlano[]>([]);
@@ -46,18 +47,24 @@ export function EmitirOs() {
 
   const load = useCallback(async () => {
     try {
-      const [o, p] = await Promise.all([getOrdemServico(id), listPlanos(id)]);
-      setOs(o); setPlanos(p);
-      if (o) {
-        setExec({
-          hora_comprometida: o.hora_comprometida ?? '',
-          etapa: o.etapa ?? '',
-          contato: o.contato ?? '',
-          data_validade: o.data_validade ?? '',
-          observacoes: o.observacoes ?? '',
-        });
-      }
-    } catch (e) { showToast((e as Error).message); }
+      // A OS primeiro, sozinha: com `Promise.all`, um id inexistente fazia
+      // `listPlanos` estourar antes, o erro caía no catch e a tela ficava em
+      // "Carregando…" para sempre — o único estado que ela sabia representar.
+      const o = await getOrdemServico(id);
+      if (!o) { setNotFound(true); return; }
+      setOs(o);
+      setExec({
+        hora_comprometida: o.hora_comprometida ?? '',
+        etapa: o.etapa ?? '',
+        contato: o.contato ?? '',
+        data_validade: o.data_validade ?? '',
+        observacoes: o.observacoes ?? '',
+      });
+      setPlanos(await listPlanos(id));
+    } catch (e) {
+      setNotFound(true);
+      showToast((e as Error).message);
+    }
   }, [id, showToast]);
   useEffect(() => { load(); }, [load]);
 
@@ -89,6 +96,17 @@ export function EmitirOs() {
     } catch (e) { showToast((e as Error).message); }
   };
 
+  if (notFound) {
+    return (
+      <>
+        <Topbar title="Ordem de serviço" breadcrumb="Início  /  Operacional" />
+        <div className="flex-1 px-8 py-6">
+          <p className="text-sm text-ink-500">OS não encontrada.</p>
+          <Button variant="secondary" className="mt-3" onClick={() => navigate('/operacional')}>Voltar para a lista</Button>
+        </div>
+      </>
+    );
+  }
   if (!os) {
     return (<><Topbar title="Ordem de serviço" breadcrumb="Início  /  Operacional" /><div className="flex-1 px-8 py-6 text-sm text-ink-400">Carregando…</div></>);
   }

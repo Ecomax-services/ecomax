@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { msgErro } from '@/lib/erros';
 
 export type NotificationKind = 'os' | 'info';
 
@@ -64,21 +65,21 @@ export async function listNotificacoes(
     .select('*')
     .order('created_at', { ascending: false })
     .range(de, de + PAGINA);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const linhas = data as any[];
   return { itens: linhas.slice(0, PAGINA).map(toItem), temMais: linhas.length > PAGINA };
 }
 export async function markRead(id: string): Promise<void> {
   const { error } = await supabase.from('notificacoes').update({ lida: true }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 export async function markAllRead(): Promise<void> {
   const { error } = await supabase.from('notificacoes').update({ lida: true }).eq('lida', false);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 export async function removeNotificacao(id: string): Promise<void> {
   const { error } = await supabase.from('notificacoes').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 /**

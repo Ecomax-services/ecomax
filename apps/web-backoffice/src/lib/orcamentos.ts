@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { BadgeTone } from '@/components/ui/Badge';
 import { hojeISO } from '@/lib/datas';
+import { msgErro } from '@/lib/erros';
 
 // ============================================================
 // 3.1.1 Elaborar orçamento
@@ -126,14 +127,14 @@ export async function salvarOrcamento(
       gestor_id: cabecalho.gestorId,
     })
     .eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 
   const contratados = grade.filter((i) => i.contratado);
   const remover = grade.filter((i) => !i.contratado && i.id).map((i) => i.id as string);
 
   if (remover.length) {
     const { error: e } = await supabase.from('orcamento_itens').delete().in('id', remover);
-    if (e) throw new Error(e.message);
+    if (e) throw new Error(msgErro(e));
   }
 
   if (contratados.length) {
@@ -149,7 +150,7 @@ export async function salvarOrcamento(
       })),
       { onConflict: 'orcamento_id,tipo_controle' },
     );
-    if (e) throw new Error(e.message);
+    if (e) throw new Error(msgErro(e));
   }
 
   // O total é recalculado por trigger — não é enviado daqui de propósito, para
@@ -169,7 +170,7 @@ export async function criarOrcamento(clienteId: string): Promise<string> {
     })
     .select('id')
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return data.id;
 }
 
@@ -213,7 +214,7 @@ export async function listPlanos(osId: string): Promise<PlanoControle[]> {
     .select('id, tipo_controle, frequencia, pontos_previstos, pontos:os_plano_pontos(situacao)')
     .eq('os_id', osId)
     .order('tipo_controle');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((p) => ({
     id: p.id,
     tipoControle: p.tipo_controle,
@@ -231,7 +232,7 @@ export async function listPontos(planoId: string): Promise<PontoPlano[]> {
     .select('id, numero, identificacao, situacao, observacao')
     .eq('plano_id', planoId)
     .order('numero');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((p) => ({
     id: p.id,
     numero: p.numero,
@@ -257,7 +258,7 @@ export async function salvarPonto(
         : {}),
     })
     .eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 /** Ajusta quantos pontos o plano tem, criando ou removendo as linhas do fim. */
@@ -269,7 +270,7 @@ export async function definirPontosPrevistos(planoId: string, quantidade: number
     .from('os_planos_controle')
     .update({ pontos_previstos: quantidade })
     .eq('id', planoId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 
   if (quantidade > atuais.length) {
     const novos = Array.from({ length: quantidade - atuais.length }, (_, i) => ({
@@ -277,14 +278,14 @@ export async function definirPontosPrevistos(planoId: string, quantidade: number
       numero: atuais.length + i + 1,
     }));
     const { error: e } = await supabase.from('os_plano_pontos').insert(novos);
-    if (e) throw new Error(e.message);
+    if (e) throw new Error(msgErro(e));
   } else if (quantidade < atuais.length) {
     // Remove do fim para a frente, e só os que ninguém preencheu — apagar um
     // ponto conferido descartaria trabalho de campo.
     const excedentes = atuais.slice(quantidade).filter((p) => p.situacao === 'pendente');
     if (excedentes.length) {
       const { error: e } = await supabase.from('os_plano_pontos').delete().in('id', excedentes.map((p) => p.id));
-      if (e) throw new Error(e.message);
+      if (e) throw new Error(msgErro(e));
     }
   }
 }
@@ -318,7 +319,7 @@ export async function criarOsDeOrcamento(orcamentoId: string): Promise<string> {
     })
     .select('id')
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 
   const { error: e } = await supabase.from('os_planos_controle').insert(
     orc.itens.map((i) => ({
@@ -328,7 +329,7 @@ export async function criarOsDeOrcamento(orcamentoId: string): Promise<string> {
       pontos_previstos: 0,
     })),
   );
-  if (e) throw new Error(e.message);
+  if (e) throw new Error(msgErro(e));
 
   return os.id;
 }

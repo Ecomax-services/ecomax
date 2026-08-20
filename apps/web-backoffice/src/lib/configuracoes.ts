@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Json } from '@/lib/database.types';
 import type { ModuleKey } from '@/lib/supabase';
+import { msgErro } from '@/lib/erros';
 
 // ============================================================
 // Cadastros Auxiliares (catálogos)
@@ -98,7 +99,7 @@ async function audit(acao: string, detalhes?: Json): Promise<void> {
  */
 async function catalogoUso(catalogo: string): Promise<Record<string, number>> {
   const { data, error } = await supabase.rpc('catalogo_uso', { _catalogo: catalogo });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const map: Record<string, number> = {};
   (data ?? []).forEach((r) => { map[r.nome] = Number(r.uso); });
   return map;
@@ -109,7 +110,7 @@ export async function listCatalogoItens(catalogo: string): Promise<CatalogoItem[
     supabase.from('catalogo_itens').select('*').eq('catalogo', catalogo).order('ordem').order('nome'),
     catalogoUso(catalogo),
   ]);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   // `uso` é calculado, não é coluna — por isso o cast direto para CatalogoItem
   // não vale. Monta-se o objeto, e aí a linha do banco confere campo a campo.
   return (data ?? []).map((it) => ({ ...it, uso: uso[it.nome] ?? 0 }));
@@ -119,7 +120,7 @@ export async function listCatalogoItens(catalogo: string): Promise<CatalogoItem[
 export async function listCatalogoAtivos(catalogo: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('catalogo_itens').select('nome').eq('catalogo', catalogo).eq('ativo', true).order('ordem').order('nome');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as { nome: string }[]).map((r) => r.nome);
 }
 
@@ -143,19 +144,19 @@ export async function createCatalogoItem(input: CatalogoItemInput): Promise<void
     .order('ordem', { ascending: false }).limit(1).maybeSingle();
   const ordem = (ultimo?.ordem ?? 0) + 1;
   const { error } = await supabase.from('catalogo_itens').insert({ ...input, ordem, created_by: await actorId() });
-  if (error) throw new Error(error.code === '23505' ? 'Já existe um item com esse nome neste catálogo.' : error.message);
+  if (error) throw new Error(error.code === '23505' ? 'Já existe um item com esse nome neste catálogo.' : msgErro(error));
   await audit('catalogo_item_criado', { catalogo: input.catalogo, nome: input.nome });
 }
 
 export async function updateCatalogoItem(id: string, patch: Partial<CatalogoItemInput>): Promise<void> {
   const { error } = await supabase.from('catalogo_itens').update(patch).eq('id', id);
-  if (error) throw new Error(error.code === '23505' ? 'Já existe um item com esse nome neste catálogo.' : error.message);
+  if (error) throw new Error(error.code === '23505' ? 'Já existe um item com esse nome neste catálogo.' : msgErro(error));
   await audit('catalogo_item_editado', { id, ...patch });
 }
 
 export async function setCatalogoItemAtivo(id: string, ativo: boolean): Promise<void> {
   const { error } = await supabase.from('catalogo_itens').update({ ativo }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await audit(ativo ? 'catalogo_item_ativado' : 'catalogo_item_inativado', { id });
 }
 
@@ -163,7 +164,7 @@ export async function setCatalogoItemAtivo(id: string, ativo: boolean): Promise<
  *  esconde o botão, mas quem chamar a API direto esbarra na mesma regra. */
 export async function deleteCatalogoItem(id: string): Promise<void> {
   const { error } = await supabase.from('catalogo_itens').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await audit('catalogo_item_excluido', { id });
 }
 
@@ -217,7 +218,7 @@ export async function listPerfis(): Promise<PerfilRow[]> {
     supabase.from('perfis_acesso').select('id, nome, descricao, ativo').order('nome'),
     supabase.from('profiles').select('perfil_acesso_id'),
   ]);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const counts: Record<string, number> = {};
   (profs as { perfil_acesso_id: string | null }[] | null)?.forEach((p) => {
     if (p.perfil_acesso_id) counts[p.perfil_acesso_id] = (counts[p.perfil_acesso_id] ?? 0) + 1;
@@ -231,7 +232,7 @@ export async function getPerfilMatrix(perfilId: string): Promise<Record<ModuleKe
     .from('permissoes_modulo')
     .select('modulo, pode_ler, pode_criar, pode_editar, pode_excluir')
     .eq('perfil_acesso_id', perfilId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const matrix = {} as Record<ModuleKey, PermLevel>;
   PERM_MODULES.forEach((m) => { matrix[m.key] = 'nenhum'; });
   (data as ({ modulo: ModuleKey } & Perms)[]).forEach((row) => {
@@ -246,10 +247,10 @@ export async function salvarPerfil(input: {
   let perfilId = input.id;
   if (perfilId) {
     const { error } = await supabase.from('perfis_acesso').update({ nome: input.nome, descricao: input.descricao }).eq('id', perfilId);
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(msgErro(error));
   } else {
     const { data, error } = await supabase.from('perfis_acesso').insert({ nome: input.nome, descricao: input.descricao }).select('id').single();
-    if (error) throw new Error(error.code === '23505' ? 'Já existe um perfil com esse nome.' : error.message);
+    if (error) throw new Error(error.code === '23505' ? 'Já existe um perfil com esse nome.' : msgErro(error));
     perfilId = (data as { id: string }).id;
   }
   const rows = PERM_MODULES.map((m) => ({ perfil_acesso_id: perfilId, modulo: m.key, ...levelToPerms(input.matrix[m.key]) }));
@@ -320,7 +321,7 @@ export async function alterarSenha(nova: string): Promise<void> {
   const err = validarSenha(nova);
   if (err) throw new Error(err);
   const { error } = await supabase.auth.updateUser({ password: nova });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 export async function uploadFotoPerfil(file: File): Promise<string> {
@@ -329,7 +330,7 @@ export async function uploadFotoPerfil(file: File): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
   const path = `avatars/${uid}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from('funcionario-docs').upload(path, file, { upsert: true, contentType: file.type || undefined });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const { error: e2 } = await supabase.from('profiles').update({ avatar_url: path }).eq('id', uid);
   if (e2) throw new Error(e2.message);
   // Espelha no cadastro de funcionário, se houver vínculo.
