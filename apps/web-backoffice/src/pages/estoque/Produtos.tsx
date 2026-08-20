@@ -28,6 +28,7 @@ import {
 } from '@/lib/estoque';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { maskInt } from '@/lib/masks';
+import { useFiltroUrl } from '@/lib/useFiltroUrl';
 
 type SortKey = 'name' | 'cat' | 'stock' | 'status';
 // Fallbacks caso o catálogo ainda não tenha sido carregado.
@@ -49,11 +50,12 @@ export function Produtos() {
   const [categorias, setCategorias] = useState<string[]>(CATEGORIAS_FALLBACK);
   const [unidades, setUnidades] = useState<string[]>(UNIDADES_FALLBACK);
 
-  const [search, setSearch] = useState('');
-  const [cat, setCat] = useState('todos');
-  const [forn, setForn] = useState('todos');
-  const [status, setStatus] = useState('todos');
-  const [faixa, setFaixa] = useState('todos');
+  // Na URL, para o filtro sobreviver a abrir a ficha de um produto e voltar.
+  const [search, setSearch] = useFiltroUrl('q', '');
+  const [cat, setCat] = useFiltroUrl('categoria', 'todos', ['todos', ...categorias]);
+  const [forn, setForn] = useFiltroUrl('fornecedor', 'todos', ['todos', ...fornOpts.map((f) => f.nome)]);
+  const [status, setStatus] = useFiltroUrl('status', 'todos', ['todos', 'Ativo', 'Inativo']);
+  const [faixa, setFaixa] = useFiltroUrl('faixa', 'todos', ['todos', 'low', 'ok', 'high']);
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<{ product?: Produto; isNew: boolean } | null>(null);

@@ -11,6 +11,7 @@ import { cn } from '@/lib/cn';
 import { listClientes, setClienteAtivo, type ClienteRow } from '@/lib/clientes';
 import { ClienteFormDrawer } from '@/pages/clientes/ClienteFormDrawer';
 import { copiar } from '@/lib/clipboard';
+import { useFiltroUrl, usePaginaUrl } from '@/lib/useFiltroUrl';
 
 export function ClientesList() {
   const navigate = useNavigate();
@@ -21,9 +22,10 @@ export function ClientesList() {
 
   const [rows, setRows] = useState<ClienteRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  // Busca e página na URL: abrir um cliente e voltar deixava de manter a busca.
+  const [page, setPage] = usePaginaUrl();
   const [pageSize, setPageSize] = useState(10);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useFiltroUrl('q', '');
   const [debounced, setDebounced] = useState('');
   const [loading, setLoading] = useState(true);
   const [menu, setMenu] = useState<string | null>(null);
@@ -148,8 +150,8 @@ export function ClientesList() {
             </div>
             <div className="flex items-center gap-3 text-[13px] text-ink-600">
               Página {page} de {pages}
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg border border-ink-200 p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
-              <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="rounded-lg border border-ink-200 p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+              <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-lg border border-ink-200 p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
+              <button disabled={page >= pages} onClick={() => setPage(page + 1)} className="rounded-lg border border-ink-200 p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
         </div>

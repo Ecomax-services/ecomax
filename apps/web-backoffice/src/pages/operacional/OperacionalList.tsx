@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import { imprimirLista } from '@/lib/impressao';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
+import { useFiltroUrl, usePaginaUrl } from '@/lib/useFiltroUrl';
 import {
   listOperacional, cancelarOs, listClienteOptions, listFuncionarioOptions, listTiposServico,
   OS_STATUSES, osStatusLabel, type OperacionalRow, type ListOpts,
@@ -26,9 +27,12 @@ export function OperacionalList() {
   const [rows, setRows] = useState<OperacionalRow[]>([]);
   const [total, setTotal] = useState(0);
   const [totalOs, setTotalOs] = useState(0);
-  const [page, setPage] = useState(1);
+  // Filtros, busca e página vivem na URL: sem isso, abrir uma OS e voltar
+  // devolvia a lista inteira, e a seleção tinha de ser refeita a cada linha
+  // conferida. Ver `lib/useFiltroUrl`.
+  const [page, setPage] = usePaginaUrl();
   const [pageSize, setPageSize] = useState(10);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useFiltroUrl('q', '');
   const [debounced, setDebounced] = useState('');
   const [loading, setLoading] = useState(true);
   const [menu, setMenu] = useState<string | null>(null);
@@ -36,19 +40,24 @@ export function OperacionalList() {
   const [motivo, setMotivo] = useState('');
   const [convert, setConvert] = useState<OperacionalRow | null>(null);
 
-  // Filtros
-  const [fKind, setFKind] = useState<ListOpts['kind']>('todos');
-  const [fStatus, setFStatus] = useState('todos');
-  const [fCliente, setFCliente] = useState('');
-  const [fFuncionario, setFFuncionario] = useState('');
-  const [fTipo, setFTipo] = useState('');
-  const [fDe, setFDe] = useState('');
-  const [fAte, setFAte] = useState('');
-  const [sort, setSort] = useState<NonNullable<ListOpts['sort']>>('data');
-
+  // As listas de opções vêm antes dos filtros porque servem de conjunto válido
+  // para eles: um `?cliente=` com id que não existe cai no padrão em vez de
+  // filtrar por um valor fantasma.
   const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
   const [funcionarios, setFuncionarios] = useState<{ id: string; nome: string }[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
+
+  // Filtros
+  const [fKindRaw, setFKind] = useFiltroUrl('tipo', 'todos', ['todos', 'os', 'orcamento']);
+  const fKind = fKindRaw as ListOpts['kind'];
+  const [fStatus, setFStatus] = useFiltroUrl('status', 'todos', ['todos', ...OS_STATUSES]);
+  const [fCliente, setFCliente] = useFiltroUrl('cliente', '', ['', ...clientes.map((c) => c.id)]);
+  const [fFuncionario, setFFuncionario] = useFiltroUrl('func', '', ['', ...funcionarios.map((f) => f.id)]);
+  const [fTipo, setFTipo] = useFiltroUrl('servico', '', ['', ...tipos]);
+  const [fDe, setFDe] = useFiltroUrl('de', '');
+  const [fAte, setFAte] = useFiltroUrl('ate', '');
+  const [sortRaw, setSort] = useFiltroUrl('ordem', 'data', ['data', 'cliente', 'status', 'valor']);
+  const sort = sortRaw as NonNullable<ListOpts['sort']>;
 
   useEffect(() => {
     listClienteOptions().then(setClientes).catch(() => {});
@@ -164,7 +173,7 @@ export function OperacionalList() {
 
         {/* Filtros */}
         <div className="mb-4 flex flex-wrap items-end gap-2.5">
-          <SelectField className={selCls} label="Tipo" value={fKind} onChange={(e) => setFKind(e.target.value as ListOpts['kind'])}
+          <SelectField className={selCls} label="Tipo" value={fKind} onChange={(e) => setFKind(e.target.value)}
             options={[{ value: 'todos', label: 'OS e orçamentos' }, { value: 'os', label: 'Somente OS' }, { value: 'orcamento', label: 'Somente orçamentos' }]} />
           <SelectField className={selCls} label="Status" value={fStatus} onChange={(e) => setFStatus(e.target.value)}
             options={[{ value: 'todos', label: 'Todos os status' }, ...OS_STATUSES.map((s) => ({ value: s, label: osStatusLabel[s] }))]} />
@@ -249,8 +258,8 @@ export function OperacionalList() {
             </div>
             <div className="flex items-center gap-3 text-[13px] text-ink-600">
               Página {page} de {pages}
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg border border-ink-200 p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
-              <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="rounded-lg border border-ink-200 p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+              <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-lg border border-ink-200 p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
+              <button disabled={page >= pages} onClick={() => setPage(page + 1)} className="rounded-lg border border-ink-200 p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
         </div>
