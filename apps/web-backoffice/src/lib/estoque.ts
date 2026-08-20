@@ -120,6 +120,21 @@ export function produtoAlert(stock: number, min: number, max: number | null): Al
   if (max != null && stock > max) return 'high';
   return 'ok';
 }
+/**
+ * Se o lote está vencido ou vence dentro de `dias`.
+ *
+ * Existe separado de `loteAlert` porque aquele devolve **um** rótulo por linha,
+ * com precedência: `low` ganha de `exp`. Isso serve para a etiqueta da tabela —
+ * uma linha, um aviso — mas destrói qualquer contagem feita em cima dele: um
+ * lote vencido que também está abaixo do mínimo sumia de "lotes vencendo".
+ * No estoque real havia 7 lotes vencendo, 4 deles já vencidos, e o indicador
+ * mostrava 2.
+ */
+export function loteVencendo(validadeISO: string | null, dias = 60): boolean {
+  if (!validadeISO) return false;
+  return new Date(validadeISO + 'T00:00:00').getTime() <= Date.now() + dias * DAY;
+}
+
 export function loteAlert(qtd: number, min: number, max: number | null, validade: string | null): AlertLevel {
   if (qtd < min) return 'low';
   if (validade && new Date(validade + 'T00:00:00').getTime() <= Date.now() + 60 * DAY) return 'exp';

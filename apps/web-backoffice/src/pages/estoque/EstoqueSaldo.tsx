@@ -11,7 +11,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { alertMeta } from '@/data/estoque';
 import {
-  listBases, listLotes, listMovimentacoes, listProdutos, ajusteEstoque,
+  listBases, loteVencendo, listLotes, listMovimentacoes, listProdutos, ajusteEstoque,
   getNiveis, setNivel, replicarNivel,
   getInventarioAberto, iniciarInventario, registrarContagens, fecharInventario, cancelarInventario,
   type StockRow, type MovRow, type Produto, type NivelRow, type Inventario, type InventarioItem,
@@ -68,7 +68,7 @@ export function EstoqueSaldo() {
   const kpis = [
     { icon: TrendingDown, tone: 'red' as const, label: 'Abaixo do mínimo', value: lotes.filter((r) => r.alert === 'low').length },
     { icon: TrendingUp, tone: 'amber' as const, label: 'Acima do máximo', value: lotes.filter((r) => r.alert === 'high').length },
-    { icon: Clock, tone: 'amber' as const, label: 'Lotes vencendo (60d)', value: lotes.filter((r) => r.alert === 'exp').length },
+    { icon: Clock, tone: 'amber' as const, label: 'Lotes vencendo (60d)', value: lotes.filter((r) => loteVencendo(r.validadeISO)).length },
     { icon: Boxes, tone: 'green' as const, label: 'Total de itens', value: lotes.reduce((s, r) => s + r.qtd, 0) },
   ];
 
