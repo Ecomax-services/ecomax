@@ -104,6 +104,10 @@ export async function aplicarAcao(
     patch.email_enviado_em = new Date().toISOString();
   }
   if (chave === 'executado') patch.termino_execucao = new Date().toISOString();
+  // Emitir é o ato que diz "esta OS está pronta e vai para o campo" — é ele que
+  // tira do rascunho. Sem isto, o rascunho ficava rascunho para sempre: nada no
+  // sistema limpava a marca, e o operador via uma OS ainda em edição.
+  if (chave === 'emitir') patch.rascunho = false;
   if (acao.chave === 'cancelar' && extras.motivo) patch.cancelamento_motivo = extras.motivo.trim();
 
   if (Object.keys(patch).length) {

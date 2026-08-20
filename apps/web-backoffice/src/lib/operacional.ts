@@ -427,7 +427,11 @@ export async function listOsFuncionarios(osId: string): Promise<OsFuncionarioRow
 }
 export async function addOsFuncionario(osId: string, funcionarioId: string): Promise<void> {
   const { error } = await supabase.from('os_funcionarios').insert({ os_id: osId, funcionario_id: funcionarioId });
-  if (error) throw new Error(error.code === '23505' ? 'Funcionário já vinculado a esta OS.' : error.message);
+  // 23514 vem do trigger que recusa equipe em rascunho: a criação de OS já não
+  // vinculava ninguém a rascunho, mas esta tela não tinha a mesma guarda.
+  if (error) throw new Error(
+    error.code === '23505' ? 'Funcionário já vinculado a esta OS.' : error.message,
+  );
   await hist(osId, 'Funcionário vinculado', null, funcionarioId);
   await notify('os_funcionario_vinculado', { os_id: osId, funcionario_id: funcionarioId }); // → app mobile
   await notificarFuncionarios([funcionarioId], osId, 'Nova OS atribuída', 'Você foi vinculado a uma ordem de serviço.');
