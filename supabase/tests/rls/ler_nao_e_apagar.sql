@@ -1,13 +1,18 @@
 -- Ler não é apagar.
 --
--- `orcamento_itens` tinha uma policy só, `FOR ALL`, com `USING` pedindo apenas
--- 'ler' e `WITH CHECK` pedindo 'editar'. Como `WITH CHECK` não vale para DELETE,
--- quem tinha só leitura em Gestão de Clientes apagava itens de orçamento — e o
--- trigger `recalcular_total_orcamento` mudava o valor do orçamento junto.
+-- Três tabelas tinham uma policy só, `FOR ALL`, com `USING` pedindo apenas
+-- 'ler' e `WITH CHECK` pedindo 'editar'. Como `WITH CHECK` não vale para
+-- DELETE, quem tinha só leitura apagava:
 --
--- O sujeito do teste é o perfil "Operacional" do próprio sistema, que tem
--- gestao_clientes com pode_ler = true e pode_editar = false. Não é um perfil
--- inventado para o teste caber: é o que já existe em produção.
+--   orcamento_itens        e o trigger mudava o valor do orçamento junto;
+--   cliente_documentos     documentos do cliente;
+--   funcionario_documentos ASO e CNH de qualquer colaborador — o que, com a
+--                          regra de bloqueio por documento, tira o técnico das
+--                          novas OS sem que ninguém entenda o motivo.
+--
+-- Os sujeitos não são perfis inventados para o teste caber: "Operacional" lê
+-- Gestão de Clientes sem editar, e "Gestor" lê Gestão de Usuários sem editar.
+-- São os que já existem no sistema.
 
 begin;
 
@@ -20,13 +25,19 @@ declare
   v_editor uuid := gen_random_uuid();
   v_perfil_leitura uuid;
   v_perfil_escrita uuid;
+  v_perfil_gestor uuid;
+  v_gestor uuid := gen_random_uuid();
   v_cliente uuid;
   v_orc uuid;
   v_item uuid;
+  v_doc_cli uuid;
+  v_func uuid := gen_random_uuid();
+  v_doc_func uuid;
 begin
   -- Os dois perfis que já existem no sistema.
   select id into v_perfil_leitura from public.perfis_acesso where nome = 'Operacional';
-  select id into v_perfil_escrita from public.perfis_acesso where nome = 'Gestor';
+  select id into v_perfil_escrita from public.perfis_acesso where nome = 'Administrador';
+  select id into v_perfil_gestor  from public.perfis_acesso where nome = 'Gestor';
 
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -34,11 +45,14 @@ begin
     (v_leitor, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
      'rls-orc-leitor@teste.local', '', now(), '{"provider":"email"}', '{"role":"operacional"}', now(), now()),
     (v_editor, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-     'rls-orc-editor@teste.local', '', now(), '{"provider":"email"}', '{"role":"gestor"}', now(), now());
+     'rls-orc-editor@teste.local', '', now(), '{"provider":"email"}', '{"role":"admin"}', now(), now()),
+    (v_gestor, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+     'rls-orc-gestor@teste.local', '', now(), '{"provider":"email"}', '{"role":"gestor"}', now(), now());
 
   -- O trigger em auth.users cria os profiles; aqui só se aponta o perfil.
   update public.profiles set perfil_acesso_id = v_perfil_leitura, role = 'operacional' where id = v_leitor;
-  update public.profiles set perfil_acesso_id = v_perfil_escrita, role = 'gestor'      where id = v_editor;
+  update public.profiles set perfil_acesso_id = v_perfil_escrita, role = 'admin'       where id = v_editor;
+  update public.profiles set perfil_acesso_id = v_perfil_gestor,  role = 'gestor'      where id = v_gestor;
 
   insert into public.clientes (nome, cnpj) values ('[RLS] Cliente do orçamento', '00000000000353') returning id into v_cliente;
   insert into public.orcamentos (cliente_id, status, valor_total)
@@ -46,7 +60,16 @@ begin
   insert into public.orcamento_itens (orcamento_id, tipo_controle, frequencia, valor)
   values (v_orc, 'Desratização', 'Mensal', 800) returning id into v_item;
 
-  insert into t values ('leitor', v_leitor), ('editor', v_editor), ('orc', v_orc), ('item', v_item);
+  insert into public.cliente_documentos (cliente_id, categoria, titulo, ativo)
+  values (v_cliente, 'Contrato', '[RLS] Contrato do cliente', true) returning id into v_doc_cli;
+
+  insert into public.funcionarios (id, nome_completo, cpf, cargo, setor)
+  values (v_func, '[RLS] Técnico com documentos', '00000000044', 'Técnico de Campo', 'Operações');
+  insert into public.funcionario_documentos (funcionario_id, tipo, validade)
+  values (v_func, 'ASO', current_date + 200) returning id into v_doc_func;
+
+  insert into t values ('leitor', v_leitor), ('editor', v_editor), ('orc', v_orc), ('item', v_item),
+                       ('doc_cli', v_doc_cli), ('doc_func', v_doc_func), ('gestor', v_gestor);
 end $$;
 
 create or replace function pg_temp.esperar(_caso text, _obtido boolean, _esperado boolean)
@@ -127,6 +150,43 @@ begin
   end;
   select count(*) into n from public.orcamento_itens where orcamento_id = (select v from t where k='orc');
   perform pg_temp.esperar('leitor NÃO acrescenta item', n = 1, true);
+end $$;
+
+
+-- ---------------------------------------------------------------------------
+-- As outras duas tabelas com o mesmo desenho
+-- ---------------------------------------------------------------------------
+do $$
+declare n int;
+begin
+  perform pg_temp.como((select v from t where k='leitor'));
+  begin
+    set local role authenticated;
+    delete from public.cliente_documentos where id = (select v from t where k='doc_cli');
+    reset role;
+  exception when insufficient_privilege then
+    reset role;
+  end;
+  select count(*) into n from public.cliente_documentos where id = (select v from t where k='doc_cli');
+  perform pg_temp.esperar('leitor NÃO apaga documento de cliente', n = 1, true);
+
+  -- Gestor lê Gestão de Usuários sem editar. Apagar o ASO de um técnico o
+  -- deixaria bloqueado para novas OS, e o motivo seria invisível.
+  perform pg_temp.como((select v from t where k='gestor'));
+  perform pg_temp.esperar('perfil Gestor lê Gestão de Usuários',
+    public.has_module_perm('gestao_usuarios','ler'), true);
+  perform pg_temp.esperar('perfil Gestor NÃO edita Gestão de Usuários',
+    public.has_module_perm('gestao_usuarios','editar'), false);
+
+  begin
+    set local role authenticated;
+    delete from public.funcionario_documentos where id = (select v from t where k='doc_func');
+    reset role;
+  exception when insufficient_privilege then
+    reset role;
+  end;
+  select count(*) into n from public.funcionario_documentos where id = (select v from t where k='doc_func');
+  perform pg_temp.esperar('gestor NÃO apaga ASO de colaborador', n = 1, true);
 end $$;
 
 -- ---------------------------------------------------------------------------
