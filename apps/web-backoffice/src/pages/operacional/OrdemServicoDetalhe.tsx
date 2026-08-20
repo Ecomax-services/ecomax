@@ -25,7 +25,7 @@ import {
   listOsRelatorios, emitirRelatorio, publicarRelatorio, removerRelatorio,
   listOsAnexos, addAnexo, removerAnexo, anexoTipoLabel,
   listOsHistorico, listHistoricoAutores,
-  listFuncionarioOptions, listProdutoOptions, listEquipamentoOptions, listTiposServico, listPragas,
+  listFuncionarioOptions, listProdutoOptions, listEquipamentoOptions, listTiposServico, listPragas, bloqueioLabel,
   osStatusTone, osStatusLabel, recorrenciaLabel, isReadOnly, fmtDateTime, urlAssinadaOperacional, enviarAnexoOs,
   type OrdemServicoDetail, type OsStatus, type Recorrencia,
   type OsFuncionarioRow, type OsProdutoRow, type OsEquipamentoRow, type OsRelatorioRow, type OsAnexoRow,
@@ -271,7 +271,7 @@ function DadosGeraisTab({ os, editable, editing, setEditing, onSaved }: { os: Or
     } catch (e) { showToast((e as Error).message); } finally { setSaving(false); }
   };
 
-  const funcOpts = [{ value: '', label: '—' }, ...funcs.map((f) => ({ value: f.id, label: f.bloqueado ? `${f.nome} (doc. vencido)` : f.nome }))];
+  const funcOpts = [{ value: '', label: '—' }, ...funcs.map((f) => ({ value: f.id, label: f.bloqueado ? `${f.nome} (${bloqueioLabel(f.motivo)})` : f.nome }))];
 
   return (
     <Card
@@ -345,7 +345,12 @@ function ExecucaoTab({ os, editable }: { os: OrdemServicoDetail; editable: boole
   const openAdd = async () => { setSel(''); setOpts(await listFuncionarioOptions()); setAddOpen(true); };
   const add = async () => {
     if (!sel) return showToast('Selecione um funcionário.');
-    if (opts.find((o) => o.id === sel)?.bloqueado) return showToast('Funcionário com ASO/CNH vencido não pode ser vinculado.');
+    const alvo = opts.find((o) => o.id === sel);
+    if (alvo?.bloqueado) {
+      return showToast(alvo.motivo === 'ausente'
+        ? 'Funcionário sem ASO/CNH cadastrado não pode ser vinculado.'
+        : 'Funcionário com ASO/CNH vencido não pode ser vinculado.');
+    }
     try { await addOsFuncionario(os.id, sel); setAddOpen(false); showToast('Funcionário vinculado — notificação enviada ao app'); load(); }
     catch (e) { showToast((e as Error).message); }
   };
@@ -359,6 +364,12 @@ function ExecucaoTab({ os, editable }: { os: OrdemServicoDetail; editable: boole
           <AlertTriangle className="h-4 w-4" />O consumo registrado difere do previsto em um ou mais produtos.
         </div>
       )}
+      {rows.some((f) => f.motivo) && (
+        <div className="flex items-center gap-2 rounded-xl border border-[#f2c9bd] bg-[#fff4f0] px-4 py-3 text-[13px] font-medium text-danger">
+          <AlertTriangle className="h-4 w-4" />
+          Há funcionário na equipe com ASO/CNH irregular. A OS segue como está — regularize antes de vinculá-lo a novas OS.
+        </div>
+      )}
       <Card title="Funcionários vinculados" flush action={editable && <Button size="sm" onClick={openAdd}><Plus className="h-4 w-4" />Adicionar</Button>}>
         <table className="w-full border-collapse">
           <thead><tr className="bg-ink-50"><th className={cn(th, 'pl-6')}>Funcionário</th><th className={th}>Cargo</th><th className={cn(th, 'pr-6 text-right')}>Ações</th></tr></thead>
@@ -366,7 +377,18 @@ function ExecucaoTab({ os, editable }: { os: OrdemServicoDetail; editable: boole
             {rows.length === 0 && <tr><td colSpan={3} className="px-4 py-8 text-center text-sm text-ink-400">Nenhum funcionário vinculado.</td></tr>}
             {rows.map((f) => (
               <tr key={f.vinculoId} className="border-t border-ink-100">
-                <td className="px-4 py-3 pl-6 text-sm font-medium text-ink-800">{f.nome}</td>
+                <td className="px-4 py-3 pl-6 text-sm font-medium text-ink-800">
+                  <span className="inline-flex items-center gap-1.5">
+                    {f.nome}
+                    {/* Avisa sem desvincular: tirar alguém da OS sozinho apagaria
+                        histórico e deixaria equipe vazia sem ninguém decidir. */}
+                    {f.motivo && (
+                      <span title={`ASO/CNH ${f.motivo === 'ausente' ? 'não cadastrado' : 'vencido'} — regularizar antes da próxima OS`}>
+                        <AlertTriangle className="h-4 w-4 text-danger-bright" />
+                      </span>
+                    )}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-sm text-ink-600">{f.cargo}</td>
                 <td className="px-4 py-3 pr-6 text-right">{editable ? <button onClick={() => setDel(f)} className="rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-ink-400 hover:text-danger-bright"><Trash2 className="h-4 w-4" /></button> : '—'}</td>
               </tr>
@@ -394,7 +416,7 @@ function ExecucaoTab({ os, editable }: { os: OrdemServicoDetail; editable: boole
           <div className="border-b border-ink-100 px-7 py-[22px]"><h2 className="text-[19px] font-bold text-ink-900">Adicionar funcionário</h2></div>
           <div className="px-7 py-6">
             <SelectField label="Funcionário" value={sel} onChange={(e) => setSel(e.target.value)}
-              options={[{ value: '', label: 'Selecione…' }, ...opts.map((o) => ({ value: o.id, label: o.bloqueado ? `${o.nome} — ${o.cargo} (doc. vencido)` : `${o.nome} — ${o.cargo}` }))]} />
+              options={[{ value: '', label: 'Selecione…' }, ...opts.map((o) => ({ value: o.id, label: o.bloqueado ? `${o.nome} — ${o.cargo} (${bloqueioLabel(o.motivo)})` : `${o.nome} — ${o.cargo}` }))]} />
           </div>
           <div className="flex gap-3 px-7 pb-6"><Button variant="secondary" fullWidth onClick={() => setAddOpen(false)} className="h-[52px]">Cancelar</Button><Button fullWidth onClick={add} disabled={!sel} className="h-[52px]">Vincular</Button></div>
         </Modal>

@@ -413,16 +413,24 @@ export async function duplicarOs(id: string): Promise<string> {
 // ============================================================
 export interface OsFuncionarioRow {
   vinculoId: string; funcionario_id: string; nome: string; cargo: string; integrado: boolean;
+  /** Documento irregular avisa na equipe, sem desvincular: tirar alguém sozinho
+   *  apagaria histórico e deixaria OS sem equipe sem ninguém decidir. */
+  motivo: MotivoBloqueio;
 }
 export async function listOsFuncionarios(osId: string): Promise<OsFuncionarioRow[]> {
   const { data, error } = await supabase
     .from('os_funcionarios')
-    .select('id, funcionario_id, funcionario:funcionario_id(nome_completo, cargo)')
+    .select('id, funcionario_id, funcionario:funcionario_id(nome_completo, cargo, aso_validade, cnh_validade)')
     .eq('os_id', osId).order('created_at');
   if (error) throw new Error(error.message);
+  const hoje = todayIso();
   return (data as any[]).map((v) => {
     const f = Array.isArray(v.funcionario) ? v.funcionario[0] : v.funcionario;
-    return { vinculoId: v.id, funcionario_id: v.funcionario_id, nome: f?.nome_completo ?? '—', cargo: f?.cargo ?? '—', integrado: false };
+    return {
+      vinculoId: v.id, funcionario_id: v.funcionario_id, nome: f?.nome_completo ?? '—',
+      cargo: f?.cargo ?? '—', integrado: false,
+      motivo: avaliarDocumentos(f?.cargo ?? null, f?.aso_validade ?? null, f?.cnh_validade ?? null, hoje),
+    };
   });
 }
 export async function addOsFuncionario(osId: string, funcionarioId: string): Promise<void> {
@@ -741,16 +749,42 @@ export async function getClienteResumo(clienteId: string): Promise<ClienteResumo
   return { endereco, contato: c?.nome ?? '—', telefone: c?.telefone ?? '—' };
 }
 
-export interface FuncionarioOption { id: string; nome: string; cargo: string; bloqueado: boolean; }
-/** Funcionários ativos; `bloqueado` quando ASO/CNH vencidos (não devem ser vinculados a novas OS). */
+/** Motivo do bloqueio — o rótulo na tela precisa dizer qual dos dois é. */
+export type MotivoBloqueio = 'vencido' | 'ausente' | null;
+
+export const bloqueioLabel = (m: MotivoBloqueio): string =>
+  m === 'vencido' ? 'doc. vencido' : m === 'ausente' ? 'doc. não enviado' : '';
+
+/**
+ * Cargos que vão a campo e por isso precisam de ASO e CNH.
+ *
+ * Documento ausente só bloqueia para eles: gestoras, analistas e supervisão
+ * entram na OS para acompanhar, não para executar, e exigir os documentos delas
+ * tiraria gente legítima do seletor. Documento *vencido* continua bloqueando
+ * qualquer cargo — quem tem o documento cadastrado precisa dele em dia.
+ */
+const CARGOS_DE_CAMPO = ['Técnico de Campo'];
+
+/** Avalia ASO e CNH de um funcionário. Usada no seletor e na equipe já vinculada. */
+export function avaliarDocumentos(
+  cargo: string | null, aso: string | null, cnh: string | null, hoje: string,
+): MotivoBloqueio {
+  const docs = [aso, cnh];
+  if (docs.some((d) => !!d && d < hoje)) return 'vencido';
+  if (CARGOS_DE_CAMPO.includes(cargo ?? '') && docs.some((d) => !d)) return 'ausente';
+  return null;
+}
+
+export interface FuncionarioOption { id: string; nome: string; cargo: string; bloqueado: boolean; motivo: MotivoBloqueio; }
+/** Funcionários ativos; `bloqueado` quando ASO/CNH estão vencidos ou faltando. */
 export async function listFuncionarioOptions(): Promise<FuncionarioOption[]> {
   const { data, error } = await supabase.from('funcionarios').select('id, nome_completo, cargo, aso_validade, cnh_validade').eq('ativo', true).order('nome_completo');
   if (error) throw new Error(error.message);
   const hoje = todayIso();
-  const venc = (d: string | null) => !!d && d < hoje;
-  return (data as any[]).map((f) => ({
-    id: f.id, nome: f.nome_completo, cargo: f.cargo ?? '—', bloqueado: venc(f.aso_validade) || venc(f.cnh_validade),
-  }));
+  return (data as any[]).map((f) => {
+    const motivo = avaliarDocumentos(f.cargo, f.aso_validade, f.cnh_validade, hoje);
+    return { id: f.id, nome: f.nome_completo, cargo: f.cargo ?? '—', bloqueado: motivo !== null, motivo };
+  });
 }
 
 export const listTiposServico = () => listCatalogoAtivos('tipos_servico');
