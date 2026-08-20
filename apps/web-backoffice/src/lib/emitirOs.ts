@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { OsStatus } from '@/lib/operacional';
+import { isReadOnly, type OsStatus } from '@/lib/operacional';
 import type { TablesUpdate } from '@/lib/database.types';
 
 /**
@@ -37,8 +37,6 @@ export const FLUXO: AcaoFluxo[] = [
   { n: '10', chave: 'nao_executada', label: 'Não executada', de: ['confirmada', 'em_andamento'],    para: 'nao_executada', exigeMotivo: true },
 ];
 
-/** Situações em que a OS não aceita mais ação nenhuma. */
-const FINAIS: OsStatus[] = ['concluida', 'cancelada'];
 
 /**
  * Quais ações estão disponíveis agora.
@@ -47,7 +45,12 @@ const FINAIS: OsStatus[] = ['concluida', 'cancelada'];
  * de cancelar e alterar data, que valem em quase todo o caminho.
  */
 export function acoesDisponiveis(status: OsStatus): AcaoFluxo[] {
-  if (FINAIS.includes(status)) return [];
+  // Quem responde "esta OS ainda aceita ação?" é `isReadOnly` — a mesma função
+  // que trava os campos, que barra `setOsStatus`/`cancelarOs` e que o app do
+  // Operador usa. Havia aqui uma segunda lista, sem `nao_executada`: uma OS não
+  // executada exibia "o fluxo está encerrado" e, logo abaixo, "07 Cancelar" e
+  // "09 Alterar data" habilitados — que só devolviam "OS já finalizada".
+  if (isReadOnly(status)) return [];
   return FLUXO.filter((a) => (a.de.length === 0 ? true : a.de.includes(status)));
 }
 

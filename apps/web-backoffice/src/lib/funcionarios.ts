@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabase';
 import type { Json, TablesUpdate } from '@/lib/database.types';
-import type { Usuario, DocState } from '@/data/usuarios';
+import type { Usuario } from '@/data/usuarios';
+import { docState, SEM_DATA } from '@/lib/documentos';
+import { hojeISO, emDiasISO } from '@/lib/datas';
+export { docState };
 
 /** Linha crua da tabela `funcionarios` (subconjunto usado pela UI). */
 export interface FuncionarioRow {
@@ -37,23 +40,11 @@ export interface FuncionarioRow {
   gestor?: { nome_completo: string } | { nome_completo: string }[] | null;
 }
 
-const DAY = 86400000;
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const addDaysISO = (n: number) => new Date(Date.now() + n * DAY).toISOString().slice(0, 10);
 
-export function docState(date: string | null): DocState {
-  if (!date) return 'na';
-  const d = new Date(date + 'T00:00:00');
-  const t = new Date();
-  t.setHours(0, 0, 0, 0);
-  const diff = (d.getTime() - t.getTime()) / DAY;
-  if (diff < 0) return 'expired';
-  if (diff <= 30) return 'soon';
-  return 'ok';
-}
+
 
 function fmtDate(date: string | null): string {
-  if (!date) return 'Não se aplica';
+  if (!date) return SEM_DATA;
   const [y, m, d] = date.split('-');
   return `${d}/${m}/${y}`;
 }
@@ -115,7 +106,7 @@ export async function listFuncionarios(
   if (filtro === 'ativos') q = q.eq('ativo', true);
   else if (filtro === 'inativos') q = q.eq('ativo', false);
   else if (filtro === 'vencimentos') {
-    const lim = addDaysISO(30);
+    const lim = emDiasISO(30);
     q = q.or(`aso_validade.lte.${lim},cnh_validade.lte.${lim}`);
   }
   if (cargo && cargo !== 'todos') q = q.eq('cargo', cargo);
@@ -148,7 +139,7 @@ export interface Kpis {
  * dizia 10 "sem acesso" com 9 ativos nessa situação, sendo o décimo o inativo.
  */
 export async function getKpis(): Promise<Kpis> {
-  const t = todayISO();
+  const t = hojeISO();
   const base = () => supabase.from('funcionarios').select('id', { count: 'exact', head: true });
   const [ativos, inativos, vencidos, semAcesso] = await Promise.all([
     base().eq('ativo', true),

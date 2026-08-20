@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Json } from '@/lib/database.types';
 import type { BadgeTone } from '@/components/ui/Badge';
+import { hojeISO, emDiasISO } from '@/lib/datas';
 
 // ============================================================
 // Helpers
@@ -16,7 +17,7 @@ async function audit(acao: string, detalhes?: Json): Promise<void> {
   });
 }
 
-export const hojeIso = () => new Date().toISOString().slice(0, 10);
+export { hojeISO as hojeIso } from '@/lib/datas';
 export const brDate = (iso: string | null) => (iso ? iso.split('T')[0].split('-').reverse().join('/') : '—');
 export const brDateTime = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -141,10 +142,10 @@ export async function listFollowUps(): Promise<FollowUpRow[]> {
 /** Recorte da aba. Feito em memória: a lista de FUP é operacional do dia, não histórico. */
 export function filtrarPorAba(rows: FollowUpRow[], aba: FupAba): FollowUpRow[] {
   if (aba === 'todos') return rows;
-  const hoje = hojeIso();
+  const hoje = hojeISO();
   if (aba === 'hoje') return rows.filter((r) => r.dataAcao === hoje);
   if (aba === 'atraso') return rows.filter((r) => r.emAtraso);
-  const limite = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+  const limite = emDiasISO(7);
   return rows.filter((r) => r.dataAcao >= hoje && r.dataAcao <= limite);
 }
 
@@ -177,7 +178,7 @@ function traduzErroFup(msg: string): string {
 export async function criarFollowUp(input: FollowUpInput): Promise<string> {
   // "Não permitir Data Ação no passado ao criar FUP novo." Só na criação — a
   // edição de um FUP existente pode legitimamente ter data passada.
-  if (input.data_acao < hojeIso()) {
+  if (input.data_acao < hojeISO()) {
     throw new Error('A data de ação não pode ser anterior a hoje em um follow-up novo.');
   }
   const { data, error } = await supabase
@@ -213,7 +214,7 @@ export async function duplicarFollowUp(id: string): Promise<string> {
     .eq('id', id)
     .single();
   if (error) throw new Error(error.message);
-  const hoje = hojeIso();
+  const hoje = hojeISO();
   return criarFollowUp({
     cliente_id: data.cliente_id,
     orcamento_id: data.orcamento_id,
@@ -341,8 +342,8 @@ export async function listGarantias(
 
   if (aba === 'vencendo') {
     // "Alerta automático 60 dias antes do vencimento."
-    const limite = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10);
-    q = q.lte('data_validade', limite).gte('data_validade', hojeIso());
+    const limite = emDiasISO(60);
+    q = q.lte('data_validade', limite).gte('data_validade', hojeISO());
   } else if (aba === 'aguardando') {
     q = q.eq('status', 'Aguardando Retorno');
   }
@@ -594,8 +595,8 @@ export interface ResumoComercial {
 }
 
 export async function getResumoComercial(): Promise<ResumoComercial> {
-  const hoje = hojeIso();
-  const em60 = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10);
+  const hoje = hojeISO();
+  const em60 = emDiasISO(60);
   const conta = (q: any) => q.then((r: any) => r.count ?? 0);
 
   const [fupsHoje, fupsAtraso, vencendo, aguardando] = await Promise.all([

@@ -8,17 +8,17 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Tabs } from '@/components/ui/Tabs';
-import { SelectField, SearchInput, TextField, TextareaField } from '@/components/ui/Field';
+import { SelectField, SearchInput, TextField } from '@/components/ui/Field';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { useToast } from '@/components/ui/Toast';
 import { criarOrcamento as criarOrcamentoVazio, criarOsDeOrcamento } from '@/lib/orcamentos';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
-import { maskPhone, maskDecimal, maskDate } from '@/lib/masks';
+import { maskPhone, maskDate } from '@/lib/masks';
 import { ClienteFormDrawer } from '@/pages/clientes/ClienteFormDrawer';
 import {
   getCliente, listContatos, addContato, setContatoAtivo, deleteContato,
-  listOrcamentos, createOrcamento, setOrcamentoStatus, orcStatusTone, orcStatusLabel,
+  listOrcamentos, setOrcamentoStatus, orcStatusTone, orcStatusLabel,
   listClienteFuncionarios, listFuncionariosDisponiveis, vincularFuncionario, desvincularFuncionario,
   listPortalUsuarios, convidarPortalUsuario, setPortalUsuarioStatus, portalStatusTone, portalStatusLabel,
   listHomologados, listProdutosParaHomologar, addHomologado, removeHomologado,
@@ -249,9 +249,6 @@ function OrcamentosTab({ clienteId, canCreate, canEdit }: { clienteId: string; c
   const navigate = useNavigate();
   const [rows, setRows] = useState<OrcamentoRow[]>([]);
   const [statusF, setStatusF] = useState('todos');
-  const [novo, setNovo] = useState(false);
-  const [form, setForm] = useState({ observacao: '', valor: '' });
-  const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => { listOrcamentos(clienteId).then(setRows).catch((e) => showToast((e as Error).message)); }, [clienteId, showToast]);
   useEffect(() => { load(); }, [load]);
@@ -261,14 +258,6 @@ function OrcamentosTab({ clienteId, canCreate, canEdit }: { clienteId: string; c
     try { await setOrcamentoStatus(o.id, status); showToast(`Orçamento ${o.codigo}: ${orcStatusLabel[status]}`); load(); }
     catch (e) { showToast((e as Error).message); }
   };
-  const save = async () => {
-    setSaving(true);
-    try {
-      await createOrcamento(clienteId, { observacao: form.observacao.trim() || null, valor_total: Number(form.valor.replace(',', '.')) || 0 });
-      setNovo(false); setForm({ observacao: '', valor: '' }); showToast('Orçamento criado'); load();
-    } catch (e) { showToast((e as Error).message); } finally { setSaving(false); }
-  };
-
   const th = 'px-4 py-2.5 text-left text-xs font-bold uppercase text-ink-400';
   return (
     <div className="rounded-2xl border border-ink-100 bg-white">
@@ -344,19 +333,6 @@ function OrcamentosTab({ clienteId, canCreate, canEdit }: { clienteId: string; c
         </tbody>
       </table>
 
-      {novo && (
-        <Modal open onClose={() => setNovo(false)}>
-          <div className="border-b border-ink-100 px-7 py-[22px]"><h2 className="text-[19px] font-bold text-ink-900">Novo orçamento</h2><p className="mt-0.5 text-[13px] text-ink-400">Entra como "Em elaboração".</p></div>
-          <div className="flex flex-col gap-3.5 px-7 py-6">
-            <TextField label="Valor total (R$)" inputMode="decimal" value={form.valor} onChange={(e) => setForm((s) => ({ ...s, valor: maskDecimal(e.target.value) }))} placeholder="0,00" />
-            <TextareaField label="Observação" value={form.observacao} onChange={(e) => setForm((s) => ({ ...s, observacao: e.target.value }))} placeholder="Descrição do orçamento" />
-          </div>
-          <div className="flex gap-3 px-7 pb-6">
-            <Button variant="secondary" fullWidth onClick={() => setNovo(false)} className="h-[52px]">Cancelar</Button>
-            <Button fullWidth onClick={save} disabled={saving} className="h-[52px]">{saving ? 'Criando…' : 'Criar orçamento'}</Button>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
@@ -407,7 +383,11 @@ function FuncionariosTab({ clienteId, canCreate, canEdit, onNovo }: { clienteId:
                 <td className="px-4 py-3 pl-6 text-sm font-medium text-ink-800">
                   <span className="flex items-center gap-1.5">
                     {f.nome}
-                    {f.bloqueado && <span title="Documento vencido — bloqueia vínculo a novas OS"><AlertTriangle className="h-4 w-4 text-danger-bright" /></span>}
+                    {f.bloqueado && (
+                      <span title={`${f.motivo === 'ausente' ? 'ASO ou CNH não enviados' : 'Documento vencido'} — bloqueia vínculo a novas OS`}>
+                        <AlertTriangle className={cn('h-4 w-4', f.motivo === 'ausente' ? 'text-tag-warnFg' : 'text-danger-bright')} />
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-ink-600">{f.cargo} · {f.setor}</td>
@@ -422,7 +402,7 @@ function FuncionariosTab({ clienteId, canCreate, canEdit, onNovo }: { clienteId:
           </tbody>
         </table>
       </div>
-      <p className="border-t border-ink-100 px-6 py-3 text-[13px] text-ink-400">Funcionários com ASO ou CNH vencidos ficam bloqueados para vínculo em novas OS.</p>
+      <p className="border-t border-ink-100 px-6 py-3 text-[13px] text-ink-400">Bloqueiam vínculo em novas OS: qualquer cargo com ASO ou CNH vencidos, e técnicos de campo sem os documentos enviados — o mesmo critério que o Operacional aplica no seletor de equipe.</p>
 
       {addOpen && (
         <Modal open onClose={() => setAddOpen(false)}>

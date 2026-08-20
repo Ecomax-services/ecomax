@@ -135,7 +135,14 @@ export interface CatalogoItemInput {
 }
 
 export async function createCatalogoItem(input: CatalogoItemInput): Promise<void> {
-  const { error } = await supabase.from('catalogo_itens').insert({ ...input, created_by: await actorId() });
+  // Sem `ordem` explícita o item nasce em 0 e vai para o topo da lista, na
+  // frente de estágios que vêm antes dele no fluxo. O lugar natural de um item
+  // novo é o fim.
+  const { data: ultimo } = await supabase
+    .from('catalogo_itens').select('ordem').eq('catalogo', input.catalogo)
+    .order('ordem', { ascending: false }).limit(1).maybeSingle();
+  const ordem = (ultimo?.ordem ?? 0) + 1;
+  const { error } = await supabase.from('catalogo_itens').insert({ ...input, ordem, created_by: await actorId() });
   if (error) throw new Error(error.code === '23505' ? 'Já existe um item com esse nome neste catálogo.' : error.message);
   await audit('catalogo_item_criado', { catalogo: input.catalogo, nome: input.nome });
 }

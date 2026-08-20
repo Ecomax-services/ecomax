@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { hojeISO, emDiasISO } from '@/lib/datas';
 
 /** Bucket privado dos documentos que o portal enxerga. */
 const BUCKET = 'portal-docs';
@@ -293,13 +294,13 @@ export async function getResumoInicio(): Promise<ResumoInicio> {
     supabase.from('notificacoes').select('id', { count: 'exact', head: true }).eq('lida', false),
   ]);
 
-  const hojeIso = new Date().toISOString().slice(0, 10);
+  const hojeIso = hojeISO();
 
   const futuras = os
     .filter((o) => o.dataIso && o.dataIso >= hojeIso && o.status !== 'cancelada' && o.status !== 'concluida')
     .sort((a, b) => (a.dataIso ?? '').localeCompare(b.dataIso ?? ''));
 
-  const trintaDiasAtras = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+  const trintaDiasAtras = emDiasISO(-30);
 
   // "A vencer" junta documentos do cliente e documentos de quem o atende: para
   // quem está do lado de fora, é tudo conformidade do serviço contratado.
