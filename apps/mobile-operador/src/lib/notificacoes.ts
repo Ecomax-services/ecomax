@@ -11,6 +11,8 @@ export interface NotifItem {
   title: string;
   description: string;
   read: boolean;
+  /** OS de origem, quando houver — é o que faz o toque levar a algum lugar. */
+  osId: string | null;
 }
 
 export const tagColors: Record<NotifKind, { bg: string; fg: string }> = {
@@ -38,22 +40,43 @@ export async function listNotificacoes(): Promise<NotifItem[]> {
   if (error) throw new Error(error.message);
   return (data as any[]).map((r) => {
     const kind = mapKind(r.tipo);
-    return { id: r.id, kind, tagLabel: KIND_TAG[kind], datetime: fmtDateTime(r.created_at), title: r.titulo, description: r.descricao ?? '', read: r.lida };
+    return { id: r.id, kind, tagLabel: KIND_TAG[kind], datetime: fmtDateTime(r.created_at), title: r.titulo, description: r.descricao ?? '', read: r.lida, osId: r.os_id ?? null };
   });
 }
-/** Quantas não lidas o usuário tem. A RLS já escopa por profile/role, então a
- *  contagem sai certa sem filtro extra aqui. */
+/**
+ * Contador de não lidas, com assinantes.
+ *
+ * Recontar só na troca de aba não bastava: lendo uma notificação já dentro da
+ * aba Notificações, o cabeçalho caía para 3 e o badge continuava 4 até sair e
+ * voltar. Quem marca como lida avisa aqui, e o badge acompanha na hora.
+ *
+ * A RLS já escopa por profile/role, então a contagem sai certa sem filtro extra.
+ */
+type OuvinteNaoLidas = (n: number) => void;
+const ouvintes = new Set<OuvinteNaoLidas>();
+let naoLidasAtual = 0;
+
+export function assinarNaoLidas(fn: OuvinteNaoLidas): () => void {
+  ouvintes.add(fn);
+  fn(naoLidasAtual);
+  return () => { ouvintes.delete(fn); };
+}
+
 export async function contarNaoLidas(): Promise<number> {
   const { count, error } = await supabase
     .from('notificacoes').select('id', { count: 'exact', head: true }).eq('lida', false);
   if (error) throw new Error(error.message);
-  return count ?? 0;
+  naoLidasAtual = count ?? 0;
+  ouvintes.forEach((fn) => fn(naoLidasAtual));
+  return naoLidasAtual;
 }
 export async function markRead(id: string): Promise<void> {
   const { error } = await supabase.from('notificacoes').update({ lida: true }).eq('id', id);
   if (error) throw new Error(error.message);
+  await contarNaoLidas();
 }
 export async function markAllRead(): Promise<void> {
   const { error } = await supabase.from('notificacoes').update({ lida: true }).eq('lida', false);
   if (error) throw new Error(error.message);
+  await contarNaoLidas();
 }
