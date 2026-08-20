@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { caminhoOs, enviarBase64, enviarArquivoLocal } from '@/lib/uploads';
 import type { TablesUpdate } from '@/lib/database.types';
 import { coordenadaAtual } from '@/lib/localizacao';
+import { msgErro } from '@/lib/erros';
 
 // ============================================================
 // Status
@@ -56,7 +57,7 @@ export async function listMinhasOs(): Promise<OsListItem[]> {
     .from('ordens_servico')
     .select('id, codigo, status, data_programada, hora_prevista, tipos_servico, cliente:cliente_id(nome)')
     .order('data_programada', { ascending: true, nullsFirst: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((o) => ({
     id: o.id, codigo: o.codigo, cliente: nomeOf(o.cliente),
     tipos: (o.tipos_servico as string[] | null ?? []).join(', ') || '—',
@@ -86,7 +87,7 @@ export async function getOs(id: string): Promise<OsDetail> {
     .from('ordens_servico')
     .select('*, cliente:cliente_id(nome, logradouro, numero, complemento, bairro, cidade, uf)')
     .eq('id', id).single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const o = data as any;
   const c = Array.isArray(o.cliente) ? o.cliente[0] : o.cliente;
   return {
@@ -103,7 +104,7 @@ export async function getOs(id: string): Promise<OsDetail> {
 export async function listProdutos(osId: string): Promise<OsProdutoItem[]> {
   const { data, error } = await supabase
     .from('os_produtos').select('*, produto:produto_id(nome, codigo, unidade)').eq('os_id', osId).order('created_at');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((r) => {
     const p = Array.isArray(r.produto) ? r.produto[0] : r.produto;
     return {
@@ -114,7 +115,7 @@ export async function listProdutos(osId: string): Promise<OsProdutoItem[]> {
 }
 export async function listCronograma(osId: string): Promise<CronogramaItem[]> {
   const { data, error } = await supabase.from('os_cronograma').select('*').eq('os_id', osId).order('ordem');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((r) => ({ id: r.id, data: brDate(r.data_prevista), status: r.status }));
 }
 
@@ -144,7 +145,7 @@ export async function registrarCheckIn(osId: string, statusAtual: OsStatus): Pro
   const ANTES_DA_EXECUCAO: OsStatus[] = ['em_aberto', 'emitida', 'confirmada'];
   if (ANTES_DA_EXECUCAO.includes(statusAtual)) patch.status = 'em_andamento';
   const { error } = await supabase.from('ordens_servico').update(patch).eq('id', osId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Check-in (app)', null, brTime(agora));
   // Registrar a ausência é tão útil quanto registrar a coordenada: sem isso não
   // dá para distinguir "não havia sinal" de "a versão antiga não capturava".
@@ -161,7 +162,7 @@ export async function registrarCheckOut(osId: string): Promise<{ comGps: boolean
     patch.check_out_lng = coord.lng;
   }
   const { error } = await supabase.from('ordens_servico').update(patch).eq('id', osId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Check-out (app)', null, brTime(ts));
   await hist(osId, 'Local do check-out', null, coord ? `${coord.lat.toFixed(5)}, ${coord.lng.toFixed(5)}` : 'sem localização');
   return { comGps: coord !== null };
@@ -169,7 +170,7 @@ export async function registrarCheckOut(osId: string): Promise<{ comGps: boolean
 export async function salvarConsumo(osId: string, itemId: string, qtd: number | null): Promise<void> {
   const { data: before } = await supabase.from('os_produtos').select('qtd_utilizada').eq('id', itemId).single();
   const { error } = await supabase.from('os_produtos').update({ qtd_utilizada: qtd }).eq('id', itemId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Consumo (app)', (before as any)?.qtd_utilizada?.toString() ?? null, qtd?.toString() ?? null);
 }
 /**
@@ -187,7 +188,7 @@ export async function salvarConsumo(osId: string, itemId: string, qtd: number | 
 export async function confirmarAssinatura(osId: string, base64: string): Promise<void> {
   const caminho = await enviarBase64(caminhoOs(osId, 'assinatura', 'assinatura.png'), base64, 'image/png');
   const { error } = await supabase.from('ordens_servico').update({ assinatura_url: caminho }).eq('id', osId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Assinatura do cliente coletada (app)', null, 'Coletada');
 }
 
@@ -204,7 +205,7 @@ export async function registrarFoto(osId: string, uri: string, nome: string): Pr
   const { error } = await supabase
     .from('os_anexos')
     .insert({ os_id: osId, nome, tipo: 'foto', arquivo_url: caminho, created_by: await actorId() });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Foto anexada (app)', null, nome);
 }
 /** Regra: assinatura do cliente é obrigatória para marcar como executada. */
@@ -214,7 +215,7 @@ export async function marcarExecutada(osId: string): Promise<void> {
   if (isReadOnly(row?.status)) throw new Error('OS já finalizada.');
   if (!row?.assinatura_url) throw new Error('Colete a assinatura do cliente antes de finalizar.');
   const { error } = await supabase.from('ordens_servico').update({ status: 'executada' }).eq('id', osId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await hist(osId, 'Status', osTag[row.status as OsStatus]?.label ?? row.status, osTag.executada.label);
 }
 
@@ -227,7 +228,7 @@ export async function listAgenda(): Promise<AgendaItem[]> {
     .from('ordens_servico')
     .select('id, codigo, data_programada, tipos_servico, status, cliente:cliente_id(nome), crono:os_cronograma(id, data_prevista, status)')
     .neq('status', 'cancelada');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const out: AgendaItem[] = [];
   for (const o of data as any[]) {
     const cliente = nomeOf(o.cliente);
