@@ -7,6 +7,7 @@ import { Tabs } from '@/components/ui/Tabs';
 import { SearchInput, SelectField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
+import { useCatalogo } from '@/lib/useCatalogo';
 import {
   listGarantias, garantiaTone, GARANTIA_STATUS, type GarantiaRow, type GarantiaAba,
 } from '@/lib/comercial';
@@ -36,6 +37,7 @@ export function Garantias() {
   const [aba, setAba] = useState<GarantiaAba>('vencendo');
   const [busca, setBusca] = useState('');
   const [status, setStatus] = useState('todos');
+  const statusOpcoes = useCatalogo('status_garantia', GARANTIA_STATUS);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
@@ -64,7 +66,7 @@ export function Garantias() {
             <SearchInput value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Cliente ou nº da OS" />
             <SelectField
               value={status} onChange={(e) => setStatus(e.target.value)}
-              options={[{ value: 'todos', label: 'Todos os status' }, ...GARANTIA_STATUS.map((s) => ({ value: s, label: s }))]}
+              options={[{ value: 'todos', label: 'Todos os status' }, ...statusOpcoes.map((s) => ({ value: s, label: s }))]}
             />
           </div>
         </div>

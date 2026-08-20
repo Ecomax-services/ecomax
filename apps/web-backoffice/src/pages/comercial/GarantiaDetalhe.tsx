@@ -11,6 +11,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { Anexos } from './Anexos';
+import { useCatalogo } from '@/lib/useCatalogo';
 import {
   getGarantia, mudarStatusGarantia, listHistoricoGarantia, listServicosGarantia,
   addServicoGarantia, removeServicoGarantia, listLinksGarantia, gerarLinkGarantia, revogarLink,
@@ -37,6 +38,7 @@ export function GarantiaDetalhe() {
   const [historico, setHistorico] = useState<HistoricoGarantia[]>([]);
   const [links, setLinks] = useState<LinkGarantia[]>([]);
   const [tiposServico, setTiposServico] = useState<string[]>([]);
+  const statusOpcoes = useCatalogo('status_garantia', GARANTIA_STATUS);
 
   const [statusOpen, setStatusOpen] = useState(false);
   const [novoStatus, setNovoStatus] = useState('');
@@ -234,7 +236,7 @@ export function GarantiaDetalhe() {
           <div className="flex flex-col gap-4 px-7 py-6">
             <SelectField
               label="Novo status" value={novoStatus} onChange={(e) => setNovoStatus(e.target.value)}
-              options={GARANTIA_STATUS.map((s) => ({ value: s, label: s }))}
+              options={statusOpcoes.map((s) => ({ value: s, label: s }))}
             />
             <TextareaField
               label={GARANTIA_EXIGE_COMENTARIO.includes(novoStatus) ? 'Motivo (obrigatório)' : 'Comentário'}

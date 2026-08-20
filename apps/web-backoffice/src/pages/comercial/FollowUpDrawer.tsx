@@ -9,6 +9,7 @@ import {
   criarFollowUp, atualizarFollowUp, hojeIso, FUP_STATUS, type FollowUpRow,
 } from '@/lib/comercial';
 import { Anexos } from './Anexos';
+import { useCatalogo } from '@/lib/useCatalogo';
 
 const RASCUNHO = 'ecomax.fup.rascunho';
 const MAX_DESC = 1000;
@@ -26,6 +27,7 @@ export function FollowUpDrawer({
   const [orcamentos, setOrcamentos] = useState<Opcao[]>([]);
   const [responsaveis, setResponsaveis] = useState<Opcao[]>([]);
   const [salvando, setSalvando] = useState(false);
+  const statusOpcoes = useCatalogo('status_follow_up', FUP_STATUS);
   const [confirmarSaida, setConfirmarSaida] = useState(false);
   const [proximo, setProximo] = useState(false);
 
@@ -168,7 +170,7 @@ export function FollowUpDrawer({
           </div>
           <SelectField
             label="Status" value={form.status} onChange={(e) => up('status', e.target.value)}
-            options={FUP_STATUS.map((s) => ({ value: s, label: s }))}
+            options={statusOpcoes.map((s) => ({ value: s, label: s }))}
           />
           <div>
             <TextareaField

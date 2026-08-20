@@ -16,6 +16,7 @@ import {
 } from '@/lib/comercial';
 import { FollowUpDrawer } from './FollowUpDrawer';
 import { FiltrosSalvosDrawer } from './FiltrosSalvos';
+import { useCatalogo } from '@/lib/useCatalogo';
 
 const ABAS: { key: FupAba; label: string }[] = [
   { key: 'hoje', label: 'Hoje' },
@@ -38,6 +39,7 @@ export function FollowUps() {
   const [aba, setAba] = useState<FupAba>('hoje');
   const [busca, setBusca] = useState('');
   const [status, setStatus] = useState('todos');
+  const statusOpcoes = useCatalogo('status_follow_up', FUP_STATUS);
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState<{ open: boolean; edit?: FollowUpRow }>({ open: false });
   const [filtrosOpen, setFiltrosOpen] = useState(false);
@@ -83,7 +85,7 @@ export function FollowUps() {
             <SelectField
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              options={[{ value: 'todos', label: 'Todos os status' }, ...FUP_STATUS.map((s) => ({ value: s, label: s }))]}
+              options={[{ value: 'todos', label: 'Todos os status' }, ...statusOpcoes.map((s) => ({ value: s, label: s }))]}
             />
             <Button variant="secondary" onClick={() => setFiltrosOpen(true)}><Filter className="h-4 w-4" />Filtros salvos</Button>
             {canCreate && <Button onClick={() => setDrawer({ open: true })}><Plus className="h-4 w-4" />Novo follow-up</Button>}
