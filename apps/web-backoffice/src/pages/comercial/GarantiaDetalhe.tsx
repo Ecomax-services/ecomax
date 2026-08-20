@@ -47,19 +47,39 @@ export function GarantiaDetalhe() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [dias, setDias] = useState(30);
   const [novoServico, setNovoServico] = useState('');
+  const [notFound, setNotFound] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const [gar, srv, hist, lks] = await Promise.all([
         getGarantia(id), listServicosGarantia(id), listHistoricoGarantia(id), listLinksGarantia(id),
       ]);
+      // `getGarantia` usa `maybeSingle`: id inexistente devolve null sem erro,
+      // então o catch abaixo nunca disparava e a tela ficava em "Carregando…"
+      // para sempre. As telas de OS, cliente e funcionário já distinguem "ainda
+      // carregando" de "não existe"; esta era a única que faltava.
+      if (!gar) { setNotFound(true); return; }
       setG(gar); setServicos(srv); setHistorico(hist); setLinks(lks);
-    } catch (e) { showToast((e as Error).message); }
+    } catch (e) {
+      setNotFound(true);
+      showToast((e as Error).message);
+    }
   }, [id, showToast]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { listCatalogoAtivos('tipos_servico').then(setTiposServico).catch(() => {}); }, []);
 
+  if (notFound) {
+    return (
+      <>
+        <Topbar title="Garantia" breadcrumb="Início  /  Comercial  /  Garantias" />
+        <div className="flex-1 px-8 py-6">
+          <p className="text-sm text-ink-500">Garantia não encontrada.</p>
+          <Button variant="secondary" className="mt-3" onClick={() => navigate('/comercial/garantias')}>Voltar para a lista</Button>
+        </div>
+      </>
+    );
+  }
   if (!g) {
     return (
       <>
