@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { docState, avaliarDocumentos, hojeISO, SEM_DATA, type DocState, type MotivoBloqueio } from '@/lib/documentos';
 import type { Json } from '@/lib/database.types';
 import type { BadgeTone } from '@/components/ui/Badge';
+import { msgErro } from '@/lib/erros';
 
 // ============================================================
 // Helpers
@@ -57,7 +58,7 @@ export async function listClientes(opts: { search?: string; page?: number; pageS
   const s = opts.search?.trim();
   if (s) q = q.or(`nome.ilike.%${s}%,razao_social.ilike.%${s}%`);
   const { data, error, count } = await q;
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const rows = (data as any[]).map((c) => ({
     id: c.id, nome: c.nome, razao: c.razao_social ?? '—', regiao: c.regiao ?? '—',
     doc: c.cnpj || c.cpf || '—', endereco: composeEndereco(c), ativo: c.ativo,
@@ -67,7 +68,7 @@ export async function listClientes(opts: { search?: string; page?: number; pageS
 
 export async function getCliente(id: string): Promise<ClienteDetail> {
   const { data, error } = await supabase.from('clientes').select('*').eq('id', id).single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const c = data as any;
   return {
     id: c.id, nome: c.nome, razao: c.razao_social ?? '—', regiao: c.regiao ?? '—',
@@ -87,19 +88,19 @@ export interface ClienteInput {
 }
 export async function createCliente(input: ClienteInput): Promise<string> {
   const { data, error } = await supabase.from('clientes').insert({ ...input, created_by: await actorId() }).select('id').single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await audit('cliente_criado', { cliente_id: (data as any).id, nome: input.nome });
   return (data as any).id;
 }
 export async function updateCliente(id: string, input: Partial<ClienteInput>): Promise<void> {
   const { error } = await supabase.from('clientes').update(input).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await audit('cliente_editado', { cliente_id: id });
 }
 /** Soft delete: inativa (ou reativa) o cliente — nunca remove do banco. */
 export async function setClienteAtivo(id: string, ativo: boolean): Promise<void> {
   const { error } = await supabase.from('clientes').update({ ativo }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await audit(ativo ? 'cliente_reativado' : 'cliente_inativado', { cliente_id: id });
 }
 
@@ -112,7 +113,7 @@ export interface ContatoRow {
 }
 export async function listContatos(clienteId: string): Promise<ContatoRow[]> {
   const { data, error } = await supabase.from('cliente_contatos').select('*').eq('cliente_id', clienteId).order('created_at');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((r) => ({
     id: r.id, tipo: r.tipo, origem: r.tipo === 'telefone' ? 'Telefone' : 'Contato',
     nome: r.nome ?? '—', telefone: r.telefone ?? '', email: r.email ?? '',
@@ -125,20 +126,20 @@ export interface ContatoInput {
 }
 export async function addContato(clienteId: string, c: ContatoInput): Promise<void> {
   const { error } = await supabase.from('cliente_contatos').insert({ cliente_id: clienteId, ...c });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await audit('contato_criado', { cliente_id: clienteId, tipo: c.tipo });
 }
 export async function updateContato(id: string, c: Partial<ContatoInput>): Promise<void> {
   const { error } = await supabase.from('cliente_contatos').update(c).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 export async function setContatoAtivo(id: string, ativo: boolean): Promise<void> {
   const { error } = await supabase.from('cliente_contatos').update({ ativo }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 export async function deleteContato(id: string): Promise<void> {
   const { error } = await supabase.from('cliente_contatos').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 // ============================================================
@@ -152,7 +153,7 @@ export interface PortalUsuarioRow {
 }
 export async function listPortalUsuarios(clienteId: string): Promise<PortalUsuarioRow[]> {
   const { data, error } = await supabase.from('cliente_portal_usuarios').select('*').eq('cliente_id', clienteId).order('created_at');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((u) => ({
     id: u.id, nome: u.nome, email: u.email, perfil: u.perfil ?? '—', status: u.status,
     ultimoAcesso: u.ultimo_acesso ? new Date(u.ultimo_acesso).toLocaleDateString('pt-BR') : '—',
@@ -188,11 +189,11 @@ export async function convidarPortalUsuario(
 }
 export async function setPortalUsuarioStatus(id: string, status: PortalStatus): Promise<void> {
   const { error } = await supabase.from('cliente_portal_usuarios').update({ status }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 export async function updatePortalUsuarioPerfil(id: string, perfil: string): Promise<void> {
   const { error } = await supabase.from('cliente_portal_usuarios').update({ perfil }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 // ============================================================
@@ -215,7 +216,7 @@ export async function listClienteFuncionarios(clienteId: string): Promise<FuncIn
     .from('cliente_funcionarios')
     .select('id, funcionario_id, funcionario:funcionario_id(nome_completo, cargo, setor, ativo, aso_validade, cnh_validade)')
     .eq('cliente_id', clienteId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const hoje = hojeISO();
   return (data as any[]).map((v) => {
     const f = Array.isArray(v.funcionario) ? v.funcionario[0] : v.funcionario;
@@ -238,18 +239,18 @@ export async function listFuncionariosDisponiveis(clienteId: string): Promise<{ 
     supabase.from('funcionarios').select('id, nome_completo').eq('ativo', true).order('nome_completo'),
     supabase.from('cliente_funcionarios').select('funcionario_id').eq('cliente_id', clienteId),
   ]);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const usados = new Set((vinc as any[] | null)?.map((v) => v.funcionario_id));
   return (funcs as any[]).filter((f) => !usados.has(f.id)).map((f) => ({ id: f.id, nome: f.nome_completo }));
 }
 export async function vincularFuncionario(clienteId: string, funcionarioId: string): Promise<void> {
   const { error } = await supabase.from('cliente_funcionarios').insert({ cliente_id: clienteId, funcionario_id: funcionarioId });
-  if (error) throw new Error(error.code === '23505' ? 'Funcionário já vinculado a este cliente.' : error.message);
+  if (error) throw new Error(error.code === '23505' ? 'Funcionário já vinculado a este cliente.' : msgErro(error));
   await audit('funcionario_vinculado', { cliente_id: clienteId, funcionario_id: funcionarioId });
 }
 export async function desvincularFuncionario(vinculoId: string): Promise<void> {
   const { error } = await supabase.from('cliente_funcionarios').delete().eq('id', vinculoId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 // ============================================================
@@ -264,7 +265,7 @@ export interface OrcamentoRow {
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 export async function listOrcamentos(clienteId: string): Promise<OrcamentoRow[]> {
   const { data, error } = await supabase.from('orcamentos').select('*').eq('cliente_id', clienteId).order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((o) => ({
     id: o.id, codigo: o.codigo, data: brDate(o.data), status: o.status as OrcStatus,
     observacao: o.observacao ?? '', valor: brl(Number(o.valor_total)), osCount: 0,
@@ -279,7 +280,7 @@ export async function listOrcamentos(clienteId: string): Promise<OrcamentoRow[]>
  */
 export async function setOrcamentoStatus(id: string, status: OrcStatus): Promise<void> {
   const { error } = await supabase.from('orcamentos').update({ status }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await audit('orcamento_status', { orcamento_id: id, status });
 }
 
@@ -295,7 +296,7 @@ export async function listHomologados(clienteId: string): Promise<HomologadoRow[
     .from('cliente_produtos_homologados')
     .select('id, produto_id, data_homologacao, validade, produto:produto_id(codigo, nome, categoria)')
     .eq('cliente_id', clienteId).order('created_at');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((h) => {
     const p = Array.isArray(h.produto) ? h.produto[0] : h.produto;
     const st = docState(h.validade);
@@ -310,20 +311,20 @@ export async function listProdutosParaHomologar(clienteId: string): Promise<{ id
     supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('cliente_produtos_homologados').select('produto_id').eq('cliente_id', clienteId),
   ]);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const usados = new Set((homolog as any[] | null)?.map((h) => h.produto_id));
   return (prods as any[]).filter((p) => !usados.has(p.id)).map((p) => ({ id: p.id, nome: p.nome }));
 }
 export async function addHomologado(clienteId: string, produtoId: string, validade: string | null): Promise<void> {
   const { error } = await supabase.from('cliente_produtos_homologados').insert({ cliente_id: clienteId, produto_id: produtoId, validade });
-  if (error) throw new Error(error.code === '23505' ? 'Produto já homologado para este cliente.' : error.message);
+  if (error) throw new Error(error.code === '23505' ? 'Produto já homologado para este cliente.' : msgErro(error));
   await audit('produto_homologado', { cliente_id: clienteId, produto_id: produtoId });
 }
 export async function updateHomologadoValidade(id: string, validade: string | null): Promise<void> {
   const { error } = await supabase.from('cliente_produtos_homologados').update({ validade }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 export async function removeHomologado(id: string): Promise<void> {
   const { error } = await supabase.from('cliente_produtos_homologados').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }

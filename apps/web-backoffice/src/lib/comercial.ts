@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { Json } from '@/lib/database.types';
 import type { BadgeTone } from '@/components/ui/Badge';
 import { hojeISO, emDiasISO } from '@/lib/datas';
+import { msgErro } from '@/lib/erros';
 
 // ============================================================
 // Helpers
@@ -135,7 +136,7 @@ export async function listFollowUps(): Promise<FollowUpRow[]> {
     .from('comercial_follow_ups')
     .select(FUP_SELECT)
     .order('data_acao', { ascending: true });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map(toFup);
 }
 
@@ -203,7 +204,7 @@ export async function excluirFollowUp(id: string, motivo: string): Promise<void>
   // descrita, e o motivo é justamente o que se quer preservar.
   await audit('follow_up_excluido', { id, motivo });
   const { error } = await supabase.from('comercial_follow_ups').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 /** Duplicar: mesma pessoa, mesmo assunto, nova data. */
@@ -213,7 +214,7 @@ export async function duplicarFollowUp(id: string): Promise<string> {
     .select('cliente_id, orcamento_id, descricao, responsavel_id')
     .eq('id', id)
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   const hoje = hojeISO();
   return criarFollowUp({
     cliente_id: data.cliente_id,
@@ -245,7 +246,7 @@ export async function listFupAnexos(followUpId: string): Promise<AnexoRow[]> {
     .select('id, nome, tipo, tamanho_bytes, arquivo_url, created_at')
     .eq('follow_up_id', followUpId)
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((a) => ({
     id: a.id, nome: a.nome, tipo: a.tipo ?? 'outro', tamanho: tamanhoBr(a.tamanho_bytes),
     arquivoUrl: a.arquivo_url, autor: '—', criadoEm: brDateTime(a.created_at),
@@ -258,7 +259,7 @@ export async function listGarantiaAnexos(garantiaId: string): Promise<AnexoRow[]
     .select('id, nome, tipo, tamanho_bytes, arquivo_url, created_at')
     .eq('garantia_id', garantiaId)
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((a) => ({
     id: a.id, nome: a.nome, tipo: a.tipo ?? 'Outro', tamanho: tamanhoBr(a.tamanho_bytes),
     arquivoUrl: a.arquivo_url, autor: '—', criadoEm: brDateTime(a.created_at),
@@ -268,13 +269,13 @@ export async function listGarantiaAnexos(garantiaId: string): Promise<AnexoRow[]
 export async function renomearAnexo(tabela: 'fup' | 'garantia', id: string, nome: string): Promise<void> {
   const t = tabela === 'fup' ? 'comercial_fup_anexos' : 'comercial_garantia_anexos';
   const { error } = await supabase.from(t).update({ nome }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 export async function excluirAnexo(tabela: 'fup' | 'garantia', id: string): Promise<void> {
   const t = tabela === 'fup' ? 'comercial_fup_anexos' : 'comercial_garantia_anexos';
   const { error } = await supabase.from(t).delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 // ============================================================
@@ -351,7 +352,7 @@ export async function listGarantias(
 
   const from = (page - 1) * pageSize;
   const { data, count, error } = await q.order('data_validade').range(from, from + pageSize - 1);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 
   let rows = (data as any[]).map(toGarantia);
   // A busca é por nome do cliente e código da OS, que vivem em tabelas
@@ -366,7 +367,7 @@ export async function listGarantias(
 
 export async function getGarantia(id: string): Promise<GarantiaRow | null> {
   const { data, error } = await supabase.from('comercial_garantias').select(GARANTIA_SELECT).eq('id', id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return data ? toGarantia(data) : null;
 }
 
@@ -394,7 +395,7 @@ export async function mudarStatusGarantia(
   }
 
   const { error } = await supabase.from('comercial_garantias').update({ status: novo }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 
   await supabase.from('comercial_garantia_historico').insert({
     garantia_id: id, campo: 'Status', valor_anterior: atual.status, valor_novo: novo,
@@ -413,7 +414,7 @@ export async function listHistoricoGarantia(id: string): Promise<HistoricoGarant
     .select('id, campo, valor_anterior, valor_novo, comentario, created_at')
     .eq('garantia_id', id)
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((h) => ({
     id: h.id, campo: h.campo, anterior: h.valor_anterior ?? '—', novo: h.valor_novo ?? '—',
     comentario: h.comentario ?? '', quando: brDateTime(h.created_at),
@@ -423,7 +424,7 @@ export async function listHistoricoGarantia(id: string): Promise<HistoricoGarant
 export async function listServicosGarantia(id: string): Promise<{ id: string; tipo: string; observacao: string }[]> {
   const { data, error } = await supabase
     .from('comercial_garantia_servicos').select('id, tipo_servico, observacao').eq('garantia_id', id).order('tipo_servico');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((s) => ({ id: s.id, tipo: s.tipo_servico, observacao: s.observacao ?? '' }));
 }
 
@@ -434,7 +435,7 @@ export async function addServicoGarantia(garantiaId: string, tipo: string): Prom
 
 export async function removeServicoGarantia(id: string): Promise<void> {
   const { error } = await supabase.from('comercial_garantia_servicos').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 // ---- Link público ----
@@ -462,7 +463,7 @@ export async function listLinksGarantia(garantiaId: string): Promise<LinkGaranti
     .select('id, token, expira_em, aberto_em, respondido_em, resposta, revogado')
     .eq('garantia_id', garantiaId)
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((l) => ({
     id: l.id, token: l.token, url: urlPublica(l.token),
     expiraEm: brDateTime(l.expira_em), abertoEm: brDateTime(l.aberto_em),
@@ -496,7 +497,7 @@ export async function gerarLinkGarantia(garantiaId: string, statusAtual: string,
     })
     .select('id, token, expira_em, aberto_em, respondido_em, resposta, revogado')
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await audit('garantia_link_gerado', { garantia_id: garantiaId, dias });
   return {
     id: data.id, token: data.token, url: urlPublica(data.token),
@@ -506,7 +507,7 @@ export async function gerarLinkGarantia(garantiaId: string, statusAtual: string,
 
 export async function revogarLink(id: string): Promise<void> {
   const { error } = await supabase.from('comercial_garantia_links').update({ revogado: true }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   await audit('garantia_link_revogado', { id });
 }
 
@@ -530,7 +531,7 @@ export async function listFiltros(modulo: string): Promise<FiltroSalvo[]> {
     .eq('modulo', modulo)
     .order('favorito', { ascending: false })
     .order('nome');
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return (data as any[]).map((f) => ({
     id: f.id, nome: f.nome, categoria: f.categoria ?? '—', visibilidade: f.visibilidade,
     regras: (f.regras as RegraFiltro[]) ?? [], favorito: f.favorito, meu: f.created_by === uid,
@@ -547,17 +548,17 @@ export async function salvarFiltro(
     modulo, nome: f.nome.trim(), categoria: f.categoria.trim() || null,
     visibilidade: f.visibilidade, regras: f.regras as unknown as Json, created_by: await actorId(),
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 export async function alternarFavorito(id: string, favorito: boolean): Promise<void> {
   const { error } = await supabase.from('filtros_salvos').update({ favorito }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 export async function excluirFiltro(id: string): Promise<void> {
   const { error } = await supabase.from('filtros_salvos').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
 }
 
 /** Aplica as regras do filtro sobre uma lista já carregada. */

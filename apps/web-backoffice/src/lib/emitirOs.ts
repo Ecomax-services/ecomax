@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { isReadOnly, type OsStatus } from '@/lib/operacional';
 import type { TablesUpdate } from '@/lib/database.types';
+import { msgErro } from '@/lib/erros';
 
 /**
  * O fluxo de situação da tela 3.1.3.
@@ -115,7 +116,7 @@ export async function aplicarAcao(
 
   if (Object.keys(patch).length) {
     const { error } = await supabase.from('ordens_servico').update(patch).eq('id', osId);
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(msgErro(error));
   }
 
   if (acao.efeito === 'baixar_estoque') {
@@ -151,6 +152,6 @@ export async function aplicarAcao(
  */
 export async function baixarEstoqueDaOs(osId: string): Promise<number> {
   const { data, error } = await supabase.rpc('baixar_estoque_os', { p_os_id: osId });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   return Number(data ?? 0);
 }

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { msgErro } from '@/lib/erros';
 
 const BUCKET = 'comercial-docs';
 
@@ -106,7 +107,7 @@ export async function enviarAnexo(escopo: EscopoAnexo, id: string, file: File): 
     // A linha é o que torna o arquivo encontrável. Sem ela o objeto viraria
     // lixo invisível no bucket, então é melhor desfazer o upload.
     await supabase.storage.from(BUCKET).remove([caminho]);
-    throw new Error(error.message);
+    throw new Error(msgErro(error));
   }
 }
 
@@ -125,6 +126,6 @@ export async function abrirAnexo(caminho: string | null): Promise<void> {
 export async function removerAnexo(escopo: EscopoAnexo, anexoId: string, caminho: string | null): Promise<void> {
   const tabela = escopo === 'follow-up' ? 'comercial_fup_anexos' : 'comercial_garantia_anexos';
   const { error } = await supabase.from(tabela).delete().eq('id', anexoId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(msgErro(error));
   if (caminho) await supabase.storage.from(BUCKET).remove([caminho]);
 }
