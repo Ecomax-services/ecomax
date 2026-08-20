@@ -12,7 +12,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { alertMeta } from '@/data/estoque';
 import {
-  listBases, listLotes, criarTransferencia, listTransferencias,
+  listBases, loteVencendo, listLotes, criarTransferencia, listTransferencias,
   confirmarRecebimentoTransferencia, cancelarTransferencia,
   type StockRow, type TransferenciaRow,
 } from '@/lib/estoque';
@@ -49,7 +49,7 @@ export function Inventario() {
   const kpis = [
     { icon: Warehouse, tone: 'green' as const, label: 'Bases com estoque', value: new Set(lotes.map((l) => l.base_id)).size },
     { icon: Boxes, tone: 'blue' as const, label: 'Produtos em base', value: new Set(lotes.map((l) => l.produto_id)).size },
-    { icon: Clock, tone: 'amber' as const, label: 'Lotes vencendo', value: lotes.filter((l) => l.alert === 'exp').length },
+    { icon: Clock, tone: 'amber' as const, label: 'Lotes vencendo', value: lotes.filter((l) => loteVencendo(l.validadeISO)).length },
     { icon: Truck, tone: 'amber' as const, label: 'Transferências em trânsito', value: transitos.length },
   ];
 
