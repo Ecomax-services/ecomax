@@ -1,14 +1,3 @@
-// GERADO AUTOMATICAMENTE — não edite à mão.
-//
-// Origem: `supabase gen types typescript` sobre o schema public do projeto.
-// Para atualizar depois de qualquer migration:  ./scripts/gen-types.sh
-//
-// As três cópias em apps/*/src/lib/database.types.ts são deste arquivo. A
-// duplicação existe porque ainda não há workspace na raiz — cada app tem seu
-// próprio package.json, e Vite e Metro resolvem fora do root de formas
-// diferentes. O job de tipos da CI falha se as cópias divergirem, e tudo isso
-// colapsa num pacote compartilhado quando packages/core existir.
-
 export type Json =
   | string
   | number
@@ -2836,6 +2825,17 @@ export type Database = {
         Returns: boolean
       }
       produto_in_my_os: { Args: { _produto_id: string }; Returns: boolean }
+      receber_requisicao: {
+        Args: {
+          p_base_id: string
+          p_lote: string
+          p_nota_url?: string
+          p_quantidade: number
+          p_requisicao_id: string
+          p_validade?: string
+        }
+        Returns: undefined
+      }
       storage_os_id: { Args: { _name: string }; Returns: string }
       storage_os_tipo: { Args: { _name: string }; Returns: string }
     }
