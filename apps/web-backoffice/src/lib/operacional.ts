@@ -5,6 +5,7 @@ import { listProdutos, listBases, type Produto } from '@/lib/estoque';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { criarNotificacao } from '@/lib/notificacoes';
 import { avaliarDocumentos, type MotivoBloqueio } from '@/lib/documentos';
+import { hojeISO, diaISO } from '@/lib/datas';
 
 // ============================================================
 // Helpers
@@ -49,9 +50,9 @@ const brDate = (iso: string | null) => (iso ? iso.split('T')[0].split('-').rever
 const brDateTime = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const todayIso = () => new Date().toISOString().slice(0, 10);
+
 /** Regra: não permitir data programada no passado. */
-export const isPastDate = (iso: string) => !!iso && iso < todayIso();
+export const isPastDate = (iso: string) => !!iso && iso < hojeISO();
 
 // ============================================================
 // Status
@@ -424,7 +425,7 @@ export async function listOsFuncionarios(osId: string): Promise<OsFuncionarioRow
     .select('id, funcionario_id, funcionario:funcionario_id(nome_completo, cargo, aso_validade, cnh_validade)')
     .eq('os_id', osId).order('created_at');
   if (error) throw new Error(error.message);
-  const hoje = todayIso();
+  const hoje = hojeISO();
   return (data as any[]).map((v) => {
     const f = Array.isArray(v.funcionario) ? v.funcionario[0] : v.funcionario;
     return {
@@ -758,7 +759,7 @@ export interface FuncionarioOption { id: string; nome: string; cargo: string; bl
 export async function listFuncionarioOptions(): Promise<FuncionarioOption[]> {
   const { data, error } = await supabase.from('funcionarios').select('id, nome_completo, cargo, aso_validade, cnh_validade').eq('ativo', true).order('nome_completo');
   if (error) throw new Error(error.message);
-  const hoje = todayIso();
+  const hoje = hojeISO();
   return (data as any[]).map((f) => {
     const motivo = avaliarDocumentos(f.cargo, f.aso_validade, f.cnh_validade, hoje);
     return { id: f.id, nome: f.nome_completo, cargo: f.cargo ?? '—', bloqueado: motivo !== null, motivo };
@@ -799,7 +800,7 @@ export function gerarCronograma(dataInicialIso: string, recorrencia: Recorrencia
     if (recorrencia === 'semanal') d.setDate(d.getDate() + 7 * i);
     else if (recorrencia === 'mensal') d.setMonth(d.getMonth() + i);
     else if (recorrencia === 'trimestral') d.setMonth(d.getMonth() + 3 * i);
-    out.push(d.toISOString().slice(0, 10));
+    out.push(diaISO(d));
   }
   return out;
 }

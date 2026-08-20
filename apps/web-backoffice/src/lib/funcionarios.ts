@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { Json, TablesUpdate } from '@/lib/database.types';
 import type { Usuario } from '@/data/usuarios';
 import { docState, SEM_DATA } from '@/lib/documentos';
+import { hojeISO, emDiasISO } from '@/lib/datas';
 export { docState };
 
 /** Linha crua da tabela `funcionarios` (subconjunto usado pela UI). */
@@ -39,9 +40,7 @@ export interface FuncionarioRow {
   gestor?: { nome_completo: string } | { nome_completo: string }[] | null;
 }
 
-const DAY = 86400000;
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const addDaysISO = (n: number) => new Date(Date.now() + n * DAY).toISOString().slice(0, 10);
+
 
 
 function fmtDate(date: string | null): string {
@@ -107,7 +106,7 @@ export async function listFuncionarios(
   if (filtro === 'ativos') q = q.eq('ativo', true);
   else if (filtro === 'inativos') q = q.eq('ativo', false);
   else if (filtro === 'vencimentos') {
-    const lim = addDaysISO(30);
+    const lim = emDiasISO(30);
     q = q.or(`aso_validade.lte.${lim},cnh_validade.lte.${lim}`);
   }
   if (cargo && cargo !== 'todos') q = q.eq('cargo', cargo);
@@ -140,7 +139,7 @@ export interface Kpis {
  * dizia 10 "sem acesso" com 9 ativos nessa situação, sendo o décimo o inativo.
  */
 export async function getKpis(): Promise<Kpis> {
-  const t = todayISO();
+  const t = hojeISO();
   const base = () => supabase.from('funcionarios').select('id', { count: 'exact', head: true });
   const [ativos, inativos, vencidos, semAcesso] = await Promise.all([
     base().eq('ativo', true),

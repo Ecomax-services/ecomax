@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { BadgeTone } from '@/components/ui/Badge';
+import { hojeISO } from '@/lib/datas';
 
 // ============================================================
 // 3.1.1 Elaborar orçamento
@@ -161,7 +162,7 @@ export async function criarOrcamento(clienteId: string): Promise<string> {
     .from('orcamentos')
     .insert({
       cliente_id: clienteId,
-      data: new Date().toISOString().slice(0, 10),
+      data: hojeISO(),
       status: 'em_elaboracao',
       valor_total: 0,
       created_by: u.user?.id ?? null,

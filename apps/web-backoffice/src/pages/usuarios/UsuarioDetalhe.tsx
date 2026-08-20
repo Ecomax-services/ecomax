@@ -32,6 +32,7 @@ import {
 } from '@/lib/funcionarios';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { maskRG, maskDate, maskPhone, maskCEP } from '@/lib/masks';
+import { hojeISO } from '@/lib/datas';
 
 interface DocUrls {
   avatar: string | null;
@@ -545,7 +546,7 @@ function Vazio({ children }: { children: React.ReactNode }) {
 
 /** Agenda: o que vem primeiro, e o que já passou — a divisão que importa em campo. */
 function Cronograma({ os }: { os: OsDoFuncionario[] }) {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
   const futuras = os.filter((o) => o.dataISO && o.dataISO >= hoje).sort((a, b) => (a.dataISO ?? '').localeCompare(b.dataISO ?? ''));
   const passadas = os.filter((o) => o.dataISO && o.dataISO < hoje);
   const semData = os.filter((o) => !o.dataISO);

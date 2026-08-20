@@ -1,4 +1,6 @@
 import type { BadgeTone } from '@/components/ui/Badge';
+import { hojeISO } from '@/lib/datas';
+export { hojeISO };
 
 /**
  * A resposta única para "este ASO/CNH está em dia?".
@@ -26,11 +28,6 @@ const DIA = 86400000;
 /** Dias de antecedência com que um vencimento passa a ser alertado. */
 export const JANELA_ALERTA_DIAS = 30;
 
-/** Hoje em ISO (`YYYY-MM-DD`), no fuso local — a mesma referência para todos. */
-export const hojeISO = (): string => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
 
 const meiaNoiteDeHoje = () => {
   const t = new Date();
