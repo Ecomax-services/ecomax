@@ -428,19 +428,15 @@ export async function listMovimentacoes(): Promise<MovRow[]> {
 export async function ajusteEstoque(input: {
   produto_id: string; base_id: string; delta: number; motivo: string; observacao?: string; lote?: string;
 }) {
-  const lote = input.lote || 'AJUSTE';
-  const { data: existing } = await supabase
-    .from('estoque_lotes').select('id, quantidade').eq('produto_id', input.produto_id).eq('base_id', input.base_id).eq('lote', lote).maybeSingle();
-  if (existing) {
-    await supabase.from('estoque_lotes').update({ quantidade: Number((existing as any).quantidade) + input.delta }).eq('id', (existing as any).id);
-  } else {
-    await supabase.from('estoque_lotes').insert({ produto_id: input.produto_id, base_id: input.base_id, lote, quantidade: Math.max(0, input.delta) });
-  }
-  const { error } = await supabase.from('movimentacoes').insert({
-    tipo: 'ajuste', produto_id: input.produto_id, quantidade: input.delta,
-    base_origem_id: input.base_id, base_destino_id: input.base_id, lote,
-    descricao: `Ajuste manual · ${input.motivo}${input.observacao ? ' · ' + input.observacao : ''}`,
-    ator_id: await actorId(),
+  // A soma acontece no banco: aqui ela era feita em JavaScript sobre um valor
+  // lido antes, e dois ajustes no mesmo instante apagavam um ao outro.
+  const { error } = await supabase.rpc('ajuste_estoque', {
+    p_produto_id: input.produto_id,
+    p_base_id: input.base_id,
+    p_delta: input.delta,
+    p_motivo: input.motivo,
+    p_observacao: input.observacao ?? undefined,
+    p_lote: input.lote ?? undefined,
   });
   if (error) throw new Error(msgErro(error));
 }
@@ -476,25 +472,19 @@ export interface TransferenciaRow {
 export async function criarTransferencia(input: {
   produto_id: string; base_origem_id: string; base_destino_id: string; lote: string; quantidade: number; motivo?: string;
 }): Promise<string> {
-  if (input.base_origem_id === input.base_destino_id) throw new Error('Origem e destino devem ser diferentes.');
-  const { data: origem } = await supabase
-    .from('estoque_lotes').select('id, quantidade, validade').eq('produto_id', input.produto_id).eq('base_id', input.base_origem_id).eq('lote', input.lote).maybeSingle();
-  const disp = origem ? Number((origem as any).quantidade) : 0;
-  if (disp < input.quantidade) throw new Error(`Saldo insuficiente na origem (disponível: ${disp}).`);
-  await supabase.from('estoque_lotes').update({ quantidade: disp - input.quantidade }).eq('id', (origem as any).id);
-  const validade = (origem as any).validade ?? null;
-  const actor = await actorId();
-  const { data, error } = await supabase.from('transferencias').insert({
-    produto_id: input.produto_id, base_origem_id: input.base_origem_id, base_destino_id: input.base_destino_id,
-    lote: input.lote, validade, quantidade_enviada: input.quantidade, motivo: input.motivo ?? null, ator_envio_id: actor,
-  }).select('codigo').single();
-  if (error) throw new Error(msgErro(error));
-  await supabase.from('movimentacoes').insert({
-    tipo: 'transferencia', produto_id: input.produto_id, quantidade: input.quantidade,
-    base_origem_id: input.base_origem_id, base_destino_id: input.base_destino_id, lote: input.lote,
-    descricao: `Transferência ${(data as any).codigo} enviada (em trânsito)${input.motivo ? ' · ' + input.motivo : ''}`, ator_id: actor,
+  // Antes o saldo saía da origem antes de a transferência existir: falhando o
+  // insert, o estoque sumia sem deixar registro. Agora as duas coisas são a
+  // mesma transação.
+  const { data, error } = await supabase.rpc('criar_transferencia', {
+    p_produto_id: input.produto_id,
+    p_base_origem_id: input.base_origem_id,
+    p_base_destino_id: input.base_destino_id,
+    p_lote: input.lote,
+    p_quantidade: input.quantidade,
+    p_motivo: input.motivo ?? undefined,
   });
-  return (data as any).codigo as string;
+  if (error) throw new Error(msgErro(error));
+  return data as string;
 }
 
 export async function listTransferencias(status?: TransferenciaStatus): Promise<TransferenciaRow[]> {
@@ -519,51 +509,19 @@ export async function listTransferencias(status?: TransferenciaStatus): Promise<
 export async function confirmarRecebimentoTransferencia(input: {
   id: string; quantidade_recebida: number; justificativa?: string;
 }) {
-  const { data: t, error: e0 } = await supabase
-    .from('transferencias').select('produto_id, base_destino_id, lote, validade, quantidade_enviada, status').eq('id', input.id).single();
-  if (e0) throw new Error(e0.message);
-  const tr = t as any;
-  if (tr.status !== 'em_transito') throw new Error('Transferência não está em trânsito.');
-  if (input.quantidade_recebida <= 0) throw new Error('Informe a quantidade recebida.');
-  const divergente = input.quantidade_recebida !== Number(tr.quantidade_enviada);
-  if (divergente && !input.justificativa?.trim()) throw new Error('Quantidade diverge da enviada: justificativa obrigatória.');
-
-  const { data: destino } = await supabase
-    .from('estoque_lotes').select('id, quantidade').eq('produto_id', tr.produto_id).eq('base_id', tr.base_destino_id).eq('lote', tr.lote).maybeSingle();
-  if (destino) {
-    await supabase.from('estoque_lotes').update({ quantidade: Number((destino as any).quantidade) + input.quantidade_recebida, validade: tr.validade }).eq('id', (destino as any).id);
-  } else {
-    await supabase.from('estoque_lotes').insert({ produto_id: tr.produto_id, base_id: tr.base_destino_id, lote: tr.lote, validade: tr.validade, quantidade: input.quantidade_recebida });
-  }
-  const actor = await actorId();
-  const { error } = await supabase.from('transferencias').update({
-    status: 'recebida', quantidade_recebida: input.quantidade_recebida,
-    justificativa_divergencia: divergente ? input.justificativa!.trim() : null,
-    ator_recebimento_id: actor, recebida_at: new Date().toISOString(),
-  }).eq('id', input.id);
-  if (error) throw new Error(msgErro(error));
-  await supabase.from('movimentacoes').insert({
-    tipo: 'entrada', produto_id: tr.produto_id, quantidade: input.quantidade_recebida, base_destino_id: tr.base_destino_id,
-    lote: tr.lote, descricao: `Recebimento de transferência${divergente ? ` · divergência (${input.quantidade_recebida}/${tr.quantidade_enviada})` : ''}`, ator_id: actor,
+  const { error } = await supabase.rpc('receber_transferencia', {
+    p_id: input.id,
+    p_quantidade_recebida: input.quantidade_recebida,
+    p_justificativa: input.justificativa ?? undefined,
   });
+  if (error) throw new Error(msgErro(error));
 }
 
 /** Cancela uma transferência em trânsito, devolvendo o saldo à origem. */
 export async function cancelarTransferencia(id: string) {
-  const { data: t, error } = await supabase
-    .from('transferencias').select('produto_id, base_origem_id, lote, quantidade_enviada, status').eq('id', id).single();
+  // `for update` no banco: cancelar duas vezes devolvia o saldo duas vezes.
+  const { error } = await supabase.rpc('cancelar_transferencia', { p_id: id });
   if (error) throw new Error(msgErro(error));
-  const tr = t as any;
-  if (tr.status !== 'em_transito') throw new Error('Só transferências em trânsito podem ser canceladas.');
-  const { data: origem } = await supabase
-    .from('estoque_lotes').select('id, quantidade').eq('produto_id', tr.produto_id).eq('base_id', tr.base_origem_id).eq('lote', tr.lote).maybeSingle();
-  if (origem) {
-    await supabase.from('estoque_lotes').update({ quantidade: Number((origem as any).quantidade) + Number(tr.quantidade_enviada) }).eq('id', (origem as any).id);
-  } else {
-    await supabase.from('estoque_lotes').insert({ produto_id: tr.produto_id, base_id: tr.base_origem_id, lote: tr.lote, quantidade: Number(tr.quantidade_enviada) });
-  }
-  const { error: e2 } = await supabase.from('transferencias').update({ status: 'cancelada' }).eq('id', id);
-  if (e2) throw new Error(e2.message);
 }
 
 // ---------- Cotações ----------
