@@ -138,15 +138,23 @@ export interface Kpis {
   semAcesso: number;
 }
 
-/** Contadores dos KPIs (queries de contagem, sem trazer linhas). */
+/**
+ * Contadores dos KPIs (queries de contagem, sem trazer linhas).
+ *
+ * `vencidos` e `semAcesso` contam só quem está ativo. Os quatro cartões ficam
+ * lado a lado e se leem como um retrato de quem trabalha hoje: apontar
+ * documento vencido ou falta de acesso de alguém desligado manda o admin
+ * resolver algo que não existe. Antes os dois varriam a tabela inteira — a tela
+ * dizia 10 "sem acesso" com 9 ativos nessa situação, sendo o décimo o inativo.
+ */
 export async function getKpis(): Promise<Kpis> {
   const t = todayISO();
   const base = () => supabase.from('funcionarios').select('id', { count: 'exact', head: true });
   const [ativos, inativos, vencidos, semAcesso] = await Promise.all([
     base().eq('ativo', true),
     base().eq('ativo', false),
-    base().or(`aso_validade.lt.${t},cnh_validade.lt.${t}`),
-    base().is('profile_id', null),
+    base().eq('ativo', true).or(`aso_validade.lt.${t},cnh_validade.lt.${t}`),
+    base().eq('ativo', true).is('profile_id', null),
   ]);
   return {
     ativos: ativos.count ?? 0,
@@ -154,6 +162,17 @@ export async function getKpis(): Promise<Kpis> {
     vencidos: vencidos.count ?? 0,
     semAcesso: semAcesso.count ?? 0,
   };
+}
+
+/**
+ * Se o login está bloqueado. Vem por função no banco porque o estado mora em
+ * `auth.users.banned_until`, e o cliente não lê o schema `auth`.
+ */
+export async function acessoBloqueado(profileId: string | null): Promise<boolean> {
+  if (!profileId) return false;
+  const { data, error } = await supabase.rpc('acesso_bloqueado', { _profile_id: profileId });
+  if (error) throw new Error(error.message);
+  return data === true;
 }
 
 export async function getFuncionario(id: string): Promise<FuncionarioRow | null> {

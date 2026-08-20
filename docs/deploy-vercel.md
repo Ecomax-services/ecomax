@@ -76,10 +76,30 @@ APP_URL_BACKOFFICE=https://painel.ecomax.com.br
 APP_URL_PORTAL=https://cliente.ecomax.com.br
 ```
 
+**Falta configurar:**
+
+```
+APP_URL_MOBILE=ecomaxoperador://
+```
+
 São elas que decidem para qual aplicação o e-mail de primeiro acesso aponta. Sem
 `APP_URL_PORTAL`, o convite de um usuário do portal levaria a pessoa ao painel
 administrativo, onde ela não tem acesso — e a função recusa o envio em vez de
 mandar o link errado.
+
+O mesmo vale para o operador: sem `APP_URL_MOBILE`, cadastrar um funcionário com
+perfil de campo devolve *"Usuário cadastrado, mas o e-mail não saiu
+(APP_URL_MOBILE não configurada nas secrets da função). Entregue a senha
+provisória"*. O cadastro acontece; só o e-mail não sai.
+
+Duas ressalvas sobre essa secret:
+
+- `ecomaxoperador://` é o scheme do **build nativo** (EAS). Dentro do Expo Go o
+  app responde por `exp://<host>`, que muda a cada rede — não há valor fixo que
+  sirva para os dois. Enquanto o QA testar por Expo Go, o caminho é entregar a
+  senha provisória que a própria tela mostra.
+- O valor precisa estar nas **Redirect URLs** do projeto Supabase
+  (Authentication > URL Configuration), senão o link é recusado no clique.
 
 Para conferir ou trocar:
 
