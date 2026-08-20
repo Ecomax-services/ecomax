@@ -675,20 +675,19 @@ export async function aprovarRequisicao(id: string) {
 export async function receberRequisicao(input: {
   id: string; produto_id: string | null; base_id: string; lote: string; validade: string | null; quantidade: number; notaUrl?: string | null;
 }) {
-  if (input.produto_id) {
-    const { data: existing } = await supabase
-      .from('estoque_lotes').select('id, quantidade').eq('produto_id', input.produto_id).eq('base_id', input.base_id).eq('lote', input.lote).maybeSingle();
-    if (existing) {
-      await supabase.from('estoque_lotes').update({ quantidade: Number((existing as any).quantidade) + input.quantidade, validade: input.validade }).eq('id', (existing as any).id);
-    } else {
-      await supabase.from('estoque_lotes').insert({ produto_id: input.produto_id, base_id: input.base_id, lote: input.lote, validade: input.validade, quantidade: input.quantidade });
-    }
-    await supabase.from('movimentacoes').insert({
-      tipo: 'entrada', produto_id: input.produto_id, quantidade: input.quantidade, base_destino_id: input.base_id,
-      lote: input.lote, descricao: 'Entrada por recebimento de requisição', ator_id: await actorId(),
-    });
-  }
-  const { error } = await supabase.from('requisicoes').update({ status: 'recebida', nota_fiscal_url: input.notaUrl ?? null }).eq('id', input.id);
+  // Uma chamada só, porque as quatro escritas precisam acontecer juntas ou
+  // nenhuma. Antes eram quatro idas ao banco, com a soma do saldo feita aqui —
+  // duas recepções simultâneas liam o mesmo valor e a segunda apagava a
+  // primeira — e sem checar erro em três delas, então uma falha no estoque
+  // ainda marcava a requisição como recebida.
+  const { error } = await supabase.rpc('receber_requisicao', {
+    p_requisicao_id: input.id,
+    p_base_id: input.base_id,
+    p_lote: input.lote,
+    p_quantidade: input.quantidade,
+    p_validade: input.validade ?? undefined,
+    p_nota_url: input.notaUrl ?? undefined,
+  });
   if (error) throw new Error(msgErro(error));
 }
 
