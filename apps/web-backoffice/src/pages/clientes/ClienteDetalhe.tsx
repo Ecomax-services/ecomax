@@ -407,7 +407,11 @@ function FuncionariosTab({ clienteId, canCreate, canEdit, onNovo }: { clienteId:
                 <td className="px-4 py-3 pl-6 text-sm font-medium text-ink-800">
                   <span className="flex items-center gap-1.5">
                     {f.nome}
-                    {f.bloqueado && <span title="Documento vencido — bloqueia vínculo a novas OS"><AlertTriangle className="h-4 w-4 text-danger-bright" /></span>}
+                    {f.bloqueado && (
+                      <span title={`${f.motivo === 'ausente' ? 'ASO ou CNH não enviados' : 'Documento vencido'} — bloqueia vínculo a novas OS`}>
+                        <AlertTriangle className={cn('h-4 w-4', f.motivo === 'ausente' ? 'text-tag-warnFg' : 'text-danger-bright')} />
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-ink-600">{f.cargo} · {f.setor}</td>
@@ -422,7 +426,7 @@ function FuncionariosTab({ clienteId, canCreate, canEdit, onNovo }: { clienteId:
           </tbody>
         </table>
       </div>
-      <p className="border-t border-ink-100 px-6 py-3 text-[13px] text-ink-400">Funcionários com ASO ou CNH vencidos ficam bloqueados para vínculo em novas OS.</p>
+      <p className="border-t border-ink-100 px-6 py-3 text-[13px] text-ink-400">Bloqueiam vínculo em novas OS: qualquer cargo com ASO ou CNH vencidos, e técnicos de campo sem os documentos enviados — o mesmo critério que o Operacional aplica no seletor de equipe.</p>
 
       {addOpen && (
         <Modal open onClose={() => setAddOpen(false)}>

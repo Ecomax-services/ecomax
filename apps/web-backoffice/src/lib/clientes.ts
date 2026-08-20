@@ -1,11 +1,11 @@
 import { supabase } from '@/lib/supabase';
+import { docState, avaliarDocumentos, hojeISO, SEM_DATA, type DocState, type MotivoBloqueio } from '@/lib/documentos';
 import type { Json } from '@/lib/database.types';
 import type { BadgeTone } from '@/components/ui/Badge';
 
 // ============================================================
 // Helpers
 // ============================================================
-const DAY = 86400000;
 async function actorId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
   return data.user?.id ?? null;
@@ -15,15 +15,8 @@ async function audit(acao: string, detalhes?: Json): Promise<void> {
     actor_id: await actorId(), funcionario_id: null, modulo: 'gestao_clientes', acao, detalhes: detalhes ?? null,
   });
 }
-export type DocState = 'ok' | 'soon' | 'expired' | 'na';
-export function docState(iso: string | null): DocState {
-  if (!iso) return 'na';
-  const t = new Date(iso + 'T00:00:00').getTime();
-  if (t < Date.now()) return 'expired';
-  if (t <= Date.now() + 30 * DAY) return 'soon';
-  return 'ok';
-}
-export const docTone: Record<DocState, BadgeTone> = { ok: 'success', soon: 'warn', expired: 'danger', na: 'muted' };
+export { docTone, type DocState, type MotivoBloqueio } from '@/lib/documentos';
+export { docState, avaliarDocumentos };
 const brDate = (iso: string | null) => (iso ? iso.split('-').reverse().join('/') : '—');
 
 // ============================================================
@@ -208,7 +201,14 @@ export async function updatePortalUsuarioPerfil(id: string, perfil: string): Pro
 export interface FuncIntegradoRow {
   vinculoId: string; funcionario_id: string; nome: string; cargo: string; setor: string;
   aso: string; asoState: DocState; cnh: string; cnhState: DocState; ativo: boolean;
-  bloqueado: boolean;   // ASO ou CNH vencidos → bloqueia vínculo a novas OS
+  /**
+   * Mesmo critério que o Operacional aplica no seletor de equipe
+   * (`avaliarDocumentos`). Antes aqui era só "algum documento vencido", então um
+   * técnico de campo sem ASO nem CNH aparecia liberado nesta tela e era recusado
+   * na hora de entrar na OS.
+   */
+  bloqueado: boolean;
+  motivo: MotivoBloqueio;
 }
 export async function listClienteFuncionarios(clienteId: string): Promise<FuncIntegradoRow[]> {
   const { data, error } = await supabase
@@ -216,15 +216,20 @@ export async function listClienteFuncionarios(clienteId: string): Promise<FuncIn
     .select('id, funcionario_id, funcionario:funcionario_id(nome_completo, cargo, setor, ativo, aso_validade, cnh_validade)')
     .eq('cliente_id', clienteId);
   if (error) throw new Error(error.message);
+  const hoje = hojeISO();
   return (data as any[]).map((v) => {
     const f = Array.isArray(v.funcionario) ? v.funcionario[0] : v.funcionario;
     const asoState = docState(f?.aso_validade ?? null);
     const cnhState = docState(f?.cnh_validade ?? null);
+    const motivo = avaliarDocumentos(f?.cargo ?? null, f?.aso_validade ?? null, f?.cnh_validade ?? null, hoje);
     return {
       vinculoId: v.id, funcionario_id: v.funcionario_id, nome: f?.nome_completo ?? '—',
       cargo: f?.cargo ?? '—', setor: f?.setor ?? '—',
-      aso: brDate(f?.aso_validade ?? null), asoState, cnh: brDate(f?.cnh_validade ?? null), cnhState,
-      ativo: f?.ativo ?? true, bloqueado: asoState === 'expired' || cnhState === 'expired',
+      // "Não enviado" e não "—": é a mesma palavra que Gestão de Usuários usa
+      // para a mesma ausência.
+      aso: f?.aso_validade ? brDate(f.aso_validade) : SEM_DATA, asoState,
+      cnh: f?.cnh_validade ? brDate(f.cnh_validade) : SEM_DATA, cnhState,
+      ativo: f?.ativo ?? true, bloqueado: motivo !== null, motivo,
     };
   });
 }

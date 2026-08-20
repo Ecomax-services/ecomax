@@ -4,6 +4,7 @@ import type { BadgeTone } from '@/components/ui/Badge';
 import { listProdutos, listBases, type Produto } from '@/lib/estoque';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { criarNotificacao } from '@/lib/notificacoes';
+import { avaliarDocumentos, type MotivoBloqueio } from '@/lib/documentos';
 
 // ============================================================
 // Helpers
@@ -749,31 +750,8 @@ export async function getClienteResumo(clienteId: string): Promise<ClienteResumo
   return { endereco, contato: c?.nome ?? '—', telefone: c?.telefone ?? '—' };
 }
 
-/** Motivo do bloqueio — o rótulo na tela precisa dizer qual dos dois é. */
-export type MotivoBloqueio = 'vencido' | 'ausente' | null;
-
-export const bloqueioLabel = (m: MotivoBloqueio): string =>
-  m === 'vencido' ? 'doc. vencido' : m === 'ausente' ? 'doc. não enviado' : '';
-
-/**
- * Cargos que vão a campo e por isso precisam de ASO e CNH.
- *
- * Documento ausente só bloqueia para eles: gestoras, analistas e supervisão
- * entram na OS para acompanhar, não para executar, e exigir os documentos delas
- * tiraria gente legítima do seletor. Documento *vencido* continua bloqueando
- * qualquer cargo — quem tem o documento cadastrado precisa dele em dia.
- */
-const CARGOS_DE_CAMPO = ['Técnico de Campo'];
-
-/** Avalia ASO e CNH de um funcionário. Usada no seletor e na equipe já vinculada. */
-export function avaliarDocumentos(
-  cargo: string | null, aso: string | null, cnh: string | null, hoje: string,
-): MotivoBloqueio {
-  const docs = [aso, cnh];
-  if (docs.some((d) => !!d && d < hoje)) return 'vencido';
-  if (CARGOS_DE_CAMPO.includes(cargo ?? '') && docs.some((d) => !d)) return 'ausente';
-  return null;
-}
+export { bloqueioLabel, type MotivoBloqueio } from '@/lib/documentos';
+export { avaliarDocumentos };
 
 export interface FuncionarioOption { id: string; nome: string; cargo: string; bloqueado: boolean; motivo: MotivoBloqueio; }
 /** Funcionários ativos; `bloqueado` quando ASO/CNH estão vencidos ou faltando. */

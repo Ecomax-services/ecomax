@@ -1,6 +1,7 @@
-import type { BadgeTone } from '@/components/ui/Badge';
-
-export type DocState = 'ok' | 'soon' | 'expired' | 'na';
+// A regra de vencimento e a paleta vivem em lib/documentos — aqui só o shape
+// que a UI consome.
+export { docTone, type DocState } from '@/lib/documentos';
+import type { DocState } from '@/lib/documentos';
 
 /** Shape do funcionário consumido pela UI (produzido por lib/funcionarios.toUsuario). */
 export interface Usuario {
@@ -19,13 +20,6 @@ export interface Usuario {
   last: string;
   access: boolean;
 }
-
-export const docTone: Record<DocState, BadgeTone> = {
-  ok: 'success',
-  soon: 'warn',
-  expired: 'danger',
-  na: 'muted',
-};
 
 // Copy dos modais de ação (apresentação; a persistência é feita via lib/funcionarios + Edge Function).
 export type UserActionKey = 'reset' | 'bloquear' | 'perfil' | 'inativar' | 'hist';

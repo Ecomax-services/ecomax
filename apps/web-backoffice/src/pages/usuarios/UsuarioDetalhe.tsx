@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { docTone, actionInfoMap, type UserActionKey } from '@/data/usuarios';
+import { SEM_DATA } from '@/lib/documentos';
 import { osStatusTone, osStatusLabel, type OsStatus } from '@/lib/operacional';
 import type { OsDoFuncionario } from '@/lib/funcionarios';
 import {
@@ -49,7 +50,7 @@ const tabs: { key: Tab; label: string }[] = [
 
 const gestorNomeOf = (g: FuncionarioRow['gestor']) => (Array.isArray(g) ? g[0]?.nome_completo : g?.nome_completo) ?? '—';
 const isoToBR = (iso: string | null) => (iso ? iso.split('-').reverse().join('/') : '');
-const fmtDoc = (iso: string | null) => (iso ? isoToBR(iso) : 'Não se aplica');
+const fmtDoc = (iso: string | null) => (iso ? isoToBR(iso) : SEM_DATA);
 const brToISO = (s: string) => {
   const m = s.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
@@ -338,7 +339,7 @@ function DocRow({ label, sub, date, state, url, last }: { label: string; sub: st
             Ver
           </a>
         )}
-        <Badge tone={docTone[state]}>{date === 'Não se aplica' ? date : `Vecto ${date}`}</Badge>
+        <Badge tone={docTone[state]}>{date === SEM_DATA ? date : `Vecto ${date}`}</Badge>
       </div>
     </div>
   );
