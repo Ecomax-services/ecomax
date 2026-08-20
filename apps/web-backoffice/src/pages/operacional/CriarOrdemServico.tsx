@@ -97,8 +97,21 @@ export function CriarOrdemServico() {
     listFuncionarioOptions().then(setFuncionarios).catch(() => {});
     listTiposServico().then(setTiposCat).catch(() => {});
     listPragas().then(setPragasCat).catch(() => {});
-    if (orcamentoId) iniciarOsDeOrcamento(orcamentoId).then((o) => { if (o) { setClienteId(o.clienteId); setOrcCodigo(o.codigo); } }).catch(() => {});
-  }, [orcamentoId]);
+    // Silenciar esta falha custava caro: a tela abriria sem o cliente, sem o
+    // chip do orçamento e sem explicação, e a pessoa preencheria tudo à mão
+    // para criar — sem perceber — uma OS avulsa, desligada do orçamento que a
+    // originou.
+    if (orcamentoId) {
+      iniciarOsDeOrcamento(orcamentoId)
+        .then((o) => {
+          if (o) { setClienteId(o.clienteId); setOrcCodigo(o.codigo); return; }
+          showToast('Orçamento não encontrado — a OS será criada avulsa, sem vínculo com ele.');
+        })
+        // Sem repetir a mensagem do banco: ela termina em "recarregue a
+        // página", conselho que contradiz o que esta tela vai fazer a seguir.
+        .catch(() => showToast('Não foi possível carregar o orçamento — a OS será criada avulsa, sem vínculo com ele.'));
+    }
+  }, [orcamentoId, showToast]);
 
   // Resumo + endereço automático ao trocar cliente.
   useEffect(() => {
