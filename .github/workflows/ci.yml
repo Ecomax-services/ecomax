@@ -105,7 +105,16 @@ jobs:
       - name: Subir o stack local e aplicar as migrations
         # `supabase start` aplica todas as migrations em ordem; se qualquer uma
         # falhar, o passo falha. É a prova que não temos localmente (sem Docker).
-        run: supabase start
+        #
+        # `-x inbucket` deixa de fora o servidor de e-mail local. Não é
+        # economia de tempo: ele publica a porta 54324 no runner e já derrubou
+        # este job com "failed to bind host port for 0.0.0.0:54324: address
+        # already in use" — uma falha de infraestrutura que não diz nada sobre
+        # as migrations. Nenhuma migration nem teste de RLS encosta nele.
+        #
+        # A lista para aqui de propósito: excluir serviço que alguma policy
+        # precise trocaria um flake conhecido por uma falha nova.
+        run: supabase start -x inbucket
 
       - name: Reaplicar do zero
         # Segunda prova, agora explicitamente do zero: pega migration que só
