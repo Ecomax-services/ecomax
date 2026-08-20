@@ -12,7 +12,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { docTone, actionInfoMap, type UserActionKey } from '@/data/usuarios';
 import {
-  getFuncionario, acessoBloqueado,
+  getFuncionario, acessoStatus,
   updateFuncionario,
   docState,
   logAuditoria,
@@ -63,6 +63,7 @@ export function UsuarioDetalhe() {
 
   const [row, setRow] = useState<FuncionarioRow | null>(null);
   const [bloqueado, setBloqueado] = useState(false);
+  const [ultimoLogin, setUltimoLogin] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('dados');
   const [editing, setEditing] = useState(params.get('edit') === '1' && canEdit);
@@ -79,7 +80,9 @@ export function UsuarioDetalhe() {
     try {
       const f = await getFuncionario(id);
       setRow(f);
-      setBloqueado(await acessoBloqueado(f?.profile_id ?? null));
+      const acesso = await acessoStatus(f?.profile_id ?? null);
+      setBloqueado(acesso.bloqueado);
+      setUltimoLogin(acesso.ultimoLogin);
     } catch (e) {
       showToast((e as Error).message);
     } finally {
@@ -206,7 +209,7 @@ export function UsuarioDetalhe() {
         {tab === 'cronograma' && <EmBreve titulo="Cronograma" />}
         {tab === 'os' && <EmBreve titulo="OS vinculadas" />}
         {tab === 'indicadores' && <EmBreve titulo="Indicadores de produtividade" />}
-        {tab === 'acessos' && <Acessos row={row} canEdit={canEdit} bloqueado={bloqueado} onAction={(a) => setAction(a)} />}
+        {tab === 'acessos' && <Acessos row={row} canEdit={canEdit} bloqueado={bloqueado} ultimoLogin={ultimoLogin} onAction={(a) => setAction(a)} />}
       </div>
 
       {/* Histórico */}
@@ -463,14 +466,22 @@ function AttachBtn({ file, inputRef, accept, label, onPick }: { file: File | nul
   );
 }
 
-function Acessos({ row, canEdit, bloqueado, onAction }: { row: FuncionarioRow; canEdit: boolean; bloqueado: boolean; onAction: (a: UserActionKey) => void }) {
+function Acessos({ row, canEdit, bloqueado, ultimoLogin, onAction }: { row: FuncionarioRow; canEdit: boolean; bloqueado: boolean; ultimoLogin: string | null; onAction: (a: UserActionKey) => void }) {
   const temLogin = !!row.profile_id;
   return (
     <div className="grid grid-cols-2 items-start gap-5">
       <div className="rounded-2xl border border-ink-100 bg-white px-7 py-6">
         <p className="mb-3.5 text-xs font-bold uppercase tracking-wider text-ink-400">Credenciais</p>
         <Info className="border-b border-ink-100 py-3" label="E-mail de login" value={row.email || '—'} />
-        <Info className="border-b border-ink-100 py-3" label="Último login" value="—" />
+        {/* Era `value="—"` fixo: nunca leu nada, para ninguém. "Nunca acessou"
+            e "sem data" são coisas diferentes — a primeira é informação. */}
+        <Info
+          className="border-b border-ink-100 py-3"
+          label="Último login"
+          value={ultimoLogin
+            ? new Date(ultimoLogin).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : temLogin ? 'Nunca acessou' : '—'}
+        />
         <div className="py-3">
           <div className="text-[13px] text-ink-400">Status do acesso</div>
           <div className="mt-1.5">

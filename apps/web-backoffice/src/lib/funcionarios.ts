@@ -164,15 +164,18 @@ export async function getKpis(): Promise<Kpis> {
   };
 }
 
+export interface AcessoStatus { bloqueado: boolean; ultimoLogin: string | null; }
+
 /**
- * Se o login está bloqueado. Vem por função no banco porque o estado mora em
- * `auth.users.banned_until`, e o cliente não lê o schema `auth`.
+ * Bloqueio e último login. Vêm por função no banco porque moram em `auth.users`,
+ * que o cliente não lê.
  */
-export async function acessoBloqueado(profileId: string | null): Promise<boolean> {
-  if (!profileId) return false;
-  const { data, error } = await supabase.rpc('acesso_bloqueado', { _profile_id: profileId });
+export async function acessoStatus(profileId: string | null): Promise<AcessoStatus> {
+  if (!profileId) return { bloqueado: false, ultimoLogin: null };
+  const { data, error } = await supabase.rpc('acesso_status', { _profile_id: profileId });
   if (error) throw new Error(error.message);
-  return data === true;
+  const r = Array.isArray(data) ? data[0] : data;
+  return { bloqueado: r?.bloqueado === true, ultimoLogin: r?.ultimo_login ?? null };
 }
 
 export async function getFuncionario(id: string): Promise<FuncionarioRow | null> {

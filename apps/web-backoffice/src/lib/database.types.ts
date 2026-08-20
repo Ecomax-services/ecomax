@@ -2772,7 +2772,13 @@ export type Database = {
       }
     }
     Functions: {
-      acesso_bloqueado: { Args: { _profile_id: string }; Returns: boolean }
+      acesso_status: {
+        Args: { _profile_id: string }
+        Returns: {
+          bloqueado: boolean
+          ultimo_login: string
+        }[]
+      }
       apps_for_role: {
         Args: { r: Database["public"]["Enums"]["user_role"] }
         Returns: Database["public"]["Enums"]["app_key"][]
