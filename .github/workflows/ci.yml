@@ -106,15 +106,22 @@ jobs:
         # `supabase start` aplica todas as migrations em ordem; se qualquer uma
         # falhar, o passo falha. É a prova que não temos localmente (sem Docker).
         #
-        # `-x inbucket` deixa de fora o servidor de e-mail local. Não é
-        # economia de tempo: ele publica a porta 54324 no runner e já derrubou
-        # este job com "failed to bind host port for 0.0.0.0:54324: address
-        # already in use" — uma falha de infraestrutura que não diz nada sobre
-        # as migrations. Nenhuma migration nem teste de RLS encosta nele.
+        # `-x` deixa de fora dois serviços que este job não usa e que já o
+        # derrubaram, cada um do seu jeito:
         #
-        # A lista para aqui de propósito: excluir serviço que alguma policy
-        # precise trocaria um flake conhecido por uma falha nova.
-        run: supabase start -x inbucket
+        #   inbucket      servidor de e-mail local. Publica a porta 54324 e caiu
+        #                 com "failed to bind host port for 0.0.0.0:54324:
+        #                 address already in use".
+        #   edge-runtime  runtime das Edge Functions. Caiu com "Bus error (core
+        #                 dumped)" e deixou o health check em 503.
+        #
+        # Nenhuma migration e nenhum teste de RLS encosta nos dois — as Edge
+        # Functions não são exercitadas aqui. São falhas de infraestrutura que
+        # não dizem nada sobre o banco, e cada uma custava um merge represado.
+        #
+        # A lista cresce só com falha observada: excluir serviço que alguma
+        # policy precise trocaria um flake conhecido por uma falha nova.
+        run: supabase start -x inbucket,edge-runtime
 
       - name: Reaplicar do zero
         # Segunda prova, agora explicitamente do zero: pega migration que só
