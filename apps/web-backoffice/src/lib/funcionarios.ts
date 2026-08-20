@@ -375,3 +375,90 @@ export function setBloqueioLogin(
     justificativa,
   });
 }
+
+// ============================================================
+// Operacional do funcionário — abas Cronograma, OS vinculadas e Indicadores
+// ============================================================
+
+export interface OsDoFuncionario {
+  id: string;
+  codigo: string;
+  cliente: string;
+  status: string;
+  dataISO: string | null;
+  data: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  /** Minutos entre check-in e check-out, quando os dois existem. */
+  minutosEmCampo: number | null;
+}
+
+export interface IndicadoresFuncionario {
+  atribuidas: number;
+  executadas: number;
+  concluidas: number;
+  emAndamento: number;
+  /** Média de minutos em campo entre as OS que têm os dois carimbos. */
+  mediaMinutos: number | null;
+  comCheckin: number;
+}
+
+/**
+ * OS de um funcionário, com o que as três abas do detalhe precisam.
+ *
+ * As abas eram um marcador "(em breve)" que dizia depender de dados de OS "que
+ * ainda não existem". Existem: `os_funcionarios` liga funcionário e OS desde o
+ * Operacional, e os carimbos de campo vêm do app do operador.
+ *
+ * Uma consulta só para as três abas: elas mostram recortes diferentes do mesmo
+ * conjunto, e buscar três vezes é como elas passam a discordar entre si.
+ */
+export async function listOsDoFuncionario(funcionarioId: string): Promise<OsDoFuncionario[]> {
+  const { data, error } = await supabase
+    .from('os_funcionarios')
+    .select('os:os_id(id, codigo, status, data_programada, check_in_at, check_out_at, cliente:cliente_id(nome))')
+    .eq('funcionario_id', funcionarioId);
+  if (error) throw new Error(error.message);
+
+  const hhmm = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
+
+  return ((data as any[]) ?? [])
+    .map((v) => {
+      const o = Array.isArray(v.os) ? v.os[0] : v.os;
+      if (!o) return null;
+      const c = Array.isArray(o.cliente) ? o.cliente[0] : o.cliente;
+      const entrada = o.check_in_at ? new Date(o.check_in_at).getTime() : null;
+      const saida = o.check_out_at ? new Date(o.check_out_at).getTime() : null;
+      return {
+        id: o.id,
+        codigo: o.codigo,
+        cliente: c?.nome ?? '—',
+        status: o.status,
+        dataISO: o.data_programada,
+        data: o.data_programada ? o.data_programada.split('-').reverse().join('/') : '—',
+        checkIn: hhmm(o.check_in_at),
+        checkOut: hhmm(o.check_out_at),
+        // Só conta quando os dois carimbos existem: um check-in sem saída não é
+        // tempo em campo, é visita em aberto.
+        minutosEmCampo: entrada && saida ? Math.max(0, Math.round((saida - entrada) / 60000)) : null,
+      };
+    })
+    .filter((x): x is OsDoFuncionario => x !== null)
+    // Sem data programada vai para o fim: é OS que ainda não foi agendada.
+    .sort((a, b) => (b.dataISO ?? '').localeCompare(a.dataISO ?? ''));
+}
+
+export function indicadoresDe(os: OsDoFuncionario[]): IndicadoresFuncionario {
+  const comTempo = os.filter((o) => o.minutosEmCampo != null);
+  return {
+    atribuidas: os.length,
+    executadas: os.filter((o) => o.status === 'executada').length,
+    concluidas: os.filter((o) => o.status === 'concluida').length,
+    emAndamento: os.filter((o) => o.status === 'em_andamento').length,
+    comCheckin: os.filter((o) => o.checkIn).length,
+    mediaMinutos: comTempo.length
+      ? Math.round(comTempo.reduce((s, o) => s + (o.minutosEmCampo ?? 0), 0) / comTempo.length)
+      : null,
+  };
+}
