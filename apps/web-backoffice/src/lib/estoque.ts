@@ -303,11 +303,25 @@ export async function listBaseOptions(): Promise<{ id: string; nome: string }[]>
 }
 
 // ---------- Estoque / Lotes ----------
-export async function listLotes(baseId?: string): Promise<StockRow[]> {
+/**
+ * Lotes de estoque.
+ *
+ * Por padrão **não** traz lote zerado: um lote consumido até o fim não é
+ * estoque, e ranger sobre ele estraga toda conta derivada — ele entrava como
+ * "abaixo do mínimo" (não está abaixo, acabou) e mantinha a base contando como
+ * "com estoque". A tela de transferência já filtrava à mão, sinal de que a
+ * intenção existia num lugar só.
+ *
+ * `incluirZerados` existe para a contagem física: ali o lote zerado precisa
+ * aparecer, porque o conferente pode achar produto que o sistema dá como
+ * esgotado — é justamente o que o inventário serve para corrigir.
+ */
+export async function listLotes(baseId?: string, opts?: { incluirZerados?: boolean }): Promise<StockRow[]> {
   let q = supabase
     .from('estoque_lotes')
     .select('id, produto_id, base_id, lote, validade, quantidade, produto:produto_id(nome, categoria, estoque_min, estoque_max), base:base_id(nome)');
   if (baseId) q = q.eq('base_id', baseId);
+  if (!opts?.incluirZerados) q = q.gt('quantidade', 0);
   // Níveis por localização (sobrepõem o padrão do produto quando existirem).
   let nq = supabase.from('estoque_niveis').select('produto_id, base_id, estoque_min, estoque_max');
   if (baseId) nq = nq.eq('base_id', baseId);
@@ -701,7 +715,7 @@ async function getInventarioItens(inventarioId: string): Promise<InventarioItem[
 export async function iniciarInventario(baseId: string, produtoIds?: string[]): Promise<Inventario> {
   const existing = await getInventarioAberto(baseId);
   if (existing) return existing;
-  let lotes = await listLotes(baseId);
+  let lotes = await listLotes(baseId, { incluirZerados: true });
   if (produtoIds && produtoIds.length) lotes = lotes.filter((l) => produtoIds.includes(l.produto_id));
   const { data: inv, error } = await supabase.from('inventarios').insert({ base_id: baseId, created_by: await actorId() }).select('id, codigo, base_id, status').single();
   if (error) throw new Error(error.message);

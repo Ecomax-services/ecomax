@@ -193,7 +193,9 @@ function TransferModal({
   useEffect(() => { if (bases.length && !origem) setOrigem(bases[0].id); }, [bases, origem]);
   useEffect(() => {
     if (!origem) return;
-    listLotes(origem).then((l) => setOrigemLotes(l.filter((x) => x.qtd > 0))).catch(() => setOrigemLotes([]));
+    // `listLotes` já exclui lote zerado por padrão — o filtro à mão que existia
+    // aqui virou redundante, e redundância é o que faz as duas regras divergirem.
+    listLotes(origem).then(setOrigemLotes).catch(() => setOrigemLotes([]));
     setLoteKey('');
   }, [origem]);
 
