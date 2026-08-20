@@ -2758,6 +2758,7 @@ export type Database = {
       }
     }
     Functions: {
+      acesso_bloqueado: { Args: { _profile_id: string }; Returns: boolean }
       apps_for_role: {
         Args: { r: Database["public"]["Enums"]["user_role"] }
         Returns: Database["public"]["Enums"]["app_key"][]

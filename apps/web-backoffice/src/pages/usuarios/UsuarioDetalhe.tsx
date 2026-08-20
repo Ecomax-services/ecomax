@@ -12,7 +12,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { docTone, actionInfoMap, type UserActionKey } from '@/data/usuarios';
 import {
-  getFuncionario,
+  getFuncionario, acessoBloqueado,
   updateFuncionario,
   docState,
   logAuditoria,
@@ -62,6 +62,7 @@ export function UsuarioDetalhe() {
   const canEdit = can('gestao_usuarios', 'editar');
 
   const [row, setRow] = useState<FuncionarioRow | null>(null);
+  const [bloqueado, setBloqueado] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('dados');
   const [editing, setEditing] = useState(params.get('edit') === '1' && canEdit);
@@ -76,7 +77,9 @@ export function UsuarioDetalhe() {
     if (!id) return;
     setLoading(true);
     try {
-      setRow(await getFuncionario(id));
+      const f = await getFuncionario(id);
+      setRow(f);
+      setBloqueado(await acessoBloqueado(f?.profile_id ?? null));
     } catch (e) {
       showToast((e as Error).message);
     } finally {
@@ -119,7 +122,8 @@ export function UsuarioDetalhe() {
         await resetSenha(row.id, row.email, row.profile_id);
       } else if (action === 'bloquear') {
         if (!row.profile_id) throw new Error('Funcionário sem login para bloquear.');
-        await setBloqueioLogin(row.id, row.profile_id, true, justificativa);
+        // Alterna: sem isto, bloquear era um caminho sem volta pela tela.
+        await setBloqueioLogin(row.id, row.profile_id, !bloqueado, justificativa);
       } else if (action === 'perfil') {
         if (!row.profile_id || !novoPerfil) throw new Error('Selecione o perfil.');
         await alterarPerfilAcesso(row.profile_id, novoPerfil);
@@ -202,7 +206,7 @@ export function UsuarioDetalhe() {
         {tab === 'cronograma' && <EmBreve titulo="Cronograma" />}
         {tab === 'os' && <EmBreve titulo="OS vinculadas" />}
         {tab === 'indicadores' && <EmBreve titulo="Indicadores de produtividade" />}
-        {tab === 'acessos' && <Acessos row={row} canEdit={canEdit} onAction={(a) => setAction(a)} />}
+        {tab === 'acessos' && <Acessos row={row} canEdit={canEdit} bloqueado={bloqueado} onAction={(a) => setAction(a)} />}
       </div>
 
       {/* Histórico */}
@@ -459,7 +463,7 @@ function AttachBtn({ file, inputRef, accept, label, onPick }: { file: File | nul
   );
 }
 
-function Acessos({ row, canEdit, onAction }: { row: FuncionarioRow; canEdit: boolean; onAction: (a: UserActionKey) => void }) {
+function Acessos({ row, canEdit, bloqueado, onAction }: { row: FuncionarioRow; canEdit: boolean; bloqueado: boolean; onAction: (a: UserActionKey) => void }) {
   const temLogin = !!row.profile_id;
   return (
     <div className="grid grid-cols-2 items-start gap-5">
@@ -469,7 +473,13 @@ function Acessos({ row, canEdit, onAction }: { row: FuncionarioRow; canEdit: boo
         <Info className="border-b border-ink-100 py-3" label="Último login" value="—" />
         <div className="py-3">
           <div className="text-[13px] text-ink-400">Status do acesso</div>
-          <div className="mt-1.5"><Badge tone={temLogin ? 'success' : 'softWarn'}>{temLogin ? 'Com acesso' : 'Sem credenciais'}</Badge></div>
+          <div className="mt-1.5">
+            {/* Três estados, não dois: bloqueado tem credencial e mesmo assim
+                não entra — mostrar "Com acesso" ali escondia o bloqueio. */}
+            <Badge tone={!temLogin ? 'softWarn' : bloqueado ? 'danger' : 'success'}>
+              {!temLogin ? 'Sem credenciais' : bloqueado ? 'Bloqueado' : 'Com acesso'}
+            </Badge>
+          </div>
         </div>
       </div>
 
@@ -482,7 +492,13 @@ function Acessos({ row, canEdit, onAction }: { row: FuncionarioRow; canEdit: boo
         ) : (
           <div className="flex flex-wrap gap-2.5">
             <button onClick={() => onAction('reset')} className="rounded-[10px] bg-greenSoft px-4 py-2.5 text-sm font-semibold text-forest-900">Resetar senha</button>
-            <button onClick={() => onAction('bloquear')} className="rounded-[10px] bg-[#fff2ee] px-4 py-2.5 text-sm font-semibold text-danger-bright">Bloquear acesso</button>
+            <button
+              onClick={() => onAction('bloquear')}
+              className={cn('rounded-[10px] px-4 py-2.5 text-sm font-semibold',
+                bloqueado ? 'bg-greenSoft text-forest-900' : 'bg-[#fff2ee] text-danger-bright')}
+            >
+              {bloqueado ? 'Desbloquear acesso' : 'Bloquear acesso'}
+            </button>
             <button onClick={() => onAction('perfil')} className="rounded-[10px] bg-ink-100 px-4 py-2.5 text-sm font-semibold text-ink-700">Alterar perfil</button>
           </div>
         )}
