@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, FileText, Edit3, History, Clock, Upload, FileCheck2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, FileText, Edit3, History, Upload, FileCheck2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs } from '@/components/ui/Tabs';
@@ -11,8 +11,10 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { docTone, actionInfoMap, type UserActionKey } from '@/data/usuarios';
+import { osStatusTone, osStatusLabel, type OsStatus } from '@/lib/operacional';
+import type { OsDoFuncionario } from '@/lib/funcionarios';
 import {
-  getFuncionario, acessoStatus,
+  getFuncionario, acessoStatus, listOsDoFuncionario, indicadoresDe,
   updateFuncionario,
   docState,
   logAuditoria,
@@ -64,6 +66,7 @@ export function UsuarioDetalhe() {
   const [row, setRow] = useState<FuncionarioRow | null>(null);
   const [bloqueado, setBloqueado] = useState(false);
   const [ultimoLogin, setUltimoLogin] = useState<string | null>(null);
+  const [osDoFunc, setOsDoFunc] = useState<OsDoFuncionario[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('dados');
   const [editing, setEditing] = useState(params.get('edit') === '1' && canEdit);
@@ -83,6 +86,7 @@ export function UsuarioDetalhe() {
       const acesso = await acessoStatus(f?.profile_id ?? null);
       setBloqueado(acesso.bloqueado);
       setUltimoLogin(acesso.ultimoLogin);
+      setOsDoFunc(await listOsDoFuncionario(id));
     } catch (e) {
       showToast((e as Error).message);
     } finally {
@@ -206,9 +210,9 @@ export function UsuarioDetalhe() {
           ) : (
             <DadosView row={row} asoState={asoState} cnhState={cnhState} docUrls={docUrls} />
           ))}
-        {tab === 'cronograma' && <EmBreve titulo="Cronograma" />}
-        {tab === 'os' && <EmBreve titulo="OS vinculadas" />}
-        {tab === 'indicadores' && <EmBreve titulo="Indicadores de produtividade" />}
+        {tab === 'cronograma' && <Cronograma os={osDoFunc} />}
+        {tab === 'os' && <OsVinculadas os={osDoFunc} />}
+        {tab === 'indicadores' && <Indicadores os={osDoFunc} />}
         {tab === 'acessos' && <Acessos row={row} canEdit={canEdit} bloqueado={bloqueado} ultimoLogin={ultimoLogin} onAction={(a) => setAction(a)} />}
       </div>
 
@@ -518,15 +522,131 @@ function Acessos({ row, canEdit, bloqueado, ultimoLogin, onAction }: { row: Func
   );
 }
 
-function EmBreve({ titulo }: { titulo: string }) {
+const th2 = 'px-4 py-2.5 text-left text-xs font-bold uppercase text-ink-400';
+
+/** Bloco com título, no mesmo desenho das outras seções desta tela. */
+function Painel({ title, flush, children }: { title: string; flush?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-ink-200 bg-white py-20 text-center">
-      <Clock className="h-8 w-8 text-ink-300" />
-      <p className="text-sm font-semibold text-ink-700">{titulo}</p>
-      <p className="max-w-[420px] text-[13px] text-ink-400">
-        Disponível quando o módulo Operacional/Agenda for construído (Release #2/#3). Depende de dados de OS
-        que ainda não existem.
-      </p>
+    <div className="overflow-hidden rounded-2xl border border-ink-100 bg-white">
+      <div className="border-b border-ink-100 px-6 py-4"><h3 className="text-[15px] font-bold text-ink-900">{title}</h3></div>
+      <div className={flush ? '' : 'px-6 py-5'}>{children}</div>
+    </div>
+  );
+}
+
+function Vazio({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-ink-200 bg-white py-16 text-center text-sm text-ink-400">
+      {children}
+    </div>
+  );
+}
+
+/** Agenda: o que vem primeiro, e o que já passou — a divisão que importa em campo. */
+function Cronograma({ os }: { os: OsDoFuncionario[] }) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const futuras = os.filter((o) => o.dataISO && o.dataISO >= hoje).sort((a, b) => (a.dataISO ?? '').localeCompare(b.dataISO ?? ''));
+  const passadas = os.filter((o) => o.dataISO && o.dataISO < hoje);
+  const semData = os.filter((o) => !o.dataISO);
+
+  if (!os.length) return <Vazio>Este funcionário ainda não foi vinculado a nenhuma ordem de serviço.</Vazio>;
+
+  const Bloco = ({ titulo, lista }: { titulo: string; lista: OsDoFuncionario[] }) =>
+    lista.length ? (
+      <Painel title={`${titulo} · ${lista.length}`} flush>
+        <table className="w-full border-collapse">
+          <thead><tr className="bg-ink-50"><th className={cn(th2, 'pl-6')}>Data</th><th className={th2}>OS</th><th className={th2}>Cliente</th><th className={cn(th2, 'pr-6')}>Situação</th></tr></thead>
+          <tbody>
+            {lista.map((o) => (
+              <tr key={o.id} className="border-t border-ink-100">
+                <td className="px-4 py-3 pl-6 text-sm font-medium text-ink-800">{o.data}</td>
+                <td className="px-4 py-3 text-sm text-ink-700">{o.codigo}</td>
+                <td className="px-4 py-3 text-sm text-ink-600">{o.cliente}</td>
+                <td className="px-4 py-3 pr-6"><Badge tone={osStatusTone[o.status as OsStatus] ?? 'muted'}>{osStatusLabel[o.status as OsStatus] ?? o.status}</Badge></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Painel>
+    ) : null;
+
+  return (
+    <div className="flex flex-col gap-5">
+      <Bloco titulo="Próximas visitas" lista={futuras} />
+      <Bloco titulo="Já realizadas" lista={passadas} />
+      <Bloco titulo="Sem data programada" lista={semData} />
+    </div>
+  );
+}
+
+/** Todas as OS do funcionário, com os carimbos que vieram do app. */
+function OsVinculadas({ os }: { os: OsDoFuncionario[] }) {
+  if (!os.length) return <Vazio>Nenhuma ordem de serviço vinculada.</Vazio>;
+  return (
+    <Painel title={`Ordens de serviço · ${os.length}`} flush>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] border-collapse">
+          <thead><tr className="bg-ink-50">
+            <th className={cn(th2, 'pl-6')}>OS</th><th className={th2}>Cliente</th><th className={th2}>Data</th>
+            <th className={th2}>Check-in</th><th className={th2}>Check-out</th><th className={th2}>Em campo</th>
+            <th className={cn(th2, 'pr-6')}>Situação</th>
+          </tr></thead>
+          <tbody>
+            {os.map((o) => (
+              <tr key={o.id} className="border-t border-ink-100">
+                <td className="px-4 py-3 pl-6 text-sm font-semibold text-ink-800">{o.codigo}</td>
+                <td className="px-4 py-3 text-sm text-ink-700">{o.cliente}</td>
+                <td className="px-4 py-3 text-sm text-ink-600">{o.data}</td>
+                <td className="px-4 py-3 text-sm text-ink-600">{o.checkIn ?? '—'}</td>
+                <td className="px-4 py-3 text-sm text-ink-600">{o.checkOut ?? '—'}</td>
+                <td className="px-4 py-3 text-sm text-ink-600">{o.minutosEmCampo != null ? `${o.minutosEmCampo} min` : '—'}</td>
+                <td className="px-4 py-3 pr-6"><Badge tone={osStatusTone[o.status as OsStatus] ?? 'muted'}>{osStatusLabel[o.status as OsStatus] ?? o.status}</Badge></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Painel>
+  );
+}
+
+/** Indicadores derivados das OS — nada aqui é digitado, tudo é consequência. */
+function Indicadores({ os }: { os: OsDoFuncionario[] }) {
+  if (!os.length) return <Vazio>Sem ordens de serviço, não há o que medir.</Vazio>;
+  const k = indicadoresDe(os);
+  const cards = [
+    { label: 'OS atribuídas', value: String(k.atribuidas) },
+    { label: 'Executadas', value: String(k.executadas) },
+    { label: 'Concluídas', value: String(k.concluidas) },
+    { label: 'Em andamento', value: String(k.emAndamento) },
+  ];
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        {cards.map((c) => (
+          <div key={c.label} className="rounded-2xl border border-ink-100 bg-white px-5 py-4">
+            <div className="text-[26px] font-bold text-ink-900">{c.value}</div>
+            <div className="mt-1 text-[13px] text-ink-500">{c.label}</div>
+          </div>
+        ))}
+      </div>
+      <Painel title="Tempo em campo">
+        <div className="px-1 py-1 text-sm text-ink-700">
+          {k.mediaMinutos != null ? (
+            <>
+              Média de <strong>{k.mediaMinutos} min</strong> por visita, sobre {os.filter((o) => o.minutosEmCampo != null).length} OS
+              com check-in e check-out registrados.
+            </>
+          ) : (
+            <>Nenhuma OS tem check-in e check-out registrados ainda — sem os dois carimbos não há tempo a medir.</>
+          )}
+          {k.comCheckin > 0 && k.comCheckin !== os.length && (
+            <p className="mt-2 text-[13px] text-ink-400">
+              {k.comCheckin} de {os.length} OS têm check-in registrado.
+            </p>
+          )}
+        </div>
+      </Painel>
     </div>
   );
 }
