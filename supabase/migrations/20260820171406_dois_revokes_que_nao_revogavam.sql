@@ -1,0 +1,34 @@
+-- Duas funções tinham `revoke` escrito e continuavam executáveis por qualquer
+-- sessão autenticada. Os dois erraram o alvo, cada um de um jeito:
+--
+--   garantias_marcar_a_renovar
+--     revoke execute ... from anon, authenticated;
+--     Funções nascem com EXECUTE para PUBLIC, e anon/authenticated herdam dele.
+--     Revogar dos dois sem revogar de PUBLIC não muda nada — o ACL continuava
+--     com `=X/postgres`, que é justamente o grant de PUBLIC.
+--
+--   catalogo_uso_interno
+--     revoke all ... from public;
+--     Aqui foi o contrário: PUBLIC saiu, mas anon e authenticated tinham grant
+--     **direto**, posto pelos privilégios padrão que o Supabase aplica às
+--     funções novas de `public`. O ACL mostrava `anon=X`, `authenticated=X`.
+--
+-- O que estava em risco:
+--
+--   garantias_marcar_a_renovar **escreve**. Qualquer autenticado — inclusive um
+--   cliente do Portal — podia disparar a rotina, mudar o status das garantias de
+--   todos os clientes e encher a caixa do time comercial de notificações.
+--
+--   catalogo_uso_interno é a contagem sem checagem, criada para o gatilho de
+--   exclusão poder contar fora de uma sessão autenticada. Acessível, ela
+--   entregava o inventário da operação — quantas OS por situação, quantos
+--   colaboradores por cargo e setor, quantos clientes por perfil de portal — a
+--   quem só deveria ver as próprias ordens de serviço. E anulava a checagem de
+--   `catalogo_uso`, que existe exatamente para isso.
+--
+-- Revogar dos três (public, anon, authenticated) fecha as duas portas. Quem
+-- precisa continuar chamando não passa por aqui: o gatilho e a rotina agendada
+-- executam como donas.
+
+revoke execute on function public.garantias_marcar_a_renovar() from public, anon, authenticated;
+revoke execute on function public.catalogo_uso_interno(text)   from public, anon, authenticated;
