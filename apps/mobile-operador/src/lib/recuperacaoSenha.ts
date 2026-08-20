@@ -17,8 +17,27 @@ export const urlDeRetorno = () => Linking.createURL('/criar-senha');
  * Sem o `redirectTo`, o Supabase usa o Site URL do projeto — que é o Backoffice.
  * O operador receberia um link para um sistema onde ele nem tem acesso.
  */
-export async function enviarLinkDeRecuperacao(email: string) {
-  return supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: urlDeRetorno() });
+export async function enviarLinkDeRecuperacao(email: string): Promise<void> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: urlDeRetorno() });
+  if (!error) return;
+
+  // Limite de tentativas do GoTrue. Vem como 4xx e não pode ser engolido: nada
+  // foi enviado, e a pessoa precisa saber que é só esperar — não que o link já
+  // está a caminho.
+  if (error.status === 429) {
+    throw new Error('Aguarde um minuto antes de pedir outro link.');
+  }
+
+  // Falha de envio (5xx, ou o timeout de SMTP que aparece no log do GoTrue como
+  // `context deadline exceeded`) precisa estourar. Devolver o erro para o
+  // chamador decidir não bastava: dois dos três ignoravam o retorno e
+  // anunciavam "Enviamos um link" com o e-mail parado na fila.
+  if (!error.status || error.status >= 500) {
+    throw new Error('Não foi possível enviar o e-mail agora. Tente novamente em alguns minutos.');
+  }
+
+  // O que sobra é e-mail inexistente — engolido de propósito: responder "esse
+  // e-mail não existe" entrega quem tem conta a quem só chutou endereços.
 }
 
 /** URLs já processadas, para o mesmo link não ser consumido duas vezes. */

@@ -34,8 +34,12 @@ export function ProfileScreen({ navigation }: Props) {
 
   async function handleChangePassword() {
     if (!session?.user.email) return;
-    await enviarLinkDeRecuperacao(session.user.email);
-    Alert.alert('Alterar senha', `Enviamos um link de redefinição para ${session.user.email}. Verifique seu e-mail.`);
+    try {
+      await enviarLinkDeRecuperacao(session.user.email);
+      Alert.alert('Alterar senha', `Enviamos um link de redefinição para ${session.user.email}. Verifique seu e-mail.`);
+    } catch (e) {
+      Alert.alert('Alterar senha', (e as Error).message);
+    }
   }
 
   return (

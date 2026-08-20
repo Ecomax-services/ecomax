@@ -28,8 +28,12 @@ export function SettingsScreen({ navigation }: Props) {
 
   async function handleChangePassword() {
     if (!email) return;
-    await enviarLinkDeRecuperacao(email);
-    Alert.alert('Alterar senha', `Enviamos um link de redefinição para ${email}. Verifique seu e-mail.`);
+    try {
+      await enviarLinkDeRecuperacao(email);
+      Alert.alert('Alterar senha', `Enviamos um link de redefinição para ${email}. Verifique seu e-mail.`);
+    } catch (e) {
+      Alert.alert('Alterar senha', (e as Error).message);
+    }
   }
 
   return (
