@@ -8,7 +8,7 @@ import {
 } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NotificationsScreen } from '@/screens/NotificationsScreen';
-import { contarNaoLidas } from '@/lib/notificacoes';
+import { contarNaoLidas, assinarNaoLidas } from '@/lib/notificacoes';
 import { OsListScreen } from '@/screens/os/OsListScreen';
 import { OsDetailScreen } from '@/screens/os/OsDetailScreen';
 import { AgendaScreen } from '@/screens/AgendaScreen';
@@ -53,8 +53,13 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const [naoLidas, setNaoLidas] = useState(0);
 
-  // Reconta a cada troca de aba. O badge era o literal `2`: não refletia nada e
-  // continuava lá depois de marcar tudo como lido.
+  // Assina o contador: quem marca como lida avisa, e o badge cai na hora — antes
+  // ele só recontava na troca de aba, então ler uma notificação estando na aba
+  // Notificações deixava o número velho na tela.
+  useEffect(() => assinarNaoLidas(setNaoLidas), []);
+
+  // A troca de aba ainda dispara uma releitura, para pegar o que mudou fora
+  // deste aparelho.
   useEffect(() => {
     let vivo = true;
     contarNaoLidas().then((n) => vivo && setNaoLidas(n)).catch(() => {});

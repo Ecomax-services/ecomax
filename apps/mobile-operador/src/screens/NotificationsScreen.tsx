@@ -1,11 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Tag } from '@/components/Tag';
 import { colors, fonts, radius } from '@/theme';
 import { listNotificacoes, markRead, markAllRead, tagColors, type NotifItem } from '@/lib/notificacoes';
+import { getOs } from '@/lib/operacional';
+import type { MainTabParamList } from '@/navigation/types';
 
 type Tab = 'todas' | 'nao-lidas' | 'lidas';
 const TABS: { key: Tab; label: string }[] = [
@@ -16,6 +19,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 /** Tela Notificações — persistidas em public.notificacoes (RLS por operador). */
 export function NotificationsScreen() {
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const [items, setItems] = useState<NotifItem[]>([]);
   const [tab, setTab] = useState<Tab>('todas');
   const [loading, setLoading] = useState(true);
@@ -37,9 +41,22 @@ export function NotificationsScreen() {
   const onMarkAll = async () => {
     try { await markAllRead(); setItems((p) => p.map((n) => ({ ...n, read: true }))); } catch { /* noop */ }
   };
+  // Marcar como lida e, quando a notificação veio de uma OS, abrir a OS. Antes
+  // o toque só marcava como lida: a pessoa era avisada de uma OS nova e ficava
+  // sem caminho para ela.
   const onTap = async (n: NotifItem) => {
-    if (n.read) return;
-    try { await markRead(n.id); setItems((p) => p.map((x) => (x.id === n.id ? { ...x, read: true } : x))); } catch { /* noop */ }
+    if (!n.read) {
+      try { await markRead(n.id); setItems((p) => p.map((x) => (x.id === n.id ? { ...x, read: true } : x))); } catch { /* noop */ }
+    }
+    if (!n.osId) return;
+    try {
+      // Lê a OS antes de navegar: ela pode ter saído do escopo do operador
+      // (desvinculado, ou virou rascunho), e aí a tela abriria vazia.
+      const os = await getOs(n.osId);
+      // A OS vive noutra aba: esta tela é filha direta do navegador de abas,
+      // então navega para a aba OS pedindo a tela de detalhe lá dentro.
+      navigation.navigate('OS', { screen: 'OsDetail', params: { id: os.id, codigo: os.codigo } });
+    } catch { /* noop */ }
   };
 
   return (

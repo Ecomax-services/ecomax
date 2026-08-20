@@ -434,7 +434,13 @@ export async function addOsFuncionario(osId: string, funcionarioId: string): Pro
   );
   await hist(osId, 'Funcionário vinculado', null, funcionarioId);
   await notify('os_funcionario_vinculado', { os_id: osId, funcionario_id: funcionarioId }); // → app mobile
-  await notificarFuncionarios([funcionarioId], osId, 'Nova OS atribuída', 'Você foi vinculado a uma ordem de serviço.');
+  // Nomeia a OS como a criação já fazia: sem o código, quatro notificações
+  // iguais não dizem a qual OS cada uma se refere.
+  const { data: os } = await supabase.from('ordens_servico').select('codigo').eq('id', osId).single();
+  await notificarFuncionarios(
+    [funcionarioId], osId, 'Nova OS atribuída',
+    `Você foi vinculado à ordem de serviço ${(os as any)?.codigo ?? ''}.`.replace(' .', '.'),
+  );
   await audit('os_func_add', { os_id: osId, funcionario_id: funcionarioId });
 }
 export async function removeOsFuncionario(osId: string, vinculoId: string, nome: string): Promise<void> {

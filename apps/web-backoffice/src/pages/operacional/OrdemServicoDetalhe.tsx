@@ -625,6 +625,24 @@ function AnexosTab({ osId, editable }: { osId: string; editable: boolean }) {
   };
   const remove = async () => { if (!del) return; try { await removerAnexo(osId, del.id, del.nome); setDel(null); showToast('Anexo excluído'); load(); } catch (e) { showToast((e as Error).message); } };
 
+  /**
+   * Abre o anexo por URL assinada. A aba é aberta ANTES do await: depois dele o
+   * clique já não conta como gesto do usuário e o bloqueador de pop-up barra.
+   */
+  const abrir = async (a: OsAnexoRow) => {
+    if (!a.arquivoUrl) return showToast('Este anexo não tem arquivo.');
+    const aba = window.open('', '_blank');
+    try {
+      const url = await urlAssinadaOperacional(a.arquivoUrl);
+      if (!url) { aba?.close(); return showToast('Não foi possível abrir o arquivo.'); }
+      if (aba) aba.location.href = url;
+      else showToast('Permita pop-ups para abrir o anexo.');
+    } catch (e) {
+      aba?.close();
+      showToast((e as Error).message);
+    }
+  };
+
   const th = 'px-4 py-2.5 text-left text-xs font-bold uppercase text-ink-400';
   return (
     <Card title="Anexos" flush action={editable && <Button size="sm" onClick={() => setNovo(true)}><Plus className="h-4 w-4" />Adicionar anexo</Button>}>
@@ -637,7 +655,14 @@ function AnexosTab({ osId, editable }: { osId: string; editable: boolean }) {
               <td className="px-4 py-3 pl-6 text-sm font-medium text-ink-800">{a.nome}</td>
               <td className="px-4 py-3"><Badge tone="info">{a.tipoLabel}</Badge></td>
               <td className="px-4 py-3 text-sm text-ink-600">{a.criadoEm}</td>
-              <td className="px-4 py-3 pr-6 text-right">{editable ? <button onClick={() => setDel(a)} className="rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-ink-400 hover:text-danger-bright"><Trash2 className="h-4 w-4" /></button> : '—'}</td>
+              <td className="px-4 py-3 pr-6 text-right">
+                <div className="inline-flex items-center gap-2">
+                  {/* Abrir vale mesmo com a OS fechada: consultar a comprovação
+                      de um serviço concluído é o uso mais comum. */}
+                  <button onClick={() => abrir(a)} className="rounded-lg border border-ink-200 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-ink-600 hover:text-ink-900">Abrir</button>
+                  {editable && <button onClick={() => setDel(a)} className="rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-ink-400 hover:text-danger-bright"><Trash2 className="h-4 w-4" /></button>}
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
