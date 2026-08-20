@@ -65,7 +65,7 @@ export function SettingsScreen({ navigation }: Props) {
         <Text style={styles.section}>PREFERÊNCIAS</Text>
         <View style={styles.group}>
           <Row icon="notifications" label="Notificações" onPress={() => navigation.navigate('Preferencias')} divider />
-          <Row icon="info" label="Sobre o aplicativo" onPress={() => {}} />
+          <Row icon="info" label="Sobre o aplicativo" onPress={() => navigation.navigate('Sobre')} />
         </View>
 
         <Pressable style={styles.logoutRow} onPress={() => setLogout(true)}>

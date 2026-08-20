@@ -8,6 +8,7 @@ import {
 } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NotificationsScreen } from '@/screens/NotificationsScreen';
+import { AboutScreen } from '@/screens/AboutScreen';
 import { contarNaoLidas, assinarNaoLidas } from '@/lib/notificacoes';
 import { assinarPrefBadge, carregarPrefBadge } from '@/lib/preferencias';
 import { OsListScreen } from '@/screens/os/OsListScreen';
@@ -38,6 +39,7 @@ function ConfigStack() {
       <ConfigStackNav.Screen name="Configuracoes" component={SettingsScreen} />
       <ConfigStackNav.Screen name="Perfil" component={ProfileScreen} />
       <ConfigStackNav.Screen name="Preferencias" component={PreferencesScreen} />
+      <ConfigStackNav.Screen name="Sobre" component={AboutScreen} />
     </ConfigStackNav.Navigator>
   );
 }
