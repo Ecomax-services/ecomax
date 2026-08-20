@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { caminhoOs, enviarBase64, enviarArquivoLocal } from '@/lib/uploads';
 import type { TablesUpdate } from '@/lib/database.types';
+import { coordenadaAtual } from '@/lib/localizacao';
 
 // ============================================================
 // Status
@@ -77,6 +78,8 @@ export interface OsDetail {
   tipos: string; pragas: string; descricao: string; data: string; hora: string; duracao: string;
   necessitaRelatorio: boolean; assinaturaUrl: string | null;
   checkInAt: string | null; checkOutAt: string | null;
+  /** Coordenada do check-in, quando o aparelho conseguiu ler. */
+  checkInLat: number | null; checkInLng: number | null;
 }
 export async function getOs(id: string): Promise<OsDetail> {
   const { data, error } = await supabase
@@ -94,6 +97,7 @@ export async function getOs(id: string): Promise<OsDetail> {
     hora: o.hora_prevista ?? '—', duracao: o.duracao_estimada ?? '—',
     necessitaRelatorio: !!o.necessita_relatorio, assinaturaUrl: o.assinatura_url,
     checkInAt: o.check_in_at, checkOutAt: o.check_out_at,
+    checkInLat: o.check_in_lat, checkInLng: o.check_in_lng,
   };
 }
 export async function listProdutos(osId: string): Promise<OsProdutoItem[]> {
@@ -117,12 +121,23 @@ export async function listCronograma(osId: string): Promise<CronogramaItem[]> {
 // ============================================================
 // Captura em campo
 // ============================================================
-export async function registrarCheckIn(osId: string, statusAtual: OsStatus): Promise<void> {
+/**
+ * Registra o check-in, com a coordenada quando houver.
+ *
+ * Devolve se a coordenada entrou, para a tela poder avisar — antes o aviso era
+ * fixo ("a localização ainda não é registrada") e nunca mudava.
+ */
+export async function registrarCheckIn(osId: string, statusAtual: OsStatus): Promise<{ comGps: boolean }> {
   const agora = new Date().toISOString();
+  const coord = await coordenadaAtual();
   // Tipado pela própria tabela em vez de Record<string, unknown>: assim um nome
   // de coluna errado vira erro de compilação, e não um update silenciosamente
   // ignorado pelo PostgREST.
   const patch: TablesUpdate<'ordens_servico'> = { check_in_at: agora };
+  if (coord) {
+    patch.check_in_lat = coord.lat;
+    patch.check_in_lng = coord.lng;
+  }
   // Qualquer situação anterior à execução vira "em andamento" no check-in. Só
   // 'em_aberto' deixaria de fora a OS emitida e a confirmada, que são
   // justamente as que chegam ao operador pelo fluxo novo.
@@ -131,13 +146,25 @@ export async function registrarCheckIn(osId: string, statusAtual: OsStatus): Pro
   const { error } = await supabase.from('ordens_servico').update(patch).eq('id', osId);
   if (error) throw new Error(error.message);
   await hist(osId, 'Check-in (app)', null, brTime(agora));
+  // Registrar a ausência é tão útil quanto registrar a coordenada: sem isso não
+  // dá para distinguir "não havia sinal" de "a versão antiga não capturava".
+  await hist(osId, 'Local do check-in', null, coord ? `${coord.lat.toFixed(5)}, ${coord.lng.toFixed(5)}` : 'sem localização');
   if (patch.status) await hist(osId, 'Status', osTag[statusAtual]?.label ?? statusAtual, osTag.em_andamento.label);
+  return { comGps: coord !== null };
 }
-export async function registrarCheckOut(osId: string): Promise<void> {
+export async function registrarCheckOut(osId: string): Promise<{ comGps: boolean }> {
   const ts = new Date().toISOString();
-  const { error } = await supabase.from('ordens_servico').update({ check_out_at: ts }).eq('id', osId);
+  const coord = await coordenadaAtual();
+  const patch: TablesUpdate<'ordens_servico'> = { check_out_at: ts };
+  if (coord) {
+    patch.check_out_lat = coord.lat;
+    patch.check_out_lng = coord.lng;
+  }
+  const { error } = await supabase.from('ordens_servico').update(patch).eq('id', osId);
   if (error) throw new Error(error.message);
   await hist(osId, 'Check-out (app)', null, brTime(ts));
+  await hist(osId, 'Local do check-out', null, coord ? `${coord.lat.toFixed(5)}, ${coord.lng.toFixed(5)}` : 'sem localização');
+  return { comGps: coord !== null };
 }
 export async function salvarConsumo(osId: string, itemId: string, qtd: number | null): Promise<void> {
   const { data: before } = await supabase.from('os_produtos').select('qtd_utilizada').eq('id', itemId).single();
