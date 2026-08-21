@@ -11,6 +11,7 @@ import { cn } from '@/lib/cn';
 import { cpfExists, criarFuncionario, listGestores, listPerfisAcesso, uploadFuncionarioFile } from '@/lib/funcionarios';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { maskCPF, maskRG, maskDate, maskPhone, maskCEP } from '@/lib/masks';
+import { cpfValido, emailValido } from '@/lib/documentosFiscais';
 
 const steps = [
   { n: 1, label: 'Dados pessoais' },
@@ -19,8 +20,8 @@ const steps = [
   { n: 4, label: 'Operacional' },
 ];
 
-const CPF_RE = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// A regra de CPF e e-mail vive em lib/documentosFiscais — o formato sozinho
+// deixava passar 111.111.111-11, que é o que alguém digita para vencer o campo.
 
 /** dd/mm/aaaa -> yyyy-mm-dd (null se vazio/inválido). */
 function brToISO(s: string): string | null {
@@ -108,7 +109,7 @@ export function UsuarioCadastro() {
 
   const validateCpf = async () => {
     if (!form.cpf) return setCpfErr('');
-    if (!CPF_RE.test(form.cpf)) return setCpfErr('Formato inválido (000.000.000-00).');
+    if (!cpfValido(form.cpf)) return setCpfErr('CPF inválido — confira os números.');
     setCpfErr((await cpfExists(form.cpf)) ? 'CPF já cadastrado para outro funcionário.' : '');
   };
 
@@ -125,7 +126,7 @@ export function UsuarioCadastro() {
   const problemaNoPasso = (n: number): string | null => {
     if (n === 1) {
       if (!form.nome.trim()) return 'Informe o nome completo.';
-      if (!CPF_RE.test(form.cpf)) return 'Informe o CPF no formato 000.000.000-00.';
+      if (!cpfValido(form.cpf)) return 'CPF inválido — confira os números.';
       if (cpfErr) return cpfErr;
     }
     if (n === 2) {
@@ -134,7 +135,7 @@ export function UsuarioCadastro() {
     }
     if (n === 3 && form.comAcesso) {
       if (!form.email.trim()) return 'Informe o e-mail de login.';
-      if (!EMAIL_RE.test(form.email.trim())) return 'E-mail de login inválido.';
+      if (!emailValido(form.email)) return 'E-mail de login inválido.';
       if (!form.perfilId) return 'Selecione o perfil de acesso.';
       // O `?? 'operacional'` que existia aqui engolia perfil não mapeado: o
       // cadastro passava e a pessoa saía com papel diferente do escolhido.
