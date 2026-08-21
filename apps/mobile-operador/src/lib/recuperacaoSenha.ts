@@ -18,26 +18,23 @@ export const urlDeRetorno = () => Linking.createURL('/criar-senha');
  * O operador receberia um link para um sistema onde ele nem tem acesso.
  */
 export async function enviarLinkDeRecuperacao(email: string): Promise<void> {
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: urlDeRetorno() });
-  if (!error) return;
+  // Não usa `supabase.auth.resetPasswordForEmail`: aquele caminho depende do
+  // SMTP do GoTrue, que ficou dias fora do ar com timeout de 35 s — e enquanto
+  // isso a tela anunciava um link que nunca saía. A Edge Function
+  // `recuperar-senha` gera o link com service_role e entrega pela API do Resend.
+  //
+  // O `redirect_to` vai daqui porque só o aplicativo sabe onde está rodando:
+  // `exp://` no Expo Go, `ecomaxoperador://` num build nativo.
+  const { data, error } = await supabase.functions.invoke('recuperar-senha', {
+    body: { email: email.trim(), app: 'mobile', redirect_to: urlDeRetorno() },
+  });
 
-  // Limite de tentativas do GoTrue. Vem como 4xx e não pode ser engolido: nada
-  // foi enviado, e a pessoa precisa saber que é só esperar — não que o link já
-  // está a caminho.
-  if (error.status === 429) {
-    throw new Error('Aguarde um minuto antes de pedir outro link.');
+  if (error) {
+    const detalhe = (data as { motivo_configuracao?: string } | null)?.motivo_configuracao;
+    throw new Error(detalhe
+      ? `Não foi possível enviar o e-mail: ${detalhe}`
+      : 'Não foi possível enviar o e-mail agora. Tente novamente em alguns minutos.');
   }
-
-  // Falha de envio (5xx, ou o timeout de SMTP que aparece no log do GoTrue como
-  // `context deadline exceeded`) precisa estourar. Devolver o erro para o
-  // chamador decidir não bastava: dois dos três ignoravam o retorno e
-  // anunciavam "Enviamos um link" com o e-mail parado na fila.
-  if (!error.status || error.status >= 500) {
-    throw new Error('Não foi possível enviar o e-mail agora. Tente novamente em alguns minutos.');
-  }
-
-  // O que sobra é e-mail inexistente — engolido de propósito: responder "esse
-  // e-mail não existe" entrega quem tem conta a quem só chutou endereços.
 }
 
 /** URLs já processadas, para o mesmo link não ser consumido duas vezes. */

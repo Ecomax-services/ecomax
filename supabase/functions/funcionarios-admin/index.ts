@@ -2,6 +2,8 @@
 // Operações privilegiadas de Gestão de Usuários que exigem service_role (criar login no Auth,
 // resetar senha, bloquear login). Valida o JWT do chamador e a permissão do módulo antes de agir.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { enviarEmail } from '../_shared/resend.ts';
+import { emailPrimeiroAcesso } from '../_shared/templates.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -33,6 +35,12 @@ const appDoRole = (role?: string | null) =>
 
 /**
  * Dispara o e-mail de definição de senha para o app certo.
+ *
+ * O link é gerado com `generateLink`, que **não** envia nada, e a entrega é
+ * feita pela API do Resend. Antes isto era `resetPasswordForEmail`, que depende
+ * do SMTP do GoTrue — e enquanto ele esteve fora do ar todo usuário criado
+ * saía sem receber o convite, com o cadastro dando certo.
+ *
  * Devolve o motivo da falha em vez de lançar: criar o usuário e falhar o e-mail
  * são coisas diferentes, e quem chamou precisa saber qual das duas aconteceu.
  */
@@ -40,6 +48,7 @@ async function enviarLinkDeSenha(
   admin: ReturnType<typeof createClient>,
   email: string,
   role?: string | null,
+  nome?: string | null,
 ): Promise<{ enviado: boolean; motivo?: string }> {
   const app = appDoRole(role);
   const base = APP_URLS[app];
@@ -51,18 +60,30 @@ async function enviarLinkDeSenha(
     // é a senha. Melhor falhar dizendo o que configurar.
     return { enviado: false, motivo: `APP_URL_${app === 'portal_cliente' ? 'PORTAL' : 'MOBILE'} não configurada nas secrets da função` };
   }
-
-  // Para o Backoffice o fallback é inofensivo: o Site URL já é ele. Fica só o
-  // aviso, para a secret não passar despercebida.
   if (!base) console.warn('APP_URL_BACKOFFICE não configurada; usando o Site URL do projeto');
 
-  const { error } = await admin.auth.resetPasswordForEmail(
-    email.trim(),
-    base ? { redirectTo: `${base.replace(/\/$/, '')}/criar-senha` } : undefined,
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: 'recovery',
+    email: email.trim(),
+    options: base ? { redirectTo: `${base.replace(/\/$/, '')}/criar-senha` } : undefined,
+  });
+  if (error || !data?.properties?.action_link) {
+    console.error('falha ao gerar link de senha', { email, app, erro: error?.message });
+    return { enviado: false, motivo: error?.message ?? 'não foi possível gerar o link' };
+  }
+
+  const onde = app === 'portal_cliente' ? 'Portal do Cliente'
+    : app === 'mobile_operador' ? 'App do Operador'
+    : 'Backoffice';
+  const { assunto, html, texto } = emailPrimeiroAcesso(
+    data.properties.action_link,
+    (nome ?? '').trim() || email.split('@')[0],
+    onde,
   );
-  if (error) {
-    console.error('falha ao enviar link de senha', { email, app, erro: error.message });
-    return { enviado: false, motivo: error.message };
+  const envio = await enviarEmail({ para: email.trim(), assunto, html, texto });
+  if (!envio.enviado) {
+    console.error('falha ao enviar link de senha', { email, app, motivo: envio.motivo });
+    return { enviado: false, motivo: envio.motivo };
   }
   return { enviado: true };
 }
@@ -138,7 +159,7 @@ Deno.serve(async (req) => {
       // por causa do envio. Mas o resultado sobe junto na resposta: antes daqui
       // um `.catch(() => {})` engolia a falha, e o usuário era criado sem nunca
       // receber nada, sem ninguém ficar sabendo.
-      const envio = await enviarLinkDeSenha(admin, String(acesso.email), acesso.role);
+      const envio = await enviarLinkDeSenha(admin, String(acesso.email), acesso.role, funcionarioNome);
       return { uid, envio };
     };
 
@@ -182,7 +203,7 @@ Deno.serve(async (req) => {
         const { data: p } = await admin.from('profiles').select('role').eq('id', profile_id).maybeSingle();
         role = p?.role ?? null;
       }
-      const envio = await enviarLinkDeSenha(admin, String(email), role);
+      const envio = await enviarLinkDeSenha(admin, String(email), role, nome);
       if (!envio.enviado) throw new Error(envio.motivo || 'Falha ao enviar o e-mail');
       await audit(funcionario_id, 'senha_redefinida', { email });
       return json({ ok: true });
@@ -260,7 +281,7 @@ Deno.serve(async (req) => {
         if (vErr) throw new Error(vErr.message);
       }
 
-      const envio = await enviarLinkDeSenha(admin, mail, 'cliente');
+      const envio = await enviarLinkDeSenha(admin, mail, 'cliente', nome);
       await admin.from('auditoria').insert({
         actor_id: caller.id, funcionario_id: null, modulo: 'gestao_clientes',
         acao: 'portal_usuario_convidado',
