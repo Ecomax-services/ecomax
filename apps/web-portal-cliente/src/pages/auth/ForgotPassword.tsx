@@ -5,7 +5,7 @@ import { ArrowLeft, Mail } from 'lucide-react';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { supabase } from '@/lib/supabase';
+import { pedirRecuperacaoDeSenha } from '@/lib/recuperacaoSenha';
 
 /** Tela 1.1 - Recuperação de senha (Portal, node 31:727). */
 export function ForgotPassword() {
@@ -22,14 +22,16 @@ export function ForgotPassword() {
     }
     setError(undefined);
     setSubmitting(true);
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/criar-senha`,
-    });
-    setSubmitting(false);
-    if (err && err.status && err.status >= 500) {
-      setError('Não foi possível enviar agora. Tente novamente em instantes.');
+    try {
+      await pedirRecuperacaoDeSenha(email.trim(), 'portal', `${window.location.origin}/criar-senha`);
+    } catch (e) {
+      setSubmitting(false);
+      setError((e as Error).message);
       return;
     }
+    setSubmitting(false);
+    // Não revela se o e-mail existe: a função responde igual para endereço
+    // cadastrado e não cadastrado, e a tela segue para a confirmação nos dois.
     navigate('/recuperar-senha/enviado', { state: { email: email.trim() } });
   }
 

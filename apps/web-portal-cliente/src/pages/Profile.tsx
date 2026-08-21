@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Topbar } from '@/components/Topbar';
 import { useAuth } from '@/auth/AuthProvider';
-import { supabase } from '@/lib/supabase';
+import { pedirRecuperacaoDeSenha } from '@/lib/recuperacaoSenha';
 
 /** Tela 3.1 - Meu Perfil (Portal, node 31:930). Dados read-only (editáveis só pelo admin). */
 export function Profile() {
@@ -16,11 +16,16 @@ export function Profile() {
   async function handleChangePassword() {
     if (!session?.user.email || sending) return;
     setSending(true);
-    await supabase.auth.resetPasswordForEmail(session.user.email, {
-      redirectTo: `${window.location.origin}/criar-senha`,
-    });
-    setSending(false);
-    setMsg(`Enviamos um link de redefinição para ${session.user.email}.`);
+    try {
+      await pedirRecuperacaoDeSenha(session.user.email, 'portal', `${window.location.origin}/criar-senha`);
+      setMsg(`Enviamos um link de redefinição para ${session.user.email}.`);
+    } catch (e) {
+      // Antes o retorno era ignorado e a tela anunciava o envio de qualquer
+      // jeito — inclusive nos dias em que nada saía.
+      setMsg((e as Error).message);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
