@@ -33,6 +33,7 @@ import {
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { maskRG, maskDate, maskPhone, maskCEP } from '@/lib/masks';
 import { hojeISO } from '@/lib/datas';
+import { brParaISO, problemaNasDatas } from '@/lib/datas';
 
 interface DocUrls {
   avatar: string | null;
@@ -52,10 +53,6 @@ const tabs: { key: Tab; label: string }[] = [
 const gestorNomeOf = (g: FuncionarioRow['gestor']) => (Array.isArray(g) ? g[0]?.nome_completo : g?.nome_completo) ?? '—';
 const isoToBR = (iso: string | null) => (iso ? iso.split('-').reverse().join('/') : '');
 const fmtDoc = (iso: string | null) => (iso ? isoToBR(iso) : SEM_DATA);
-const brToISO = (s: string) => {
-  const m = s.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
-};
 
 export function UsuarioDetalhe() {
   const { id } = useParams();
@@ -378,6 +375,13 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
   }, [row.id]);
 
   const save = async () => {
+    // A mesma conferência do cadastro: editar era o caminho por onde uma data
+    // impossível entrava depois, sem passar por validação nenhuma.
+    const dataRuim = problemaNasDatas(f.nascimento, f.admissao);
+    if (dataRuim) return showToast(dataRuim);
+    for (const [rotulo, valor] of [['ASO', f.aso], ['CNH', f.cnh]] as const) {
+      if (valor && !brParaISO(valor)) return showToast(`Validade do ${rotulo} inválida.`);
+    }
     setSaving(true);
     try {
       const [fotoUrl, asoUrl, cnhUrl] = await Promise.all([
@@ -388,15 +392,15 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
       await updateFuncionario(row.id, {
         nome_completo: f.nome_completo.trim(),
         rg: f.rg || null,
-        data_nascimento: brToISO(f.nascimento),
+        data_nascimento: brParaISO(f.nascimento),
         telefone: f.telefone || null,
         cep: f.cep || null,
         cargo: f.cargo,
         setor: f.setor,
         gestor_id: f.gestor_id || null,
-        data_admissao: brToISO(f.admissao),
-        aso_validade: brToISO(f.aso),
-        cnh_validade: brToISO(f.cnh),
+        data_admissao: brParaISO(f.admissao),
+        aso_validade: brParaISO(f.aso),
+        cnh_validade: brParaISO(f.cnh),
         ...(fotoUrl ? { avatar_url: fotoUrl } : {}),
         ...(asoUrl ? { aso_arquivo_url: asoUrl } : {}),
         ...(cnhUrl ? { cnh_arquivo_url: cnhUrl } : {}),

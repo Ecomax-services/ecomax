@@ -12,6 +12,7 @@ import { cpfExists, criarFuncionario, listGestores, listPerfisAcesso, uploadFunc
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { maskCPF, maskRG, maskDate, maskPhone, maskCEP } from '@/lib/masks';
 import { cpfValido, emailValido } from '@/lib/documentosFiscais';
+import { brParaISO, problemaNasDatas } from '@/lib/datas';
 
 const steps = [
   { n: 1, label: 'Dados pessoais' },
@@ -24,10 +25,6 @@ const steps = [
 // deixava passar 111.111.111-11, que é o que alguém digita para vencer o campo.
 
 /** dd/mm/aaaa -> yyyy-mm-dd (null se vazio/inválido). */
-function brToISO(s: string): string | null {
-  const m = s.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
-}
 
 /**
  * Perfil escolhido na tela → papel gravado em `profiles.role`.
@@ -126,6 +123,8 @@ export function UsuarioCadastro() {
   const problemaNoPasso = (n: number): string | null => {
     if (n === 1) {
       if (!form.nome.trim()) return 'Informe o nome completo.';
+      const dataRuim = problemaNasDatas(form.nascimento, form.admissao);
+      if (dataRuim) return dataRuim;
       if (!cpfValido(form.cpf)) return 'CPF inválido — confira os números.';
       if (cpfErr) return cpfErr;
     }
@@ -190,17 +189,17 @@ export function UsuarioCadastro() {
           nome_completo: form.nome.trim(),
           cpf: form.cpf,
           rg: form.rg || null,
-          data_nascimento: brToISO(form.nascimento),
+          data_nascimento: brParaISO(form.nascimento),
           telefone: form.telefone || null,
           cep: form.cep || null,
           cargo: form.cargo,
           setor: form.setor,
           gestor_id: form.gestorId || null,
-          data_admissao: brToISO(form.admissao),
-          aso_validade: brToISO(form.asoVenc),
+          data_admissao: brParaISO(form.admissao),
+          aso_validade: brParaISO(form.asoVenc),
           cnh_numero: form.cnhNA ? null : form.cnhNumero || null,
           cnh_categoria: form.cnhNA ? null : form.cnhCat,
-          cnh_validade: form.cnhNA ? null : brToISO(form.cnhVenc),
+          cnh_validade: form.cnhNA ? null : brParaISO(form.cnhVenc),
           carga_horaria: form.cargaHoraria || null,
           turno: form.turno || null,
           email: form.comAcesso ? form.email.trim() : null,
