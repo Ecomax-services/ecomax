@@ -5,6 +5,8 @@ import { SelectField, TextField, TextareaField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { maskCPF, maskCNPJ, maskCEP, maskPhone } from '@/lib/masks';
 import { getCliente, createCliente, updateCliente, type ClienteInput } from '@/lib/clientes';
+import { cnpjValido, cpfValido, emailValido, cepValido } from '@/lib/documentosFiscais';
+import { buscarCep, cepCompleto } from '@/lib/cep';
 
 const empty = {
   tipo_pessoa: 'pj' as 'pf' | 'pj', nome: '', razao_social: '', cnpj: '', cpf: '', regiao: '',
@@ -22,6 +24,7 @@ export function ClienteFormDrawer({
   const { showToast } = useToast();
   const [form, setForm] = useState<FormState>(empty);
   const [saving, setSaving] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const isNew = !clienteId;
 
   useEffect(() => {
@@ -37,9 +40,49 @@ export function ClienteFormDrawer({
 
   const up = (k: keyof FormState, v: string) => setForm((s) => ({ ...s, [k]: v }));
 
+  /**
+   * Completa o endereço pelo CEP, como a tela de Criar OS já fazia — aqui os
+   * campos existiam e ninguém os preenchia, então cada cadastro pedia rua,
+   * bairro, cidade e UF digitados à mão.
+   *
+   * O número não vem do CEP, e o que já estiver digitado não é sobrescrito: a
+   * consulta ajuda, não manda.
+   */
+  const preencherPorCep = async (valor: string) => {
+    if (!cepCompleto(valor) || buscandoCep) return;
+    setBuscandoCep(true);
+    try {
+      const e = await buscarCep(valor);
+      setForm((s) => ({
+        ...s,
+        logradouro: s.logradouro || e.logradouro,
+        bairro: s.bairro || e.bairro,
+        cidade: s.cidade || e.cidade,
+        uf: s.uf || e.uf,
+      }));
+      showToast('Endereço preenchido pelo CEP — confira o número');
+    } catch (err) {
+      showToast((err as Error).message);
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
+
   const save = async () => {
     if (!form.nome.trim()) return showToast('Informe o nome do cliente.');
     if (form.tipo_pessoa === 'pj' && !form.razao_social.trim()) return showToast('Informe a razão social.');
+    // Campos opcionais: só são conferidos quando preenchidos. O cadastro aceitava
+    // `11.111.111/1111-11` e `nao-e-email` sem reclamar, e um documento errado só
+    // aparece depois — na nota, no relatório, na cobrança —, longe de quem digitou.
+    // Os dois campos existem lado a lado; vale o do tipo de pessoa escolhido.
+    if (form.tipo_pessoa === 'pj' && form.cnpj.trim() && !cnpjValido(form.cnpj)) {
+      return showToast('CNPJ inválido — confira os números.');
+    }
+    if (form.tipo_pessoa === 'pf' && form.cpf.trim() && !cpfValido(form.cpf)) {
+      return showToast('CPF inválido — confira os números.');
+    }
+    if (form.email.trim() && !emailValido(form.email)) return showToast('E-mail inválido — confira o endereço.');
+    if (form.cep.trim() && !cepValido(form.cep)) return showToast('CEP incompleto — são oito dígitos.');
     setSaving(true);
     try {
       const payload: ClienteInput = {
@@ -88,7 +131,10 @@ export function ClienteFormDrawer({
         <TextField label="E-mail" value={form.email} onChange={(e) => up('email', e.target.value)} placeholder="contato@cliente.com" />
         <p className="text-[11px] font-bold uppercase tracking-wide text-ink-400">Endereço</p>
         <div className="grid grid-cols-[1fr_2fr] gap-3.5">
-          <TextField label="CEP" inputMode="numeric" value={form.cep} onChange={(e) => up('cep', maskCEP(e.target.value))} placeholder="00000-000" />
+          <TextField label="CEP" inputMode="numeric" value={form.cep} placeholder="00000-000"
+            hint={buscandoCep ? 'Consultando…' : undefined}
+            onChange={(e) => { const v = maskCEP(e.target.value); up('cep', v); void preencherPorCep(v); }}
+            onBlur={() => void preencherPorCep(form.cep)} />
           <TextField label="Logradouro" value={form.logradouro} onChange={(e) => up('logradouro', e.target.value)} placeholder="Rua / Av." />
         </div>
         <div className="grid grid-cols-[1fr_2fr] gap-3.5">
