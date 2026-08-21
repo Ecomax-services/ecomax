@@ -14,6 +14,7 @@ import {
   type FornRow, type FornContato, type FornProduto,
 } from '@/lib/estoque';
 import { maskCNPJ, maskPhone } from '@/lib/masks';
+import { cnpjValido, emailValido } from '@/lib/documentosFiscais';
 
 type SortKey = 'razao' | 'aval';
 type DetailTab = 'dados' | 'contatos' | 'produtos';
@@ -71,6 +72,10 @@ export function Fornecedores() {
 
   const save = async () => {
     if (!form.razao_social.trim()) return showToast('Informe a razão social.');
+    // Fornecedor entra em cotação, requisição e nota fiscal: um CNPJ errado aqui
+    // reaparece em todos eles.
+    if (form.cnpj.trim() && !cnpjValido(form.cnpj)) return showToast('CNPJ inválido — confira os números.');
+    if (form.email.trim() && !emailValido(form.email)) return showToast('E-mail inválido — confira o endereço.');
     setSaving(true);
     try {
       const payload = { razao_social: form.razao_social.trim(), cnpj: form.cnpj || null, email: form.email || null, telefone: form.telefone || null, categoria: form.categoria };
