@@ -100,7 +100,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback<AuthContextValue['signIn']>(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: 'E-mail ou senha inválidos. Verifique sua conexão.' };
+    // Três causas diferentes chegavam como uma frase só. Quem errou a senha
+    // recebia conselho sobre conexão; quem estava sem rede achava que tinha
+    // errado a senha; e quem bateu no limite de tentativas — o que acontece
+    // justamente quando se erra a senha algumas vezes — continuava tentando a
+    // senha certa achando que era ela.
+    if (error) {
+      // Sem status, a requisição não chegou ao servidor.
+      if (!error.status || error.status >= 500) {
+        return { error: 'Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.' };
+      }
+      if (error.status === 429) {
+        return { error: 'Muitas tentativas seguidas. Aguarde um minuto antes de tentar de novo.' };
+      }
+      return { error: 'E-mail ou senha inválidos.' };
+    }
 
     const prof = await resolveProfile(data.user.id);
     if (!prof || !prof.ativo) {
