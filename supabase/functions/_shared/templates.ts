@@ -60,8 +60,26 @@ export function emailRecuperacao(url: string, horas: number) {
   };
 }
 
-/** Primeiro acesso: a conta acabou de ser criada por um administrador. */
-export function emailPrimeiroAcesso(url: string, nome: string, ondeEntrar: string) {
+/**
+ * Primeiro acesso: a conta acabou de ser criada por um administrador.
+ *
+ * `appMobile` muda o fecho da mensagem, e não por capricho: o link abre um
+ * aplicativo instalado, e quem ainda está usando o Expo Go não tem esse
+ * aplicativo — o link não abre nada. Dizer isso no e-mail, junto com a saída
+ * (a senha provisória que o administrador entregou), evita a pessoa concluir
+ * que o cadastro dela não funcionou.
+ */
+export function emailPrimeiroAcesso(url: string, nome: string, ondeEntrar: string, appMobile = false) {
+  const fecho = appMobile
+    ? `<p style="margin:24px 0 0;font-size:13px;color:#6b7280">
+         Se o botão não abrir o aplicativo, entre com a <strong>senha provisória</strong>
+         que a Ecomax passou para você e troque a senha depois, em Configurações →
+         Alterar senha.
+       </p>`
+    : `<p style="margin:24px 0 0;font-size:13px;color:#6b7280">
+         Se precisar de ajuda, fale com quem cadastrou você.
+       </p>`;
+
   const html = layout('Seu acesso à Ecomax', `
     <h1 style="font-size:20px;margin:16px 0 8px">Olá, ${esc(nome)}</h1>
     <p style="margin:0;font-size:15px;line-height:1.6;color:#374151">
@@ -69,12 +87,14 @@ export function emailPrimeiroAcesso(url: string, nome: string, ondeEntrar: strin
       a sua senha — é o único passo que falta.
     </p>
     ${botao(url, 'Definir minha senha')}
-    <p style="margin:24px 0 0;font-size:13px;color:#6b7280">
-      Se precisar de ajuda, fale com quem cadastrou você.
-    </p>`);
+    ${fecho}`);
+
+  const extra = appMobile
+    ? '\n\nSe o link não abrir o aplicativo, entre com a senha provisória que a Ecomax passou para você.'
+    : '';
   return {
     assunto: `Seu acesso ao ${ondeEntrar} · Ecomax`,
     html,
-    texto: `Olá, ${nome}\n\nSua conta no ${ondeEntrar} da Ecomax foi criada. Defina sua senha:\n${url}`,
+    texto: `Olá, ${nome}\n\nSua conta no ${ondeEntrar} da Ecomax foi criada. Defina sua senha:\n${url}${extra}`,
   };
 }

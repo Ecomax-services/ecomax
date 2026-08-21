@@ -79,6 +79,7 @@ async function enviarLinkDeSenha(
     data.properties.action_link,
     (nome ?? '').trim() || email.split('@')[0],
     onde,
+    app === 'mobile_operador',
   );
   const envio = await enviarEmail({ para: email.trim(), assunto, html, texto });
   if (!envio.enviado) {
@@ -199,11 +200,15 @@ Deno.serve(async (req) => {
       // O papel decide o app de destino. Se não veio no payload, busca — mandar
       // um operador para o Backoffice é o mesmo que não mandar e-mail nenhum.
       let role: string | null = payload.role ?? null;
-      if (!role && profile_id) {
-        const { data: p } = await admin.from('profiles').select('role').eq('id', profile_id).maybeSingle();
-        role = p?.role ?? null;
+      let nomeDaPessoa: string | null = payload.nome ?? null;
+      if ((!role || !nomeDaPessoa) && profile_id) {
+        const { data: p } = await admin.from('profiles').select('role, nome_completo').eq('id', profile_id).maybeSingle();
+        role = role ?? p?.role ?? null;
+        nomeDaPessoa = nomeDaPessoa ?? p?.nome_completo ?? null;
       }
-      const envio = await enviarLinkDeSenha(admin, String(email), role, nome);
+      // O nome é só o cumprimento do e-mail; não vale uma segunda ida ao banco
+      // se o profile_id não veio.
+      const envio = await enviarLinkDeSenha(admin, String(email), role, nomeDaPessoa);
       if (!envio.enviado) throw new Error(envio.motivo || 'Falha ao enviar o e-mail');
       await audit(funcionario_id, 'senha_redefinida', { email });
       return json({ ok: true });
