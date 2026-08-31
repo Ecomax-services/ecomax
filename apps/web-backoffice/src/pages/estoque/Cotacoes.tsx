@@ -10,11 +10,13 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import {
-  listCotacoes, getCotacaoRespostas, createCotacao, registrarResposta, aprovarCotacao,
+  listCotacoes,
+  cancelarCotacao, getCotacaoRespostas, createCotacao, registrarResposta, aprovarCotacao,
   listProdutos, listFornecedorOptions,
   type CotacaoRow, type CotacaoResposta, type Produto,
 } from '@/lib/estoque';
 import { maskInt, maskDecimal } from '@/lib/masks';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 const STATUS_OPTS = [
   { value: 'todos', label: 'Todos os status' },
@@ -181,6 +183,7 @@ function CotacaoModal({
   const [prazo, setPrazo] = useState('');
   const [cond, setCond] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirmarCancelamento, setConfirmarCancelamento] = useState(false);
   const closed = cot.statusKey === 'aprovada' || cot.statusKey === 'cancelada';
 
   const loadResp = useCallback(async () => {
@@ -259,12 +262,49 @@ function CotacaoModal({
         )}
       </div>
 
-      <div className="flex gap-3 px-7 pb-6">
-        <Button variant="secondary" fullWidth onClick={onClose} className="h-[52px]">Fechar</Button>
+      <div className="flex flex-col gap-2.5 px-7 pb-6">
+        <div className="flex gap-3">
+          <Button variant="secondary" fullWidth onClick={onClose} className="h-[52px]">Fechar</Button>
+          {canEdit && !closed && (
+            <Button fullWidth onClick={aprovar} disabled={busy} className="h-[52px]">Aprovar vencedora → requisição</Button>
+          )}
+        </div>
         {canEdit && !closed && (
-          <Button fullWidth onClick={aprovar} disabled={busy} className="h-[52px]">Aprovar vencedora → requisição</Button>
+          <button
+            onClick={() => setConfirmarCancelamento(true)}
+            disabled={busy}
+            className="h-11 rounded-[10px] text-sm font-semibold text-danger-bright hover:bg-[#fff2ee] disabled:opacity-50"
+          >
+            Cancelar cotação
+          </button>
         )}
       </div>
+
+      {confirmarCancelamento && (
+        <ConfirmDialog
+          open
+          title="Cancelar esta cotação?"
+          description={`A cotação ${cot.cod} sai da lista de abertas. As respostas já registradas ficam no histórico.`}
+          confirmLabel="Cancelar cotação"
+          cancelLabel="Voltar"
+          destructive
+          onClose={() => setConfirmarCancelamento(false)}
+          onConfirm={async () => {
+            setConfirmarCancelamento(false);
+            setBusy(true);
+            try {
+              await cancelarCotacao(cot.id);
+              showToast(`${cot.cod} cancelada`);
+              onClose();
+              await onChanged();
+            } catch (e) {
+              showToast((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+      )}
     </Modal>
   );
 }

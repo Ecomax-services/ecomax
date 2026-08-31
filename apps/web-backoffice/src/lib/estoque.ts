@@ -588,6 +588,28 @@ export async function aprovarCotacao(cotacaoId: string): Promise<string> {
   return (data as any).codigo as string;
 }
 
+/**
+ * Cancela uma cotação em aberto.
+ *
+ * O status "cancelada" já existia no mapa de cores da tela, mas não havia como
+ * chegar nele: cotação errada ficava para sempre entre as abertas, inflando o
+ * indicador e o trabalho de quem revisa. Uma já aprovada não volta atrás — dela
+ * nasceu uma requisição.
+ */
+export async function cancelarCotacao(cotacaoId: string): Promise<void> {
+  const { data: cot, error: e0 } = await supabase
+    .from('cotacoes').select('status').eq('id', cotacaoId).maybeSingle();
+  if (e0) throw new Error(msgErro(e0));
+  if (!cot) throw new Error('Cotação não encontrada.');
+  if ((cot as any).status === 'aprovada') {
+    throw new Error('Esta cotação já foi aprovada e virou requisição — não é possível cancelar.');
+  }
+  if ((cot as any).status === 'cancelada') throw new Error('Esta cotação já está cancelada.');
+
+  const { error } = await supabase.from('cotacoes').update({ status: 'cancelada' }).eq('id', cotacaoId);
+  if (error) throw new Error(msgErro(error));
+}
+
 // ---------- Requisições ----------
 export async function listRequisicoes(): Promise<ReqRow[]> {
   const { data, error } = await supabase

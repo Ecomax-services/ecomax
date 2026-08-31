@@ -11,7 +11,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { docTone, actionInfoMap, type UserActionKey } from '@/data/usuarios';
-import { SEM_DATA } from '@/lib/documentos';
+import { SEM_DATA, docStateComArquivo, docLabel } from '@/lib/documentos';
 import { osStatusTone, osStatusLabel, type OsStatus } from '@/lib/operacional';
 import type { OsDoFuncionario } from '@/lib/funcionarios';
 import {
@@ -126,10 +126,12 @@ export function UsuarioDetalhe() {
       } else if (action === 'reset') {
         if (!row.email) throw new Error('Funcionário sem e-mail de acesso.');
         await resetSenha(row.id, row.email, row.profile_id);
-      } else if (action === 'bloquear') {
+      } else if (action === 'bloquear' || action === 'desbloquear') {
         if (!row.profile_id) throw new Error('Funcionário sem login para bloquear.');
-        // Alterna: sem isto, bloquear era um caminho sem volta pela tela.
-        await setBloqueioLogin(row.id, row.profile_id, !bloqueado, justificativa);
+        // Uma ação só, dois textos: a chave escolhida decide o que a confirmação
+        // diz. Antes as duas caíam em 'bloquear', e quem ia desbloquear lia
+        // "o funcionário não conseguirá acessar" — o oposto do que ia fazer.
+        await setBloqueioLogin(row.id, row.profile_id, action === 'bloquear', justificativa);
       } else if (action === 'perfil') {
         if (!row.profile_id || !novoPerfil) throw new Error('Selecione o perfil.');
         await alterarPerfilAcesso(row.profile_id, novoPerfil);
@@ -154,8 +156,10 @@ export function UsuarioDetalhe() {
     );
   }
 
-  const asoState = docState(row.aso_validade);
-  const cnhState = docState(row.cnh_validade);
+  // O arquivo conta: anexar o ASO e deixar a validade em branco não é "não
+  // enviado". São pendências diferentes e cada uma pede uma cobrança diferente.
+  const asoState = docStateComArquivo(row.aso_validade, row.aso_arquivo_url);
+  const cnhState = docStateComArquivo(row.cnh_validade, row.cnh_arquivo_url);
   const initials = row.nome_completo.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
 
   return (
@@ -337,7 +341,7 @@ function DocRow({ label, sub, date, state, url, last }: { label: string; sub: st
             Ver
           </a>
         )}
-        <Badge tone={docTone[state]}>{date === SEM_DATA ? date : `Vecto ${date}`}</Badge>
+        <Badge tone={docTone[state]}>{state === 'ausente' || state === 'sem_validade' ? docLabel(state, date) : `Vecto ${date}`}</Badge>
       </div>
     </div>
   );
@@ -445,9 +449,9 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
             <SelectField label="Cargo" value={f.cargo} onChange={(e) => up('cargo', e.target.value)} options={cargos.map((c) => ({ value: c, label: c }))} />
             <SelectField label="Setor" value={f.setor} onChange={(e) => up('setor', e.target.value)} options={setores.map((c) => ({ value: c, label: c }))} />
             <SelectField label="Gestor" value={f.gestor_id} onChange={(e) => up('gestor_id', e.target.value)} options={[{ value: '', label: 'Sem gestor' }, ...gestores.map((g) => ({ value: g.id, label: g.nome }))]} />
-            <TextField label="Admissão" placeholder="dd/mm/aaaa" value={f.admissao} onChange={(e) => up('admissao', e.target.value)} />
-            <TextField label="Vecto ASO" placeholder="dd/mm/aaaa" value={f.aso} onChange={(e) => up('aso', e.target.value)} />
-            <TextField label="Vecto CNH" placeholder="dd/mm/aaaa" value={f.cnh} onChange={(e) => up('cnh', e.target.value)} />
+            <TextField label="Admissão" placeholder="dd/mm/aaaa" inputMode="numeric" value={f.admissao} onChange={(e) => up('admissao', maskDate(e.target.value))} />
+            <TextField label="Vecto ASO" placeholder="dd/mm/aaaa" inputMode="numeric" value={f.aso} onChange={(e) => up('aso', maskDate(e.target.value))} />
+            <TextField label="Vecto CNH" placeholder="dd/mm/aaaa" inputMode="numeric" value={f.cnh} onChange={(e) => up('cnh', maskDate(e.target.value))} />
           </div>
         </div>
         <div className="col-span-2 rounded-2xl border border-ink-100 bg-white px-7 py-6">
@@ -514,7 +518,7 @@ function Acessos({ row, canEdit, bloqueado, ultimoLogin, onAction }: { row: Func
           <div className="flex flex-wrap gap-2.5">
             <button onClick={() => onAction('reset')} className="rounded-[10px] bg-greenSoft px-4 py-2.5 text-sm font-semibold text-forest-900">Resetar senha</button>
             <button
-              onClick={() => onAction('bloquear')}
+              onClick={() => onAction(bloqueado ? 'desbloquear' : 'bloquear')}
               className={cn('rounded-[10px] px-4 py-2.5 text-sm font-semibold',
                 bloqueado ? 'bg-greenSoft text-forest-900' : 'bg-[#fff2ee] text-danger-bright')}
             >

@@ -17,12 +17,14 @@ export interface Usuario {
   asoState: DocState;
   cnh: string;
   cnhState: DocState;
+  /** Foto do funcionário, quando enviada. A lista caía nas iniciais mesmo tendo uma. */
+  avatarUrl: string | null;
   last: string;
   access: boolean;
 }
 
 // Copy dos modais de ação (apresentação; a persistência é feita via lib/funcionarios + Edge Function).
-export type UserActionKey = 'reset' | 'bloquear' | 'perfil' | 'inativar' | 'hist';
+export type UserActionKey = 'reset' | 'bloquear' | 'desbloquear' | 'perfil' | 'inativar' | 'hist';
 
 export interface ActionInfo {
   title: string;
@@ -37,6 +39,10 @@ export interface ActionInfo {
 export const actionInfoMap: Record<UserActionKey, ActionInfo> = {
   reset: { title: 'Resetar senha', desc: 'Um e-mail de redefinição de senha será enviado ao funcionário. A ação é registrada na auditoria.', confirm: 'Resetar senha' },
   bloquear: { title: 'Bloquear acesso', desc: 'O funcionário não conseguirá acessar a plataforma até o desbloqueio. Sessões ativas serão encerradas.', confirm: 'Bloquear acesso', danger: true, justify: true },
+  // A ação é a mesma (alterna), mas o texto não pode ser: quem vai desbloquear
+  // lia "o funcionário não conseguirá acessar" e desistia, achando que ia
+  // bloquear de novo.
+  desbloquear: { title: 'Desbloquear acesso', desc: 'O funcionário volta a acessar a plataforma com as permissões do perfil dele.', confirm: 'Desbloquear acesso', justify: true },
   perfil: { title: 'Alterar perfil de acesso', desc: 'A mudança redefine as permissões por módulo e é auditada.', confirm: 'Alterar perfil', isPerfil: true },
   inativar: { title: 'Inativar funcionário', desc: 'O registro fica inativo e o login é encerrado. Pode ser reativado depois.', confirm: 'Inativar', danger: true, justify: true },
   hist: { title: 'Histórico de alterações', desc: '', confirm: '', isHist: true },

@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Json, TablesUpdate } from '@/lib/database.types';
 import type { Usuario } from '@/data/usuarios';
-import { docState, SEM_DATA } from '@/lib/documentos';
+import { docState, docStateComArquivo, SEM_DATA } from '@/lib/documentos';
 import { hojeISO, emDiasISO } from '@/lib/datas';
 import { msgErro } from '@/lib/erros';
 export { docState };
@@ -71,17 +71,21 @@ export function toUsuario(r: FuncionarioRow): Usuario {
     setor: r.setor,
     gestor: gestorNome(r.gestor),
     status: r.ativo ? 'Ativo' : 'Inativo',
+    avatarUrl: r.avatar_url ?? null,
     aso: fmtDate(r.aso_validade),
-    asoState: docState(r.aso_validade),
+    asoState: docStateComArquivo(r.aso_validade, r.aso_arquivo_url),
     cnh: fmtDate(r.cnh_validade),
-    cnhState: docState(r.cnh_validade),
+    cnhState: docStateComArquivo(r.cnh_validade, r.cnh_arquivo_url),
     last: '—',
     access: !!r.profile_id,
   };
 }
 
+// `aso_arquivo_url` e `cnh_arquivo_url` entram porque o estado do documento
+// depende deles: anexado sem validade é pendência diferente de não anexado.
+// `avatar_url` idem — a lista mostrava iniciais mesmo para quem tem foto.
 const LIST_SELECT =
-  'id, nome_completo, cpf, cargo, setor, ativo, aso_validade, cnh_validade, profile_id, gestor:gestor_id(nome_completo)';
+  'id, nome_completo, cpf, cargo, setor, ativo, aso_validade, cnh_validade, aso_arquivo_url, cnh_arquivo_url, avatar_url, profile_id, gestor:gestor_id(nome_completo)';
 
 export type ListFilter = 'todos' | 'ativos' | 'inativos' | 'vencimentos';
 
@@ -294,6 +298,25 @@ export async function uploadFuncionarioFile(file: File, folder: string, kind: st
 }
 
 /** Gera uma URL assinada (temporária) para exibir/baixar um documento privado. */
+/**
+ * Assina vários caminhos de uma vez.
+ *
+ * A listagem precisa da foto de cada linha, e uma chamada por linha seriam 20
+ * idas ao Storage a cada página. `createSignedUrls` resolve tudo numa.
+ */
+export async function signedDocUrls(paths: (string | null)[], expiresIn = 3600): Promise<Record<string, string>> {
+  const validos = [...new Set(paths.filter((p): p is string => !!p))];
+  if (!validos.length) return {};
+  const { data, error } = await supabase.storage.from(DOCS_BUCKET).createSignedUrls(validos, expiresIn);
+  if (error || !data) return {};
+  const mapa: Record<string, string> = {};
+  for (const item of data) {
+    // O retorno traz `path` e `signedUrl`; item com erro vem sem a URL.
+    if (item.path && item.signedUrl) mapa[item.path] = item.signedUrl;
+  }
+  return mapa;
+}
+
 export async function signedDocUrl(path: string | null, expiresIn = 3600): Promise<string | null> {
   if (!path) return null;
   const { data, error } = await supabase.storage.from(DOCS_BUCKET).createSignedUrl(path, expiresIn);

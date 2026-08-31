@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Ecomax Operador",
-    "slug": "ecomax-operador",
+    "slug": "ecomax",
     "version": "1.0.0",
     "_comment_scheme": "Só vale em build nativo (EAS). Dentro do Expo Go o app responde por exp://, e é isso que Linking.createURL devolve lá — por isso o código nunca monta a URL à mão.",
     "scheme": "ecomaxoperador",
@@ -39,6 +39,13 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "_comment_localizacao": "Localização só em primeiro plano: o app carimba check-in e check-out, não acompanha o operador. Pedir permissão de segundo plano exigiria justificativa na loja para um dado que o produto não usa."
+    "_comment_localizacao": "Localização só em primeiro plano: o app carimba check-in e check-out, não acompanha o operador. Pedir permissão de segundo plano exigiria justificativa na loja para um dado que o produto não usa.",
+    "extra": {
+      "eas": {
+        "projectId": "b8f08e79-4820-4854-9132-90d9c66be413"
+      }
+    },
+    "owner": "ecomax.com.br",
+    "_comment_slug": "O slug segue o projeto no EAS (expo.dev/accounts/ecomax.com.br/projects/ecomax). O nome de exibição é \"Ecomax Operador\"; o slug é só o identificador do projeto na conta. Se um segundo app entrar na mesma conta, vale renomear os dois lados para ecomax-operador — o que identifica de verdade é o projectId."
   }
 }
