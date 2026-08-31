@@ -19,6 +19,7 @@ import { Logo } from '@/components/ui/Logo';
 import { useAuth } from '@/auth/AuthProvider';
 import { unreadCount } from '@/lib/notificacoes';
 import type { UserRole, ModuleKey } from '@/lib/supabase';
+import { signedDocUrl } from '@/lib/funcionarios';
 
 const roleLabels: Record<UserRole, string> = {
   admin: 'Administrador',
@@ -65,6 +66,24 @@ export function Sidebar({ onLogout }: { onLogout: () => void }) {
   const { pathname } = useLocation();
   const nome = profile?.nome_completo ?? 'Usuário';
   const cargo = profile ? roleLabels[profile.role] : '';
+
+  /**
+   * A foto do próprio usuário, no rodapé.
+   *
+   * `avatar_url` já vinha no perfil e não era usado: quem cadastrava a foto
+   * continuava vendo as iniciais aqui, do mesmo jeito que acontecia na listagem
+   * de usuários. O arquivo fica em bucket privado, então precisa de URL
+   * assinada — e ela expira, por isso é refeita quando o perfil muda.
+   */
+  const [foto, setFoto] = useState<string | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    if (!profile?.avatar_url) { setFoto(null); return; }
+    signedDocUrl(profile.avatar_url)
+      .then((url) => { if (vivo) setFoto(url); })
+      .catch(() => { if (vivo) setFoto(null); });
+    return () => { vivo = false; };
+  }, [profile?.avatar_url]);
   const visibleItems = items.filter((item) => !item.module || can(item.module, 'ler'));
   const [naoLidas, setNaoLidas] = useState(0);
 
@@ -144,9 +163,13 @@ export function Sidebar({ onLogout }: { onLogout: () => void }) {
         </button>
       </div>
       <div className="flex h-[60px] items-center gap-3 bg-white/[0.07] px-2.5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forest-600 text-[13px] font-bold">
-          {initialsOf(nome)}
-        </div>
+        {foto ? (
+          <img src={foto} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forest-600 text-[13px] font-bold">
+            {initialsOf(nome)}
+          </div>
+        )}
         <div className="leading-tight">
           <p className="text-xs font-medium text-white">{nome}</p>
           <p className="text-[11px] text-white/60">{cargo}</p>
