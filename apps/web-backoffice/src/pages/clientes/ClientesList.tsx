@@ -100,7 +100,11 @@ export function ClientesList() {
                 {loading && <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-ink-400">Carregando…</td></tr>}
                 {!loading && rows.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum cliente encontrado.</td></tr>}
                 {!loading && rows.map((c) => (
-                  <tr key={c.id} onClick={() => navigate(`/clientes/${c.id}`)} className={cn('cursor-pointer border-t border-ink-100 hover:bg-forest-50/60', !c.ativo && 'opacity-60')}>
+                  <tr key={c.id} onClick={() => navigate(`/clientes/${c.id}`)} className={cn('cursor-pointer border-t border-ink-100 hover:bg-forest-50/60',
+                    // A opacidade fica só no texto dos dados. Antes ela cobria a
+                    // linha inteira, e o menu de ações desbotava junto — quem
+                    // queria reativar o cliente mal enxergava o botão para isso.
+                    !c.ativo && '[&>td:not(:last-child)]:opacity-60')}>
                     <td className="px-4 py-3.5 pl-6 text-sm font-semibold text-forest-900">{c.nome}</td>
                     <td className="px-4 py-3.5 text-sm text-ink-700">{c.razao}</td>
                     <td className="px-4 py-3.5 text-sm text-ink-700">{c.regiao}</td>

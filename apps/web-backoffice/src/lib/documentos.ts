@@ -21,7 +21,7 @@ export { hojeISO };
  * Um documento vale **até** a data impressa nele: vencer hoje é estar válido
  * hoje. Ausência não é dispensa — para quem vai a campo, é impedimento.
  */
-export type DocState = 'ok' | 'soon' | 'expired' | 'ausente';
+export type DocState = 'ok' | 'soon' | 'expired' | 'ausente' | 'sem_validade';
 
 const DIA = 86400000;
 
@@ -51,10 +51,33 @@ export const docTone: Record<DocState, BadgeTone> = {
   // Falta de documento é pendência, não neutralidade: quem some no cinza some
   // do radar de quem precisa cobrar o envio.
   ausente: 'warn',
+  sem_validade: 'softWarn',
 };
 
 /** O que a etiqueta mostra quando não há data. */
 export const SEM_DATA = 'Não enviado';
+/** Arquivo anexado, validade em branco. */
+export const SEM_VALIDADE = 'Sem validade';
+
+/**
+ * Estado do documento considerando o arquivo **e** a validade.
+ *
+ * `docState` sozinha olha só a data, e o QA pegou a consequência: quem anexa o
+ * ASO sem preencher a validade via "Não enviado" ao lado do arquivo que acabara
+ * de enviar. São duas pendências diferentes — falta o documento, ou falta a data
+ * dele — e cada uma pede uma cobrança diferente.
+ */
+export function docStateComArquivo(validadeISO: string | null, arquivoUrl: string | null): DocState {
+  if (!validadeISO) return arquivoUrl ? 'sem_validade' : 'ausente';
+  return docState(validadeISO);
+}
+
+/** O rótulo da etiqueta, dado o estado e a data já formatada. */
+export function docLabel(estado: DocState, dataBR: string): string {
+  if (estado === 'ausente') return SEM_DATA;
+  if (estado === 'sem_validade') return SEM_VALIDADE;
+  return dataBR;
+}
 
 /** Motivo do bloqueio — o rótulo na tela precisa dizer qual dos dois é. */
 export type MotivoBloqueio = 'vencido' | 'ausente' | null;

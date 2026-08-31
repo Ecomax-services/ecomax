@@ -13,6 +13,7 @@ import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { maskCPF, maskRG, maskDate, maskPhone, maskCEP } from '@/lib/masks';
 import { cpfValido, emailValido } from '@/lib/documentosFiscais';
 import { brParaISO, problemaNasDatas } from '@/lib/datas';
+import { buscarCep, cepCompleto } from '@/lib/cep';
 
 const steps = [
   { n: 1, label: 'Dados pessoais' },
@@ -46,6 +47,7 @@ const roleFromPerfil: Record<string, string> = {
 
 const empty = {
   nome: '', cpf: '', rg: '', nascimento: '', telefone: '', cep: '',
+  logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
   cargo: '', setor: '', gestorId: '', admissao: '',
   asoVenc: '', cnhNA: false, cnhNumero: '', cnhCat: 'B', cnhVenc: '',
   comAcesso: true, email: '', perfilId: '', senha: 'Ec0max!7Yz2',
@@ -65,6 +67,7 @@ export function UsuarioCadastro() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(empty);
   const [cpfErr, setCpfErr] = useState('');
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [asoFile, setAsoFile] = useState<File | null>(null);
@@ -88,6 +91,34 @@ export function UsuarioCadastro() {
   const [perfis, setPerfis] = useState<{ id: string; nome: string }[]>([]);
 
   const up = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  /**
+   * Completa o endereço pelo CEP.
+   *
+   * O QA reportou o oposto disto: o formulário mostrava o campo CEP e mais nada
+   * — nenhum lugar para o endereço, embora as colunas existam no banco desde
+   * sempre. Agora os campos estão lá e o CEP os preenche, sem sobrescrever o
+   * que já tiver sido digitado.
+   */
+  const preencherPorCep = async (valor: string) => {
+    if (!cepCompleto(valor) || buscandoCep) return;
+    setBuscandoCep(true);
+    try {
+      const e = await buscarCep(valor);
+      setForm((f) => ({
+        ...f,
+        logradouro: f.logradouro || e.logradouro,
+        bairro: f.bairro || e.bairro,
+        cidade: f.cidade || e.cidade,
+        uf: f.uf || e.uf,
+      }));
+    } catch {
+      // Silencioso de propósito: o endereço pode ser digitado à mão, e um aviso
+      // a cada tecla do CEP incompleto seria pior que o problema.
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
   const dirty = JSON.stringify(form) !== JSON.stringify(empty);
 
   useEffect(() => {
@@ -192,6 +223,12 @@ export function UsuarioCadastro() {
           data_nascimento: brParaISO(form.nascimento),
           telefone: form.telefone || null,
           cep: form.cep || null,
+          logradouro: form.logradouro || null,
+          numero: form.numero || null,
+          complemento: form.complemento || null,
+          bairro: form.bairro || null,
+          cidade: form.cidade || null,
+          uf: form.uf || null,
           cargo: form.cargo,
           setor: form.setor,
           gestor_id: form.gestorId || null,
@@ -282,7 +319,16 @@ export function UsuarioCadastro() {
                 <TextField label="RG" placeholder="00.000.000-0" inputMode="numeric" value={form.rg} onChange={(e) => up('rg', maskRG(e.target.value))} />
                 <TextField label="Data de nascimento" placeholder="dd/mm/aaaa" inputMode="numeric" value={form.nascimento} onChange={(e) => up('nascimento', maskDate(e.target.value))} />
                 <TextField label="Telefone" placeholder="(00) 00000-0000" inputMode="numeric" value={form.telefone} onChange={(e) => up('telefone', maskPhone(e.target.value))} />
-                <TextField label="CEP" placeholder="00000-000" inputMode="numeric" value={form.cep} onChange={(e) => up('cep', maskCEP(e.target.value))} />
+                <TextField label="CEP" placeholder="00000-000" inputMode="numeric" value={form.cep}
+                  hint={buscandoCep ? 'Consultando…' : undefined}
+                  onChange={(e) => { const v = maskCEP(e.target.value); up('cep', v); void preencherPorCep(v); }}
+                  onBlur={() => void preencherPorCep(form.cep)} />
+                <TextField label="Logradouro" placeholder="Rua / Av." value={form.logradouro} onChange={(e) => up('logradouro', e.target.value)} />
+                <TextField label="Número" placeholder="000" value={form.numero} onChange={(e) => up('numero', e.target.value)} />
+                <TextField label="Complemento" placeholder="Apto, bloco…" value={form.complemento} onChange={(e) => up('complemento', e.target.value)} />
+                <TextField label="Bairro" placeholder="Bairro" value={form.bairro} onChange={(e) => up('bairro', e.target.value)} />
+                <TextField label="Cidade" placeholder="Cidade" value={form.cidade} onChange={(e) => up('cidade', e.target.value)} />
+                <TextField label="UF" placeholder="SP" value={form.uf} onChange={(e) => up('uf', e.target.value.toUpperCase().slice(0, 2))} />
               </div>
             </>
           )}
@@ -308,7 +354,7 @@ export function UsuarioCadastro() {
                   </button>
                   <input ref={asoRef} type="file" accept="application/pdf,image/*" onChange={(e) => setAsoFile(e.target.files?.[0] ?? null)} className="hidden" />
                   <FieldLabel>Vencimento</FieldLabel>
-                  <TextField placeholder="dd/mm/aaaa" value={form.asoVenc} onChange={(e) => up('asoVenc', e.target.value)} />
+                  <TextField placeholder="dd/mm/aaaa" inputMode="numeric" value={form.asoVenc} onChange={(e) => up('asoVenc', maskDate(e.target.value))} />
                 </div>
                 <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50 p-[18px]">
                   <div className="mb-2.5 flex items-center justify-between">
@@ -326,7 +372,7 @@ export function UsuarioCadastro() {
                   </button>
                   <input ref={cnhRef} type="file" accept="application/pdf,image/*" onChange={(e) => setCnhFile(e.target.files?.[0] ?? null)} className="hidden" />
                   <FieldLabel>Vencimento</FieldLabel>
-                  <TextField placeholder="dd/mm/aaaa" disabled={form.cnhNA} value={form.cnhVenc} onChange={(e) => up('cnhVenc', e.target.value)} />
+                  <TextField placeholder="dd/mm/aaaa" inputMode="numeric" disabled={form.cnhNA} value={form.cnhVenc} onChange={(e) => up('cnhVenc', maskDate(e.target.value))} />
                 </div>
               </div>
             </>

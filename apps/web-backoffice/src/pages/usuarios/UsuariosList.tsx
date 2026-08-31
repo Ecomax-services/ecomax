@@ -36,6 +36,7 @@ import {
   bulkSetAtivo,
   distinctValues,
   listGestores,
+  signedDocUrls,
   type ListFilter,
   type Kpis,
 } from '@/lib/funcionarios';
@@ -70,6 +71,7 @@ export function UsuariosList() {
   const [rowMenu, setRowMenu] = useState<string | null>(null);
 
   const [rows, setRows] = useState<Usuario[]>([]);
+  const [fotos, setFotos] = useState<Record<string, string>>({});
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState<Kpis>({ ativos: 0, inativos: 0, vencidos: 0, semAcesso: 0 });
@@ -101,6 +103,10 @@ export function UsuariosList() {
       setRows(list.rows);
       setTotal(list.total);
       setKpis(k);
+      // As fotos ficam em bucket privado: sem URL assinada o <img> não carrega,
+      // e a lista caía nas iniciais mesmo para quem tinha foto cadastrada. Uma
+      // chamada só para a página inteira.
+      setFotos(await signedDocUrls(list.rows.map((u) => u.avatarUrl)));
     } catch (e) {
       showToast((e as Error).message || 'Erro ao carregar funcionários');
     } finally {
@@ -323,9 +329,17 @@ export function UsuariosList() {
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-forest-700 text-[13px] font-bold text-white">
-                          {u.initials}
-                        </span>
+                        {u.avatarUrl && fotos[u.avatarUrl] ? (
+                          <img
+                            src={fotos[u.avatarUrl]}
+                            alt=""
+                            className="h-[38px] w-[38px] shrink-0 rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-forest-700 text-[13px] font-bold text-white">
+                            {u.initials}
+                          </span>
+                        )}
                         <div>
                           <div className="text-sm font-semibold text-ink-800">{u.name}</div>
                           <div className="text-xs text-ink-400">{u.cpf}</div>

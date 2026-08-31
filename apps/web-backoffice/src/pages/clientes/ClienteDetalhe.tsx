@@ -168,7 +168,7 @@ function ContatosSection({ clienteId, canEdit }: { clienteId: string; canEdit: b
           <tbody>
             {filtered.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-ink-400">Nenhum contato.</td></tr>}
             {filtered.map((r) => (
-              <tr key={r.id} className={cn('border-t border-ink-100', !r.ativo && 'opacity-60')}>
+              <tr key={r.id} className={cn('border-t border-ink-100', !r.ativo && '[&>td:not(:last-child)]:opacity-60')}>
                 <td className="px-4 py-3 pl-6 text-sm text-ink-800">{r.nome}</td>
                 <td className="px-4 py-3"><Badge tone={r.tipo === 'telefone' ? 'info' : 'success'}>{r.origem}</Badge></td>
                 <td className="px-4 py-3 text-sm text-ink-700">{r.telefone || '—'}</td>
