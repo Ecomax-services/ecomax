@@ -34,6 +34,7 @@ import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { maskRG, maskDate, maskPhone, maskCEP } from '@/lib/masks';
 import { hojeISO } from '@/lib/datas';
 import { brParaISO, problemaNasDatas } from '@/lib/datas';
+import { buscarCep, cepCompleto } from '@/lib/cep';
 
 interface DocUrls {
   avatar: string | null;
@@ -349,12 +350,50 @@ function DocRow({ label, sub, date, state, url, last }: { label: string; sub: st
 
 function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: () => void; onSaved: () => void }) {
   const { showToast } = useToast();
+  const [buscandoCep, setBuscandoCep] = useState(false);
+
+  /**
+   * Completa o endereço pelo CEP, aqui na edição.
+   *
+   * O QA reportou o sintoma exato: a visualização mostra um campo "Endereço", e
+   * ao clicar em Editar não havia onde preenchê-lo — só o CEP. Quem quisesse
+   * corrigir o endereço de alguém não tinha por onde.
+   *
+   * (A mesma falta existia no cadastro e foi corrigida antes; esta tela ficou
+   * de fora porque eu tratei o relato sem abrir a evidência em vídeo.)
+   */
+  const preencherPorCep = async (valor: string) => {
+    if (!cepCompleto(valor) || buscandoCep) return;
+    setBuscandoCep(true);
+    try {
+      const e = await buscarCep(valor);
+      setF((atual) => ({
+        ...atual,
+        logradouro: atual.logradouro || e.logradouro,
+        bairro: atual.bairro || e.bairro,
+        cidade: atual.cidade || e.cidade,
+        uf: atual.uf || e.uf,
+      }));
+    } catch {
+      // Silencioso: o endereço pode ser digitado à mão, e um aviso a cada tecla
+      // de CEP incompleto seria pior que o problema.
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
+
   const [f, setF] = useState({
     nome_completo: row.nome_completo,
     rg: row.rg ?? '',
     nascimento: isoToBR(row.data_nascimento),
     telefone: row.telefone ?? '',
     cep: row.cep ?? '',
+    logradouro: row.logradouro ?? '',
+    numero: row.numero ?? '',
+    complemento: row.complemento ?? '',
+    bairro: row.bairro ?? '',
+    cidade: row.cidade ?? '',
+    uf: row.uf ?? '',
     cargo: row.cargo,
     setor: row.setor,
     gestor_id: row.gestor_id ?? '',
@@ -399,6 +438,12 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
         data_nascimento: brParaISO(f.nascimento),
         telefone: f.telefone || null,
         cep: f.cep || null,
+        logradouro: f.logradouro || null,
+        numero: f.numero || null,
+        complemento: f.complemento || null,
+        bairro: f.bairro || null,
+        cidade: f.cidade || null,
+        uf: f.uf || null,
         cargo: f.cargo,
         setor: f.setor,
         gestor_id: f.gestor_id || null,
@@ -440,7 +485,16 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
             <TextField label="RG" inputMode="numeric" value={f.rg} onChange={(e) => up('rg', maskRG(e.target.value))} />
             <TextField label="Nascimento" placeholder="dd/mm/aaaa" inputMode="numeric" value={f.nascimento} onChange={(e) => up('nascimento', maskDate(e.target.value))} />
             <TextField label="Telefone" inputMode="numeric" value={f.telefone} onChange={(e) => up('telefone', maskPhone(e.target.value))} />
-            <TextField label="CEP" inputMode="numeric" value={f.cep} onChange={(e) => up('cep', maskCEP(e.target.value))} />
+            <TextField label="CEP" inputMode="numeric" value={f.cep}
+              hint={buscandoCep ? 'Consultando…' : undefined}
+              onChange={(e) => { const v = maskCEP(e.target.value); up('cep', v); void preencherPorCep(v); }}
+              onBlur={() => void preencherPorCep(f.cep)} />
+            <TextField className="col-span-2" label="Logradouro" placeholder="Rua / Av." value={f.logradouro} onChange={(e) => up('logradouro', e.target.value)} />
+            <TextField label="Número" placeholder="000" value={f.numero} onChange={(e) => up('numero', e.target.value)} />
+            <TextField label="Complemento" placeholder="Apto, bloco…" value={f.complemento} onChange={(e) => up('complemento', e.target.value)} />
+            <TextField label="Bairro" placeholder="Bairro" value={f.bairro} onChange={(e) => up('bairro', e.target.value)} />
+            <TextField label="Cidade" placeholder="Cidade" value={f.cidade} onChange={(e) => up('cidade', e.target.value)} />
+            <TextField label="UF" placeholder="SP" value={f.uf} onChange={(e) => up('uf', e.target.value.toUpperCase().slice(0, 2))} />
           </div>
         </div>
         <div className="rounded-2xl border border-ink-100 bg-white px-7 py-6">
