@@ -71,7 +71,11 @@ export function Garantias() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-ink-100 bg-white">
+        {/* Sem `overflow-hidden`: o menu de ações é `absolute` dentro deste card,
+          e recortar o que passa da borda cortava o menu das últimas linhas —
+          "Cancelar" simplesmente não existia para quem clicasse ali. É como a
+          lista de clientes sempre fez. */}
+      <div className="rounded-2xl border border-ink-100 bg-white">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-ink-50">
