@@ -118,7 +118,7 @@ export function Bases() {
               <th className={th}>Cidade / UF</th>
               <th className={th}>Responsável</th>
               <th className={cn(th, 'text-center')}>Produtos</th>
-              <th className={cn(th, 'text-center')}>Itens</th>
+              <th className={cn(th, 'text-center')}>Valor estoque</th>
               <th className={cn(th, 'pr-6')}>Status</th>
             </tr>
           </thead>
@@ -129,7 +129,11 @@ export function Bases() {
                 <td className="px-4 py-3.5 text-sm text-ink-700">{b.cidade} / {b.uf}</td>
                 <td className="px-4 py-3.5 text-sm text-ink-700">{b.resp}</td>
                 <td className="px-4 py-3.5 text-center text-[15px] font-bold text-ink-900">{b.prods}</td>
-                <td className="px-4 py-3.5 text-center text-sm text-ink-700">{b.itens}</td>
+                <td className="px-4 py-3.5 text-center text-sm text-ink-700">
+                  {b.valorEstoque > 0
+                    ? b.valorEstoque.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+                    : <span className="text-ink-300" title="Nenhum produto desta base tem compra registrada com valor">—</span>}
+                </td>
                 <td className="px-4 py-3.5 pr-6"><Badge tone={b.tone}>{b.status}</Badge></td>
               </tr>
             ))}

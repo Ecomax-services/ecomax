@@ -170,10 +170,10 @@ export function UsuariosList() {
   const exportCsv = async (onlySelected: boolean) => {
     const all = await listFuncionarios({ filtro: filter, cargo, setor, gestor, search, page: 1, pageSize: 1000 });
     const list = onlySelected ? all.rows.filter((u) => selected.includes(u.id)) : all.rows;
-    const head = ['Nome', 'CPF', 'Cargo', 'Setor', 'Gestor', 'Status', 'Vecto ASO', 'Vecto CNH'];
+    const head = ['Nome', 'CPF', 'Cargo', 'Setor', 'Gestor', 'Status', 'Vecto ASO', 'Vecto CNH', 'Última atividade'];
     const lines = [head.join(';')].concat(
       list.map((u) =>
-        [u.name, u.cpf, u.cargo, u.setor, u.gestor, u.status, u.aso, u.cnh]
+        [u.name, u.cpf, u.cargo, u.setor, u.gestor, u.status, u.aso, u.cnh, u.last]
           .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`)
           .join(';'),
       ),
@@ -307,13 +307,14 @@ export function UsuariosList() {
                   <th className={th}>Status</th>
                   <th className={th}>Vecto ASO</th>
                   <th className={th}>Vecto CNH</th>
+                  <th className={th}>Última atividade</th>
                   <th className={cn(th, 'text-right')}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-10 text-center text-sm text-ink-400">
+                    <td colSpan={10} className="px-4 py-10 text-center text-sm text-ink-400">
                       {loading ? 'Carregando…' : 'Nenhum funcionário encontrado.'}
                     </td>
                   </tr>
@@ -359,6 +360,11 @@ export function UsuariosList() {
                     </td>
                     <td className="px-4 py-3.5"><VectoBadge date={u.aso} state={u.asoState} /></td>
                     <td className="px-4 py-3.5"><VectoBadge date={u.cnh} state={u.cnhState} /></td>
+                    <td className="px-4 py-3.5 text-sm text-ink-600">
+                      {u.last === 'Nunca acessou'
+                        ? <span className="text-ink-300" title="Este funcionário nunca entrou no sistema">Nunca acessou</span>
+                        : u.last}
+                    </td>
                     <td className="relative px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setRowMenu((m) => (m === u.id ? null : u.id))}

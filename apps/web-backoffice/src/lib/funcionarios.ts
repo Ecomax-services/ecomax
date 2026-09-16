@@ -124,7 +124,39 @@ export async function listFuncionarios(
 
   const { data, count, error } = await q.order('nome_completo').range(from, from + pageSize - 1);
   if (error) throw new Error(msgErro(error));
-  return { rows: (data as FuncionarioRow[]).map(toUsuario), total: count ?? 0 };
+
+  const rows = (data as FuncionarioRow[]).map(toUsuario);
+  // `last` nascia com '—' fixo: o campo existia no tipo e nunca era preenchido.
+  // O dado é `auth.users.last_sign_in_at`, que o cliente não lê direto; a RPC
+  // devolve a página inteira de uma vez.
+  const perfis = (data as FuncionarioRow[]).map((r) => r.profile_id).filter((x): x is string => !!x);
+  if (perfis.length) {
+    const { data: acessos } = await supabase.rpc('ultimo_acesso', { _ids: perfis });
+    const porPerfil: Record<string, string | null> = {};
+    ((acessos as any[]) ?? []).forEach((a) => { porPerfil[a.profile_id] = a.ultimo_login; });
+    (data as FuncionarioRow[]).forEach((r, i) => {
+      if (r.profile_id) rows[i].last = ultimaAtividade(porPerfil[r.profile_id] ?? null);
+    });
+  }
+  return { rows, total: count ?? 0 };
+}
+
+/**
+ * "Hoje, 08:12", "Ontem, 17:02", "12/09/2026" — como no protótipo.
+ *
+ * Quem nunca entrou fica "Nunca acessou", e não "—": são coisas diferentes, e
+ * a segunda é justamente o que a lista precisa deixar visível.
+ */
+export function ultimaAtividade(iso: string | null): string {
+  if (!iso) return 'Nunca acessou';
+  const d = new Date(iso);
+  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dia = new Date(d); dia.setHours(0, 0, 0, 0);
+  const diff = Math.round((hoje.getTime() - dia.getTime()) / 86_400_000);
+  if (diff === 0) return `Hoje, ${hora}`;
+  if (diff === 1) return `Ontem, ${hora}`;
+  return d.toLocaleDateString('pt-BR');
 }
 
 export interface Kpis {
