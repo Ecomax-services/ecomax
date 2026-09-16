@@ -340,6 +340,7 @@ function OrcamentosTab({ clienteId, canCreate, canEdit }: { clienteId: string; c
 // ---------------- Funcionários integrados ----------------
 function FuncionariosTab({ clienteId, canCreate, canEdit, onNovo }: { clienteId: string; canCreate: boolean; canEdit: boolean; onNovo: () => void }) {
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<FuncIntegradoRow[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [opts, setOpts] = useState<{ id: string; nome: string }[]>([]);
@@ -379,7 +380,11 @@ function FuncionariosTab({ clienteId, canCreate, canEdit, onNovo }: { clienteId:
           <tbody>
             {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-ink-400">Nenhum funcionário integrado.</td></tr>}
             {rows.map((f) => (
-              <tr key={f.vinculoId} className="border-t border-ink-100">
+              <tr
+                key={f.vinculoId}
+                onClick={() => navigate(`/clientes/${clienteId}/funcionarios/${f.funcionario_id}`)}
+                className="cursor-pointer border-t border-ink-100 hover:bg-forest-50/60"
+              >
                 <td className="px-4 py-3 pl-6 text-sm font-medium text-ink-800">
                   <span className="flex items-center gap-1.5">
                     {f.nome}
@@ -394,7 +399,7 @@ function FuncionariosTab({ clienteId, canCreate, canEdit, onNovo }: { clienteId:
                 <td className="px-4 py-3 text-center"><Badge tone={docTone[f.asoState]}>{f.aso}</Badge></td>
                 <td className="px-4 py-3 text-center"><Badge tone={docTone[f.cnhState]}>{f.cnh}</Badge></td>
                 <td className="px-4 py-3 text-center"><Badge tone={f.ativo ? 'success' : 'muted'}>{f.ativo ? 'Ativo' : 'Inativo'}</Badge></td>
-                <td className="px-4 py-3 pr-6 text-right">
+                <td className="px-4 py-3 pr-6 text-right" onClick={(e) => e.stopPropagation()}>
                   {canEdit ? <button onClick={() => setDel(f)} className="rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-ink-400 hover:text-danger-bright"><Trash2 className="h-4 w-4" /></button> : '—'}
                 </td>
               </tr>
