@@ -16,9 +16,31 @@
 --     exceção está no bloco 4, e está marcada lá.
 --
 -- Ids fixos das OS de demonstração: de000000-0000-4000-8000-00000000000N
+--
+-- Duas correções que só apareceram ao aplicar de verdade, e que a primeira
+-- versão deste arquivo errava:
+--
+--   • `responsavel_admin_id` referencia `funcionarios`, NÃO `profiles`. O uuid
+--     do admin não serve — `admin@ecomax.com.br` sequer tem registro de
+--     funcionário. Agora o responsável é resolvido por consulta.
+--   • os níveis de estoque saíam de 30% do saldo atual, o que deixa TODO item
+--     acima do mínimo por construção: o alerta que o seed existia para
+--     demonstrar nunca aparecia. Os dois itens de menor saldo agora recebem
+--     mínimo acima do que têm.
 -- ============================================================================
 
 begin;
+
+-- Responsável administrativo das OS de demonstração: o primeiro gestor com
+-- registro de funcionário. Resolvido por consulta em vez de uuid fixo porque
+-- id de funcionário muda entre ambientes e um valor cravado quebra no reset.
+create temporary table _demo_resp on commit drop as
+select f.id
+  from funcionarios f
+  join profiles p on p.id = f.profile_id
+ where p.role in ('gestor', 'admin')
+ order by (p.role = 'gestor') desc, f.nome_completo
+ limit 1;
 
 -- ----------------------------------------------------------------------------
 -- 1. As quatro OS
@@ -38,7 +60,7 @@ values
    'Desratização preventiva do estoque seco e da doca de recebimento.',
    current_date, '08:00', '2h', 'Av. das Nações, 1200 — Depósito, São Paulo/SP',
    'Roberto Meireles (gerente de loja)', true,
-   '7bf593f3-b8d7-423b-adad-529bef4fa12d', '7bf593f3-b8d7-423b-adad-529bef4fa12d',
+   (select id from _demo_resp), '7bf593f3-b8d7-423b-adad-529bef4fa12d',
    '[DEMO] Roteiro de apresentação — check-in ao vivo.'),
 
   ('de000000-0000-4000-8000-000000000002', '1c480bfe-c296-4168-aecb-d9ef9b59e38c',
@@ -47,7 +69,7 @@ values
    'Sanitização da cozinha industrial e do refeitório, fora do horário de aula.',
    current_date, '13:30', '3h', 'R. dos Estudantes, 45 — Bloco B, São Paulo/SP',
    'Coordenação pedagógica', true,
-   '7bf593f3-b8d7-423b-adad-529bef4fa12d', '7bf593f3-b8d7-423b-adad-529bef4fa12d',
+   (select id from _demo_resp), '7bf593f3-b8d7-423b-adad-529bef4fa12d',
    '[DEMO] Tem plano de controle com pontos — usar para mostrar o progresso.'),
 
   ('de000000-0000-4000-8000-000000000003', '0d4130d9-ff87-4f71-9550-d4ccb9c92079',
@@ -56,7 +78,7 @@ values
    'Desinsetização da área de manipulação e do depósito de secos.',
    current_date, '10:30', '1h30', 'R. Augusta, 980, São Paulo/SP',
    'Chef Ana Paula', false,
-   '7bf593f3-b8d7-423b-adad-529bef4fa12d', '7bf593f3-b8d7-423b-adad-529bef4fa12d',
+   (select id from _demo_resp), '7bf593f3-b8d7-423b-adad-529bef4fa12d',
    '[DEMO] Atribuída ao segundo operador — mostra a agenda de outra pessoa.'),
 
   ('de000000-0000-4000-8000-000000000004', 'b8831856-96ce-424a-9ebd-733d18a89be5',
@@ -65,7 +87,7 @@ values
    'Desinsetização mensal contratada — área de produção.',
    current_date + 1, '09:00', '2h', 'R. do Forno, 77, São Paulo/SP',
    'Sr. Antônio (proprietário)', true,
-   '7bf593f3-b8d7-423b-adad-529bef4fa12d', '7bf593f3-b8d7-423b-adad-529bef4fa12d',
+   (select id from _demo_resp), '7bf593f3-b8d7-423b-adad-529bef4fa12d',
    '[DEMO] Amanhã — mostra que a agenda tem continuidade.')
 on conflict (id) do update set
   cliente_id = excluded.cliente_id,
@@ -162,9 +184,7 @@ select p.id, g.n,
 -- ----------------------------------------------------------------------------
 -- A tabela estava vazia: a coluna mínimo/máximo aparecia em branco e o KPI
 -- "abaixo do mínimo" era sempre 0 — não porque estivesse tudo certo, mas
--- porque não havia parâmetro nenhum. Os níveis saem do saldo atual da base
--- Central, de modo que a maioria fique saudável e um ou dois itens fiquem
--- abaixo do mínimo — que é o que torna o alerta demonstrável.
+-- porque não havia parâmetro nenhum.
 insert into estoque_niveis (produto_id, base_id, estoque_min, estoque_max)
 select l.produto_id,
        'b3748e4b-ef57-4100-ba78-3cdd714239d7',
@@ -175,5 +195,23 @@ select l.produto_id,
    and l.quantidade > 0
  group by l.produto_id
 on conflict (produto_id, base_id) do nothing;
+
+-- Mínimo a 30% do saldo deixa TODO item acima do mínimo — o alerta que este
+-- bloco existe para demonstrar nunca apareceria. Os dois itens de menor saldo
+-- recebem mínimo acima do que têm, e aí o alerta passa a existir de verdade.
+with saldo as (
+  select l.produto_id, sum(l.quantidade) qtd
+    from estoque_lotes l
+   where l.base_id = 'b3748e4b-ef57-4100-ba78-3cdd714239d7' and l.quantidade > 0
+   group by l.produto_id
+   order by sum(l.quantidade)
+   limit 2
+)
+update estoque_niveis n
+   set estoque_min = greatest(2, ceil(s.qtd * 2)),
+       estoque_max = greatest(greatest(2, ceil(s.qtd * 2)) * 3, 10)
+  from saldo s
+ where n.produto_id = s.produto_id
+   and n.base_id = 'b3748e4b-ef57-4100-ba78-3cdd714239d7';
 
 commit;
