@@ -281,6 +281,18 @@ export async function listProdutosParaVincular(fornecedorId: string): Promise<{ 
 }
 
 // ---------- Bases ----------
+/**
+ * Valor total do estoque, somando todas as bases.
+ *
+ * Reaproveita `valor_estoque_por_base()`: o custo unitário sai da última
+ * requisição de compra de cada produto, porque não existe preço em `produtos`.
+ */
+export async function valorTotalEmEstoque(): Promise<number> {
+  const { data, error } = await supabase.rpc('valor_estoque_por_base');
+  if (error) throw new Error(msgErro(error));
+  return ((data as any[]) ?? []).reduce((s, v) => s + Number(v.valor), 0);
+}
+
 export async function listBases(): Promise<BaseRow[]> {
   // O valor vem de uma função no banco, e não de uma soma aqui: sem preço em
   // `produtos`, o custo unitário sai da última requisição de compra de cada

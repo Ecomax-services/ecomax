@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, MoreVertical, ChevronLeft, ChevronRight, Link2, FileBadge, Map, FileCheck2 } from 'lucide-react';
+import { Plus, MoreVertical, ChevronLeft, ChevronRight, Link2, FileBadge, Map, FileCheck2, Users, CheckCircle2, Building2, User } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
+import { KpiCard } from '@/components/ui/KpiCard';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { SelectField, SearchInput } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
-import { listClientes, setClienteAtivo, type ClienteRow } from '@/lib/clientes';
+import { listClientes, setClienteAtivo, getKpisClientes, type ClienteRow, type KpisClientes } from '@/lib/clientes';
 import { ClienteFormDrawer } from '@/pages/clientes/ClienteFormDrawer';
 import { copiar } from '@/lib/clipboard';
 import { useFiltroUrl, usePaginaUrl } from '@/lib/useFiltroUrl';
@@ -57,6 +58,7 @@ export function ClientesList() {
   const [debounced, setDebounced] = useState('');
   const [loading, setLoading] = useState(true);
   const [menu, setMenu] = useState<string | null>(null);
+  const [kpis, setKpis] = useState<KpisClientes | null>(null);
 
   /**
    * Copia o endereço do Portal do Cliente.
@@ -80,7 +82,12 @@ export function ClientesList() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { const r = await listClientes({ search: debounced, page, pageSize }); setRows(r.rows); setTotal(r.total); }
+    try {
+      // Os KPIs vêm junto: inativar um cliente pela própria tela muda "Ativos",
+      // e um número que só atualiza no F5 é pior do que número nenhum.
+      const [r, k] = await Promise.all([listClientes({ search: debounced, page, pageSize }), getKpisClientes()]);
+      setRows(r.rows); setTotal(r.total); setKpis(k);
+    }
     catch (e) { showToast((e as Error).message); } finally { setLoading(false); }
   }, [debounced, page, pageSize, showToast]);
   useEffect(() => { load(); }, [load]);
@@ -103,6 +110,12 @@ export function ClientesList() {
         action={canCreate ? <Button onClick={() => setDrawer({ id: null })}><Plus className="h-5 w-5" />Novo cliente</Button> : undefined}
       />
       <div className="flex-1 px-8 py-6">
+        <div className="mb-5 grid grid-cols-4 gap-3.5">
+          <KpiCard icon={Users} tone="green" value={kpis?.total ?? '—'} label="Total na base" />
+          <KpiCard icon={CheckCircle2} tone="blue" value={kpis?.ativos ?? '—'} label="Ativos" />
+          <KpiCard icon={Building2} tone="muted" value={kpis?.pj ?? '—'} label="Pessoa Jurídica" />
+          <KpiCard icon={User} tone="amber" value={kpis?.pf ?? '—'} label="Pessoa Física" />
+        </div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <SearchInput containerClassName="w-[320px]" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome ou razão social" />
           <div className="flex items-baseline gap-2 text-[13px] text-ink-500">

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, MoreVertical, ChevronLeft, ChevronRight, FileText, ArrowRightLeft } from 'lucide-react';
+import { Plus, MoreVertical, ChevronLeft, ChevronRight, FileText, ArrowRightLeft, ClipboardList, PlayCircle, CalendarX2, Receipt } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
+import { KpiCard } from '@/components/ui/KpiCard';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { SelectField, SearchInput, TextField, TextareaField } from '@/components/ui/Field';
@@ -13,7 +14,7 @@ import { cn } from '@/lib/cn';
 import { useFiltroUrl, usePaginaUrl } from '@/lib/useFiltroUrl';
 import { listStatusOs } from '@/lib/configuracoes';
 import {
-  listOperacional, cancelarOs, listClienteOptions, listFuncionarioOptions, listTiposServico,
+  listOperacional, cancelarOs, listClienteOptions, listFuncionarioOptions, listTiposServico, getKpisOperacional,
   type OperacionalRow, type ListOpts,
 } from '@/lib/operacional';
 
@@ -51,6 +52,8 @@ export function OperacionalList() {
   // Auxiliares precisa aparecer aqui, e um `?status=<novo>` na URL precisa
   // ser aceito como válido.
   const [statusOpcoes, setStatusOpcoes] = useState<{ valor: string; nome: string }[]>([]);
+  const [kpis, setKpis] = useState<{ os: number; emAberto: number; vencidas: number; orcamentos: number } | null>(null);
+  useEffect(() => { getKpisOperacional().then(setKpis).catch(() => {}); }, []);
 
   // Filtros
   const [fKindRaw, setFKind] = useFiltroUrl('tipo', 'todos', ['todos', 'os', 'orcamento']);
@@ -170,6 +173,15 @@ export function OperacionalList() {
         }
       />
       <div className="flex-1 px-8 py-6">
+        <div className="mb-5 grid grid-cols-4 gap-3.5">
+          <KpiCard icon={ClipboardList} tone="green" value={kpis?.os ?? '—'} label="Ordens de serviço" />
+          <KpiCard icon={PlayCircle} tone="blue" value={kpis?.emAberto ?? '—'} label="Em aberto / andamento" />
+          {/* Este é o número que ninguém vê sem procurar: OS agendada para
+              trás que ainda não foi executada. */}
+          <KpiCard icon={CalendarX2} tone="red" value={kpis?.vencidas ?? '—'} label="Programação vencida" />
+          <KpiCard icon={Receipt} tone="amber" value={kpis?.orcamentos ?? '—'} label="Orçamentos" />
+        </div>
+
         {/* Busca + contador */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <SearchInput containerClassName="w-[340px]" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por cliente, nº do orçamento ou nº da OS" />
