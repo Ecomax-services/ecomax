@@ -5,14 +5,13 @@ import { Topbar } from '@/components/Topbar';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Drawer } from '@/components/ui/Drawer';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { TextField, TextareaField, SearchInput } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import {
   CATALOGOS, listCatalogoItens, contarItensPorCatalogo, createCatalogoItem, updateCatalogoItem,
-  setCatalogoItemAtivo, deleteCatalogoItem, listCatalogoAtivos, type CatalogoItem, type CatalogoMeta,
+  setCatalogoItemAtivo, listCatalogoAtivos, type CatalogoItem, type CatalogoMeta,
 } from '@/lib/configuracoes';
 import { PALETA_TAGS as PALETA } from '@/lib/paletaTags';
 import { PainelPlanilha, PainelProdutosPorTipo } from './CadastrosEspeciais';
@@ -25,7 +24,6 @@ export function CadastrosAuxiliares() {
   const { can } = useAuth();
   const canCreate = can('configuracoes', 'criar');
   const canEdit = can('configuracoes', 'editar');
-  const canDelete = can('configuracoes', 'excluir');
 
   const [catKey, setCatKey] = useState<string>(CATALOGOS[0].key);
   const [items, setItems] = useState<CatalogoItem[]>([]);
@@ -33,7 +31,6 @@ export function CadastrosAuxiliares() {
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
   const [form, setForm] = useState({ nome: '', observacao: '', cor_bg: '', cor_fg: '', ativo: true, template_mensagem: '', prazo_padrao: '' });
   const [saving, setSaving] = useState(false);
-  const [confirmDel, setConfirmDel] = useState<CatalogoItem | null>(null);
 
   const meta = useMemo<CatalogoMeta>(() => CATALOGOS.find((c) => c.key === catKey)!, [catKey]);
 
@@ -97,12 +94,6 @@ export function CadastrosAuxiliares() {
     catch (e) { showToast((e as Error).message); }
   };
 
-  const excluir = async () => {
-    if (!confirmDel) return;
-    try { await deleteCatalogoItem(confirmDel.id); setConfirmDel(null); showToast('Item excluído'); await load(); }
-    catch (e) { showToast((e as Error).message); }
-  };
-
   const th = 'px-4 py-3 text-left text-xs font-bold uppercase text-ink-400';
   const up = (k: keyof typeof form, v: string | boolean) => setForm((s) => ({ ...s, [k]: v }));
 
@@ -135,8 +126,8 @@ export function CadastrosAuxiliares() {
             ))}
           </div>
 
-          {meta.especial === 'planilha' && <PainelPlanilha perms={{ canCreate, canEdit, canDelete }} />}
-          {meta.especial === 'produtos_tipo' && <PainelProdutosPorTipo perms={{ canCreate, canEdit, canDelete }} />}
+          {meta.especial === 'planilha' && <PainelPlanilha perms={{ canCreate, canEdit }} />}
+          {meta.especial === 'produtos_tipo' && <PainelProdutosPorTipo perms={{ canCreate, canEdit, canDesvincular: can('configuracoes', 'excluir') }} />}
 
           {/* Itens do catálogo */}
           {!meta.especial && (
@@ -175,11 +166,10 @@ export function CadastrosAuxiliares() {
                       <td className="px-4 py-3.5 text-center text-sm text-ink-600">{it.uso > 0 ? `${it.uso} ${it.uso === 1 ? 'registro' : 'registros'}` : '—'}</td>
                       <td className="px-4 py-3.5 text-center"><Badge tone={it.ativo ? 'success' : 'muted'}>{it.ativo ? 'Ativo' : 'Inativo'}</Badge></td>
                       <td className="px-4 py-3.5 pr-6 text-right">
-                        {!canEdit && !canDelete && <span className="text-[13px] text-ink-400">—</span>}
+                        {!canEdit && <span className="text-[13px] text-ink-400">—</span>}
                         <div className="inline-flex justify-end gap-2">
                           {canEdit && <ActionBtn onClick={() => openEdit(it)}>Editar</ActionBtn>}
-                          {canEdit && <ActionBtn onClick={() => toggleAtivo(it)}>{it.ativo ? 'Inativar' : 'Ativar'}</ActionBtn>}
-                          {canDelete && it.uso === 0 && <ActionBtn danger onClick={() => setConfirmDel(it)}>Excluir</ActionBtn>}
+                          {canEdit && <ActionBtn onClick={() => toggleAtivo(it)}>{it.ativo ? 'Inativar' : 'Reativar'}</ActionBtn>}
                         </div>
                       </td>
                     </tr>
@@ -188,8 +178,8 @@ export function CadastrosAuxiliares() {
               </table>
               <p className="border-t border-ink-100 px-6 py-3.5 text-[13px] text-ink-400">
                 {meta.slug
-                  ? 'Itens em uso por alguma OS não podem ser inativados nem excluídos — a OS ficaria com uma situação que o sistema não reconhece.'
-                  : 'Itens com uso registrado podem ser inativados, mas não excluídos.'}
+                  ? 'Itens em uso por alguma OS não podem ser inativados — a OS ficaria com uma situação que o sistema não reconhece.'
+                  : 'Itens que saem de uso são inativados: os registros feitos com eles continuam legíveis.'}
               </p>
             </div>
           </div>
@@ -259,16 +249,6 @@ export function CadastrosAuxiliares() {
         </div>
       </Drawer>
 
-      <ConfirmDialog
-        open={!!confirmDel}
-        onClose={() => setConfirmDel(null)}
-        onConfirm={excluir}
-        title={confirmDel ? `Excluir "${confirmDel.nome}"` : ''}
-        description="O item será removido permanentemente do catálogo. Esta ação não pode ser desfeita."
-        confirmLabel="Excluir item"
-        cancelLabel="Cancelar"
-        destructive
-      />
     </>
   );
 }

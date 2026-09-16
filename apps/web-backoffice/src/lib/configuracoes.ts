@@ -229,13 +229,6 @@ export async function setCatalogoItemAtivo(id: string, ativo: boolean): Promise<
   await audit(ativo ? 'catalogo_item_ativado' : 'catalogo_item_inativado', { id });
 }
 
-/** Exclui um item. Um trigger no banco recusa se o item estiver em uso — a tela
- *  esconde o botão, mas quem chamar a API direto esbarra na mesma regra. */
-export async function deleteCatalogoItem(id: string): Promise<void> {
-  const { error } = await supabase.from('catalogo_itens').delete().eq('id', id);
-  if (error) throw new Error(msgErro(error));
-  await audit('catalogo_item_excluido', { id });
-}
 
 // ============================================================
 // Planilha de execução por tipo de serviço
@@ -304,11 +297,6 @@ export async function updatePlanilhaItem(id: string, patch: Partial<PlanilhaItem
   await audit('planilha_item_editado', { id, ...patch });
 }
 
-export async function deletePlanilhaItem(id: string): Promise<void> {
-  const { error } = await supabase.from('planilha_itens').delete().eq('id', id);
-  if (error) throw new Error(msgErro(error));
-  await audit('planilha_item_excluido', { id });
-}
 
 // ============================================================
 // Produtos padrão por tipo de serviço

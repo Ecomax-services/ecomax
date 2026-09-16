@@ -24,7 +24,7 @@ import { PALETA_TAGS } from '@/lib/paletaTags';
 import { maskDecimal } from '@/lib/masks';
 import {
   listCatalogoAtivos,
-  listPlanilhaItens, createPlanilhaItem, updatePlanilhaItem, deletePlanilhaItem,
+  listPlanilhaItens, createPlanilhaItem, updatePlanilhaItem,
   contarPlanilhaPorTipo, type PlanilhaItem,
   listProdutosDoTipo, listProdutosParaVincularNoTipo, vincularProdutosAoTipo,
   setQtdPadraoDoTipo, desvincularProdutoDoTipo, contarProdutosPorTipo,
@@ -36,7 +36,13 @@ const th = 'px-4 py-3 text-left text-xs font-bold uppercase text-ink-400';
 export interface PermissoesCatalogo {
   canCreate: boolean;
   canEdit: boolean;
-  canDelete: boolean;
+  /**
+   * Só o painel de produtos usa. Desvincular não é excluir: o produto continua
+   * no almoxarifado, ele apenas deixa de vir previsto neste tipo de serviço.
+   * As listas de catálogo não têm exclusão — o protótipo dá "Editar" e
+   * "Inativar", e a regra é que item com uso registrado se inativa.
+   */
+  canDesvincular?: boolean;
 }
 
 // ============================================================
@@ -101,7 +107,6 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
   const [drawer, setDrawer] = useState<PlanilhaDrawer | null>(null);
   const [form, setForm] = useState({ nome: '', observacao: '', cor_bg: PALETA_TAGS[0].bg, cor_fg: PALETA_TAGS[0].fg, ativo: true });
   const [salvando, setSalvando] = useState(false);
-  const [confirmDel, setConfirmDel] = useState<PlanilhaItem | null>(null);
 
   useEffect(() => { if (!sel && tipos.length) setSel(tipos[0]); }, [tipos, sel]);
 
@@ -151,12 +156,6 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
 
   const alternarAtivo = async (it: PlanilhaItem) => {
     try { await updatePlanilhaItem(it.id, { ativo: !it.ativo }); showToast(it.ativo ? 'Status inativado' : 'Status reativado'); await load(); }
-    catch (e) { showToast((e as Error).message); }
-  };
-
-  const excluir = async () => {
-    if (!confirmDel) return;
-    try { await deletePlanilhaItem(confirmDel.id); setConfirmDel(null); showToast('Status excluído'); await load(); }
     catch (e) { showToast((e as Error).message); }
   };
 
@@ -220,11 +219,10 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
                 </td>
                 <td className="px-4 py-3.5 text-center"><Badge tone={it.ativo ? 'success' : 'muted'}>{it.ativo ? 'Ativo' : 'Inativo'}</Badge></td>
                 <td className="px-4 py-3.5 pr-6 text-right">
-                  {!perms.canEdit && !perms.canDelete && <span className="text-[13px] text-ink-400">—</span>}
+                  {!perms.canEdit && <span className="text-[13px] text-ink-400">—</span>}
                   <div className="inline-flex justify-end gap-2">
                     {perms.canEdit && <BotaoAcao onClick={() => abrirEdicao(it)}>Editar</BotaoAcao>}
                     {perms.canEdit && <BotaoAcao onClick={() => alternarAtivo(it)}>{it.ativo ? 'Inativar' : 'Reativar'}</BotaoAcao>}
-                    {perms.canDelete && it.uso === 0 && <BotaoAcao danger onClick={() => setConfirmDel(it)}>Excluir</BotaoAcao>}
                   </div>
                 </td>
               </tr>
@@ -232,7 +230,7 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
           </tbody>
         </table>
         <p className="border-t border-ink-100 px-6 py-3.5 text-[13px] text-ink-400">
-          Status com pontos registrados podem ser inativados, mas não excluídos.
+          Status que saem de uso são inativados: as execuções já registradas com eles continuam legíveis.
         </p>
       </div>
 
@@ -282,16 +280,6 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
         </div>
       </Drawer>
 
-      <ConfirmDialog
-        open={!!confirmDel}
-        onClose={() => setConfirmDel(null)}
-        onConfirm={excluir}
-        title={confirmDel ? `Excluir "${confirmDel.nome}"` : ''}
-        description="O status sai da planilha deste tipo de serviço. Esta ação não pode ser desfeita."
-        confirmLabel="Excluir status"
-        cancelLabel="Cancelar"
-        destructive
-      />
     </>
   );
 }
@@ -399,7 +387,7 @@ export function PainelProdutosPorTipo({ perms }: { perms: PermissoesCatalogo }) 
                     <span className="ml-1.5 text-[13px] text-ink-400">{r.unidade}</span>
                   </td>
                   <td className="px-4 py-3.5 pr-6 text-right">
-                    {perms.canDelete
+                    {perms.canDesvincular
                       ? <BotaoAcao danger onClick={() => setConfirmDel(r)}>Desvincular</BotaoAcao>
                       : <span className="text-[13px] text-ink-400">—</span>}
                   </td>
