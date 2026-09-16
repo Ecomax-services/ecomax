@@ -147,13 +147,16 @@ export function CadastrosAuxiliares() {
                 <thead>
                   <tr className="bg-ink-50">
                     <th className={cn(th, 'pl-6')}>Item</th>
+                    {/* A observação é digitada no drawer e não tinha onde
+                        aparecer: quem escrevia a nota não a via mais. */}
+                    <th className={th}>Observação</th>
                     <th className={cn(th, 'text-center')}>Em uso</th>
                     <th className={cn(th, 'text-center')}>Status</th>
                     <th className={cn(th, 'pr-6 text-right')}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.length === 0 && <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum item.</td></tr>}
+                  {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum item.</td></tr>}
                   {rows.map((it) => (
                     <tr key={it.id} className="border-t border-ink-100">
                       <td className="px-4 py-3.5 pl-6">
@@ -162,6 +165,9 @@ export function CadastrosAuxiliares() {
                         ) : (
                           <span className="text-sm font-medium text-ink-800">{it.nome}</span>
                         )}
+                      </td>
+                      <td className="max-w-[280px] px-4 py-3.5 text-sm text-ink-500">
+                        <span className="block truncate" title={it.observacao ?? ''}>{it.observacao || '—'}</span>
                       </td>
                       <td className="px-4 py-3.5 text-center text-sm text-ink-600">{it.uso > 0 ? `${it.uso} ${it.uso === 1 ? 'registro' : 'registros'}` : '—'}</td>
                       <td className="px-4 py-3.5 text-center"><Badge tone={it.ativo ? 'success' : 'muted'}>{it.ativo ? 'Ativo' : 'Inativo'}</Badge></td>

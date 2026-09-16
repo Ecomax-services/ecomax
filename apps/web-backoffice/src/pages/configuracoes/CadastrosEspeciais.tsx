@@ -197,13 +197,14 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
           <thead>
             <tr className="bg-ink-50">
               <th className={cn(th, 'pl-6')}>Status / legenda</th>
+              <th className={th}>Observação</th>
               <th className={cn(th, 'text-center')}>Em uso</th>
               <th className={cn(th, 'text-center')}>Situação</th>
               <th className={cn(th, 'pr-6 text-right')}>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum status nesta planilha.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum status nesta planilha.</td></tr>}
             {rows.map((it) => (
               <tr key={it.id} className="border-t border-ink-100">
                 <td className="px-4 py-3.5 pl-6">
@@ -213,6 +214,9 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
                   >
                     {it.nome}
                   </span>
+                </td>
+                <td className="max-w-[280px] px-4 py-3.5 text-sm text-ink-500">
+                  <span className="block truncate" title={it.observacao ?? ''}>{it.observacao || '—'}</span>
                 </td>
                 <td className="px-4 py-3.5 text-center text-sm text-ink-600">
                   {it.uso > 0 ? `${it.uso} ${it.uso === 1 ? 'ponto' : 'pontos'}` : '—'}
@@ -369,7 +373,7 @@ export function PainelProdutosPorTipo({ perms }: { perms: PermissoesCatalogo }) 
             </thead>
             <tbody>
               {linhas.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum produto vinculado a este tipo de serviço.</td></tr>
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum produto vinculado a este tipo de serviço.</td></tr>
               )}
               {linhas.map((r) => (
                 <tr key={r.id} className="border-t border-ink-100">
