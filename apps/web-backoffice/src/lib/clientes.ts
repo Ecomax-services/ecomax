@@ -65,6 +65,32 @@ function composeEndereco(c: any): string {
   return [linha, cidade].filter(Boolean).join(' - ') || '—';
 }
 
+export interface KpisClientes { total: number; ativos: number; pj: number; pf: number }
+
+/**
+ * Os quatro números do topo da lista de clientes.
+ *
+ * Quatro `head: true` em vez de puxar a base inteira para contar no navegador:
+ * o servidor devolve só a contagem, e a tela não precisa carregar mil linhas
+ * para exibir quatro números.
+ */
+export async function getKpisClientes(): Promise<KpisClientes> {
+  const contar = async (aplicar: (q: any) => any) => {
+    const { count, error } = await aplicar(
+      supabase.from('clientes').select('id', { count: 'exact', head: true }),
+    );
+    if (error) throw new Error(msgErro(error));
+    return count ?? 0;
+  };
+  const [total, ativos, pj, pf] = await Promise.all([
+    contar((q: any) => q),
+    contar((q: any) => q.eq('ativo', true)),
+    contar((q: any) => q.eq('tipo_pessoa', 'pj')),
+    contar((q: any) => q.eq('tipo_pessoa', 'pf')),
+  ]);
+  return { total, ativos, pj, pf };
+}
+
 export async function listClientes(opts: { search?: string; page?: number; pageSize?: number } = {}): Promise<{ rows: ClienteRow[]; total: number }> {
   const page = opts.page ?? 1;
   const pageSize = opts.pageSize ?? 10;

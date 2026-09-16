@@ -181,6 +181,33 @@ export interface ListOpts {
  * Lista unificada de OS e orçamentos convertíveis. Mescla + filtra + ordena + pagina em memória
  * (escala de demonstração; a paginação server-side sobre a união fica como evolução futura).
  */
+export interface KpisOperacional { os: number; emAberto: number; vencidas: number; orcamentos: number }
+
+/**
+ * Os quatro números do topo da lista de Operacional.
+ *
+ * "Programação vencida" é o que o protótipo destaca e o que ninguém vê sem
+ * procurar: OS agendada para trás que ainda não foi executada. Contagem no
+ * servidor, com `head: true` — a lista tem milhares de linhas.
+ */
+export async function getKpisOperacional(): Promise<KpisOperacional> {
+  const ABERTAS = ['em_aberto', 'emitida', 'confirmada', 'em_andamento', 'remarcada'];
+  const contar = async (tabela: 'ordens_servico' | 'orcamentos', aplicar: (q: any) => any) => {
+    const { count, error } = await aplicar(
+      supabase.from(tabela).select('id', { count: 'exact', head: true }),
+    );
+    if (error) throw new Error(msgErro(error));
+    return count ?? 0;
+  };
+  const [os, emAberto, vencidas, orcamentos] = await Promise.all([
+    contar('ordens_servico', (q: any) => q),
+    contar('ordens_servico', (q: any) => q.in('status', ABERTAS)),
+    contar('ordens_servico', (q: any) => q.in('status', ABERTAS).lt('data_programada', hojeISO())),
+    contar('orcamentos', (q: any) => q),
+  ]);
+  return { os, emAberto, vencidas, orcamentos };
+}
+
 export async function listOperacional(opts: ListOpts = {}): Promise<{ rows: OperacionalRow[]; total: number; totalOs: number }> {
   const [{ data: osData, error: e1 }, { data: orcData, error: e2 }] = await Promise.all([
     supabase

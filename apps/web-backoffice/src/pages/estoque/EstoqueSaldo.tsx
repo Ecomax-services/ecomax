@@ -12,7 +12,7 @@ import { cn } from '@/lib/cn';
 import { alertMeta } from '@/data/estoque';
 import {
   listBases, loteVencendo, listLotes, listMovimentacoes, listProdutos, ajusteEstoque,
-  getNiveis, setNivel, replicarNivel,
+  getNiveis, setNivel, replicarNivel, valorTotalEmEstoque,
   getInventarioAberto, iniciarInventario, registrarContagens, fecharInventario, cancelarInventario,
   type StockRow, type MovRow, type Produto, type NivelRow, type Inventario, type InventarioItem,
 } from '@/lib/estoque';
@@ -31,6 +31,8 @@ export function EstoqueSaldo() {
   const [loc, setLoc] = useState<string>('consolidado');
   const [tab, setTab] = useState<Tab>('estoque');
   const [lotes, setLotes] = useState<StockRow[]>([]);
+  const [valorTotal, setValorTotal] = useState<number | null>(null);
+  useEffect(() => { valorTotalEmEstoque().then(setValorTotal).catch(() => {}); }, []);
   const [movs, setMovs] = useState<MovRow[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [motivos, setMotivos] = useState<string[]>(MOTIVOS_FALLBACK);
@@ -69,7 +71,10 @@ export function EstoqueSaldo() {
     { icon: TrendingDown, tone: 'red' as const, label: 'Abaixo do mínimo', value: lotes.filter((r) => r.alert === 'low').length },
     { icon: TrendingUp, tone: 'amber' as const, label: 'Acima do máximo', value: lotes.filter((r) => r.alert === 'high').length },
     { icon: Clock, tone: 'amber' as const, label: 'Lotes vencendo (60d)', value: lotes.filter((r) => loteVencendo(r.validadeISO)).length },
-    { icon: Boxes, tone: 'green' as const, label: 'Total de itens', value: lotes.reduce((s, r) => s + r.qtd, 0) },
+    // O protótipo mede valor, não contagem: "quantos itens" não diz quanto
+    // dinheiro está parado no almoxarifado, que é a pergunta do KPI.
+    { icon: Boxes, tone: 'green' as const, label: 'Valor total em estoque',
+      value: valorTotal === null ? '—' : valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) },
   ];
 
   const locOptions = [{ key: 'consolidado', label: 'Consolidado' }, ...bases.map((b) => ({ key: b.id, label: b.nome }))];
