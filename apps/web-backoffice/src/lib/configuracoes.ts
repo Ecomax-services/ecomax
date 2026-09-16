@@ -15,11 +15,17 @@ export interface CatalogoMeta {
   /** Tipos de serviço: guarda template de mensagem + prazo padrão do link público. */
   servico?: boolean;
   /**
-   * Conjunto de valores preso por check constraint no banco (`status_os`,
-   * `etapas_os`). Renomear e recolorir vale; criar e excluir, não — o item novo
-   * nasceria inutilizável, porque o insert do módulo consumidor viola o check.
+   * Os dois catálogos com painel próprio, no topo da coluna. Não são listas de
+   * itens soltos: um é uma matriz tipo de serviço × legendas de execução, o
+   * outro é tipo de serviço × produtos do almoxarifado.
    */
-  fixo?: boolean;
+  especial?: 'planilha' | 'produtos_tipo';
+  /**
+   * Guarda um slug em `valor` além do rótulo em `nome`. `status_os` é o caso:
+   * a OS grava 'em_aberto' e a tela mostra 'Em aberto'. Um item criado pela
+   * tela precisa nascer com slug, senão a validação do banco o recusa.
+   */
+  slug?: boolean;
 }
 
 /**
@@ -37,14 +43,20 @@ export interface CatalogoMeta {
  * diante), de modo que a espinha do desenho fica intacta.
  */
 export const CATALOGOS: CatalogoMeta[] = [
-  { key: 'status_os', label: 'Status de OS', colored: true, fixo: true },
-  { key: 'etapas_os', label: 'Etapas da OS', colored: false, fixo: true },
+  // Os dois especiais abrem a coluna, como no protótipo.
+  { key: 'planilhas', label: 'Planilha por tipo de serviço', colored: true, especial: 'planilha' },
+  { key: 'produtos_tipo', label: 'Produtos por tipo de serviço', colored: false, especial: 'produtos_tipo' },
+
+  { key: 'status_os', label: 'Status de OS', colored: true, slug: true },
+  { key: 'etapas_os', label: 'Etapas da OS', colored: false, slug: true },
   { key: 'status_garantia', label: 'Status de garantia', colored: true },
   { key: 'status_follow_up', label: 'Status de follow-up', colored: true },
   { key: 'tipos_documento', label: 'Tipos de documento da OS', colored: false },
   { key: 'categorias_documento_cliente', label: 'Categorias de documento do cliente', colored: false },
   { key: 'documentos_colaborador', label: 'Documentos do colaborador', colored: false },
+  { key: 'tipos_produto', label: 'Tipos de produto', colored: false },
   { key: 'categorias_produto', label: 'Categorias de produto', colored: false },
+  { key: 'categorias_relatorio', label: 'Categorias de relatório', colored: false },
   { key: 'unidades', label: 'Unidades de medida', colored: false },
   { key: 'tipos_servico', label: 'Tipos de serviço', colored: false, servico: true },
   { key: 'tipos_controle', label: 'Tipos de controle', colored: false },
@@ -56,6 +68,23 @@ export const CATALOGOS: CatalogoMeta[] = [
   { key: 'pragas', label: 'Pragas-alvo', colored: false },
   { key: 'epis', label: 'EPIs', colored: false },
 ];
+
+/** Só os que têm lista de itens — os dois especiais não vivem em catalogo_itens. */
+export const CATALOGOS_GENERICOS = CATALOGOS.filter((c) => !c.especial);
+
+/**
+ * Slug a partir do rótulo: 'Não executada' → 'nao_executada'.
+ *
+ * É o valor que a OS grava. Precisa ser estável e sem acento porque vai para
+ * URL de filtro e para comparação em policy.
+ */
+export function slugDe(nome: string): string {
+  return nome
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
 
 /**
  * Quantos itens cada catálogo tem — o protótipo mostra esse número numa pílula
@@ -131,6 +160,25 @@ export async function listCatalogoItens(catalogo: string): Promise<CatalogoItem[
   return (data ?? []).map((it) => ({ ...it, uso: uso[it.nome] ?? 0 }));
 }
 
+/**
+ * Situações de OS ativas, na ordem do catálogo.
+ *
+ * O filtro da lista de Operacional lia uma constante com os nove status
+ * canônicos. Depois que a tela passou a criar status, um status novo não
+ * aparecia no filtro — e, pior, um endereço com `?status=<novo>` era descartado
+ * por não estar na lista de válidos, filtrando por outra coisa sem avisar.
+ */
+export async function listStatusOs(): Promise<{ valor: string; nome: string }[]> {
+  const { data, error } = await supabase
+    .from('catalogo_itens').select('valor, nome')
+    .eq('catalogo', 'status_os').eq('ativo', true)
+    .order('ordem').order('nome');
+  if (error) throw new Error(msgErro(error));
+  return (data as { valor: string | null; nome: string }[])
+    .filter((r) => !!r.valor)
+    .map((r) => ({ valor: r.valor as string, nome: r.nome }));
+}
+
 /** Nomes ativos de um catálogo — para popular selects nos demais módulos. */
 export async function listCatalogoAtivos(catalogo: string): Promise<string[]> {
   const { data, error } = await supabase
@@ -142,6 +190,7 @@ export async function listCatalogoAtivos(catalogo: string): Promise<string[]> {
 export interface CatalogoItemInput {
   catalogo: string;
   nome: string;
+  valor?: string | null;
   cor_bg?: string | null;
   cor_fg?: string | null;
   observacao?: string | null;
@@ -158,9 +207,14 @@ export async function createCatalogoItem(input: CatalogoItemInput): Promise<void
     .from('catalogo_itens').select('ordem').eq('catalogo', input.catalogo)
     .order('ordem', { ascending: false }).limit(1).maybeSingle();
   const ordem = (ultimo?.ordem ?? 0) + 1;
-  const { error } = await supabase.from('catalogo_itens').insert({ ...input, ordem, created_by: await actorId() });
+  // Catálogo com slug (status_os, etapas_os): o item precisa nascer com `valor`,
+  // que é o que a OS grava. Sem isso o trigger do banco recusa a OS depois — o
+  // item existiria na tela e seria inútil na prática.
+  const meta = CATALOGOS.find((c) => c.key === input.catalogo);
+  const valor = input.valor ?? (meta?.slug ? slugDe(input.nome) : null);
+  const { error } = await supabase.from('catalogo_itens').insert({ ...input, valor, ordem, created_by: await actorId() });
   if (error) throw new Error(error.code === '23505' ? 'Já existe um item com esse nome neste catálogo.' : msgErro(error));
-  await audit('catalogo_item_criado', { catalogo: input.catalogo, nome: input.nome });
+  await audit('catalogo_item_criado', { catalogo: input.catalogo, nome: input.nome, valor });
 }
 
 export async function updateCatalogoItem(id: string, patch: Partial<CatalogoItemInput>): Promise<void> {
@@ -181,6 +235,155 @@ export async function deleteCatalogoItem(id: string): Promise<void> {
   const { error } = await supabase.from('catalogo_itens').delete().eq('id', id);
   if (error) throw new Error(msgErro(error));
   await audit('catalogo_item_excluido', { id });
+}
+
+// ============================================================
+// Planilha de execução por tipo de serviço
+// ============================================================
+// Cada tipo de serviço tem as próprias legendas de preenchimento de ponto.
+// "Consumo parcial" faz sentido em desratização e nenhum em sanitização — é por
+// isso que a planilha é por tipo, e não uma lista só.
+
+export interface PlanilhaItem {
+  id: string;
+  tipo_servico: string;
+  nome: string;
+  cor_bg: string | null;
+  cor_fg: string | null;
+  observacao: string | null;
+  ordem: number;
+  ativo: boolean;
+  /** Pontos de execução já registrados com esta legenda. */
+  uso: number;
+}
+
+export async function listPlanilhaItens(tipoServico: string): Promise<PlanilhaItem[]> {
+  const [{ data, error }, { data: pontos }] = await Promise.all([
+    supabase.from('planilha_itens').select('*').eq('tipo_servico', tipoServico).order('ordem').order('nome'),
+    supabase.from('os_plano_pontos').select('situacao'),
+  ]);
+  if (error) throw new Error(msgErro(error));
+  const uso: Record<string, number> = {};
+  (pontos ?? []).forEach((p: { situacao: string | null }) => {
+    if (p.situacao) uso[p.situacao] = (uso[p.situacao] ?? 0) + 1;
+  });
+  return (data ?? []).map((it) => ({ ...it, uso: uso[it.nome] ?? 0 }));
+}
+
+/** Quantas legendas cada tipo de serviço tem — alimenta o contador das abas. */
+export async function contarPlanilhaPorTipo(): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from('planilha_itens').select('tipo_servico');
+  if (error) throw new Error(msgErro(error));
+  const out: Record<string, number> = {};
+  (data as { tipo_servico: string }[]).forEach((r) => { out[r.tipo_servico] = (out[r.tipo_servico] ?? 0) + 1; });
+  return out;
+}
+
+export interface PlanilhaItemInput {
+  tipo_servico: string;
+  nome: string;
+  cor_bg?: string | null;
+  cor_fg?: string | null;
+  observacao?: string | null;
+  ativo?: boolean;
+}
+
+export async function createPlanilhaItem(input: PlanilhaItemInput): Promise<void> {
+  const { data: ultimo } = await supabase
+    .from('planilha_itens').select('ordem').eq('tipo_servico', input.tipo_servico)
+    .order('ordem', { ascending: false }).limit(1).maybeSingle();
+  const { error } = await supabase.from('planilha_itens')
+    .insert({ ...input, ordem: (ultimo?.ordem ?? 0) + 1, created_by: await actorId() });
+  if (error) throw new Error(error.code === '23505' ? 'Esta planilha já tem um status com esse nome.' : msgErro(error));
+  await audit('planilha_item_criado', { tipo_servico: input.tipo_servico, nome: input.nome });
+}
+
+export async function updatePlanilhaItem(id: string, patch: Partial<PlanilhaItemInput>): Promise<void> {
+  const { error } = await supabase.from('planilha_itens').update(patch).eq('id', id);
+  if (error) throw new Error(error.code === '23505' ? 'Esta planilha já tem um status com esse nome.' : msgErro(error));
+  await audit('planilha_item_editado', { id, ...patch });
+}
+
+export async function deletePlanilhaItem(id: string): Promise<void> {
+  const { error } = await supabase.from('planilha_itens').delete().eq('id', id);
+  if (error) throw new Error(msgErro(error));
+  await audit('planilha_item_excluido', { id });
+}
+
+// ============================================================
+// Produtos padrão por tipo de serviço
+// ============================================================
+
+export interface TipoServicoProduto {
+  id: string;
+  tipo_servico: string;
+  produto_id: string;
+  qtd_padrao: number;
+  produto: string;
+  categoria: string;
+  unidade: string;
+}
+
+export async function listProdutosDoTipo(tipoServico: string): Promise<TipoServicoProduto[]> {
+  const { data, error } = await supabase
+    .from('tipo_servico_produtos')
+    .select('id, tipo_servico, produto_id, qtd_padrao, produto:produto_id(nome, categoria, unidade)')
+    .eq('tipo_servico', tipoServico);
+  if (error) throw new Error(msgErro(error));
+  return (data as any[])
+    .map((r) => {
+      const p = Array.isArray(r.produto) ? r.produto[0] : r.produto;
+      return {
+        id: r.id, tipo_servico: r.tipo_servico, produto_id: r.produto_id,
+        qtd_padrao: Number(r.qtd_padrao),
+        produto: p?.nome ?? '—', categoria: p?.categoria ?? '—', unidade: p?.unidade ?? 'un',
+      };
+    })
+    .sort((a, b) => a.produto.localeCompare(b.produto, 'pt-BR'));
+}
+
+export async function contarProdutosPorTipo(): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from('tipo_servico_produtos').select('tipo_servico');
+  if (error) throw new Error(msgErro(error));
+  const out: Record<string, number> = {};
+  (data as { tipo_servico: string }[]).forEach((r) => { out[r.tipo_servico] = (out[r.tipo_servico] ?? 0) + 1; });
+  return out;
+}
+
+/** Produtos do almoxarifado ainda não vinculados a este tipo de serviço. */
+export async function listProdutosParaVincularNoTipo(tipoServico: string): Promise<{ id: string; nome: string; categoria: string; unidade: string }[]> {
+  const [{ data: todos, error }, jaLigados] = await Promise.all([
+    supabase.from('produtos').select('id, nome, categoria, unidade').order('nome'),
+    listProdutosDoTipo(tipoServico),
+  ]);
+  if (error) throw new Error(msgErro(error));
+  const ligados = new Set(jaLigados.map((r) => r.produto_id));
+  return (todos as any[])
+    .filter((p) => !ligados.has(p.id))
+    .map((p) => ({ id: p.id, nome: p.nome, categoria: p.categoria ?? '—', unidade: p.unidade ?? 'un' }));
+}
+
+export async function vincularProdutosAoTipo(tipoServico: string, produtoIds: string[]): Promise<void> {
+  if (produtoIds.length === 0) return;
+  const ator = await actorId();
+  const { error } = await supabase.from('tipo_servico_produtos').insert(
+    produtoIds.map((produto_id) => ({ tipo_servico: tipoServico, produto_id, qtd_padrao: 1, created_by: ator })),
+  );
+  if (error) throw new Error(msgErro(error));
+  await audit('tipo_servico_produtos_vinculados', { tipo_servico: tipoServico, quantidade: produtoIds.length });
+}
+
+export async function setQtdPadraoDoTipo(id: string, qtd: number): Promise<void> {
+  if (!(qtd > 0)) throw new Error('A quantidade padrão precisa ser maior que zero.');
+  const { error } = await supabase.from('tipo_servico_produtos').update({ qtd_padrao: qtd }).eq('id', id);
+  if (error) throw new Error(msgErro(error));
+  await audit('tipo_servico_produto_qtd', { id, qtd_padrao: qtd });
+}
+
+export async function desvincularProdutoDoTipo(id: string): Promise<void> {
+  const { error } = await supabase.from('tipo_servico_produtos').delete().eq('id', id);
+  if (error) throw new Error(msgErro(error));
+  await audit('tipo_servico_produto_desvinculado', { id });
 }
 
 // ============================================================

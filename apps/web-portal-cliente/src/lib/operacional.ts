@@ -11,6 +11,23 @@ export const osStatusLabel: Record<OsStatus, string> = {
   em_andamento: 'Em andamento', executada: 'Executada', concluida: 'Concluída',
   remarcada: 'Remarcada', nao_executada: 'Não executada', cancelada: 'Cancelada',
 };
+/**
+ * Rótulo de um status que pode não estar nos nove canônicos.
+ *
+ * Cadastros Auxiliares passou a permitir criar status de OS, então `o.status`
+ * é qualquer slug cadastrado. Sem isto o portal mostraria o valor cru do banco
+ * — 'inspecao_tecnica' — na tela do cliente.
+ */
+export function rotuloStatus(status: string): string {
+  const conhecido = osStatusLabel[status as OsStatus];
+  if (conhecido) return conhecido;
+  const texto = status.replace(/_/g, ' ').trim();
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+export function classeStatus(status: string): string {
+  return osStatusClass[status as OsStatus] ?? 'bg-ink-50 text-ink-500';
+}
+
 /** Classes Tailwind disponíveis no portal (tokens enxutos). */
 export const osStatusClass: Record<OsStatus, string> = {
   em_aberto: 'bg-infoTag-bg text-infoTag-fg',
@@ -51,7 +68,7 @@ export async function listMinhasOs(): Promise<MinhaOs[]> {
     const c = Array.isArray(o.cliente) ? o.cliente[0] : o.cliente;
     return {
       id: o.id, codigo: o.codigo, tipos: (o.tipos_servico as string[] | null ?? []).join(', ') || '—',
-      status: o.status, statusLabel: osStatusLabel[o.status as OsStatus] ?? o.status,
+      status: o.status, statusLabel: rotuloStatus(o.status),
       data: brDate(o.data_programada ?? o.created_at),
       identificacao: [c?.nome, o.endereco_execucao].filter(Boolean).join(' · ') || '—',
     };

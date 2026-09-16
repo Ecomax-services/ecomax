@@ -7,7 +7,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Tag } from '@/components/Tag';
 import { colors, fonts, radius } from '@/theme';
-import { listMinhasOs, osTag, type OsListItem } from '@/lib/operacional';
+import { listMinhasOs, tagDoStatus, type OsListItem } from '@/lib/operacional';
 import type { OsStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<OsStackParamList, 'OsList'>;
@@ -45,7 +45,7 @@ export function OsListScreen({ navigation }: Props) {
           {error && <Text style={styles.error}>{error}</Text>}
           {!error && items.length === 0 && <Text style={styles.empty}>Nenhuma OS atribuída a você.</Text>}
           {items.map((os) => {
-            const t = osTag[os.status];
+            const t = tagDoStatus(os.status);
             return (
               <Pressable key={os.id} style={styles.card} onPress={() => navigation.navigate('OsDetail', { id: os.id, codigo: os.codigo })}>
                 <View style={styles.cardTop}>

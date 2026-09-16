@@ -6,7 +6,7 @@ import {
   CountHeadline, Empty, ErrorBanner, Loading, SearchInput, Section, TH,
 } from '@/components/ui/DataSection';
 import {
-  listMinhasOs, listRelatorios, listCronograma, osStatusClass, contaAbertas,
+  listMinhasOs, listRelatorios, listCronograma, classeStatus, contaAbertas,
   type MinhaOs, type RelatorioCliente, type CronogramaCliente,
 } from '@/lib/operacional';
 
@@ -76,7 +76,7 @@ export function OrdensServico() {
                           <td className="px-4 py-3 text-sm text-ink-800">{o.identificacao}</td>
                           <td className="px-4 py-3 text-sm text-ink-800">{o.tipos}</td>
                           <td className="px-4 py-3 text-sm text-ink-500">{o.data}</td>
-                          <td className="px-4 py-3"><span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', osStatusClass[o.status])}>{o.statusLabel}</span></td>
+                          <td className="px-4 py-3"><span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', classeStatus(o.status))}>{o.statusLabel}</span></td>
                         </tr>
                       ))}
                     </tbody>

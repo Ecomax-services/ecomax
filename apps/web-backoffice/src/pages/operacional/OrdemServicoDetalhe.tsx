@@ -26,7 +26,7 @@ import {
   listOsAnexos, addAnexo, removerAnexo, anexoTipoLabel,
   listOsHistorico, listHistoricoAutores,
   listFuncionarioOptions, listProdutoOptions, listEquipamentoOptions, listTiposServico, listPragas, bloqueioLabel,
-  osStatusTone, osStatusLabel, recorrenciaLabel, isReadOnly, fmtDateTime, urlAssinadaOperacional, enviarAnexoOs,
+  tomStatus, rotuloStatus, recorrenciaLabel, isReadOnly, fmtDateTime, urlAssinadaOperacional, enviarAnexoOs,
   type OrdemServicoDetail, type OsStatus, type Recorrencia,
   type OsFuncionarioRow, type OsProdutoRow, type OsEquipamentoRow, type OsRelatorioRow, type OsAnexoRow,
   type HistoricoRow, type AnexoTipo, type FuncionarioOption,
@@ -83,7 +83,7 @@ export function OrdemServicoDetalhe() {
           titulo: `Ordem de serviço ${os.codigo}`,
           subtitulo: os.cliente,
           campos: [
-            { rotulo: 'Status', valor: osStatusLabel[os.status] ?? os.status },
+            { rotulo: 'Status', valor: rotuloStatus(os.status) },
             { rotulo: 'Tipos de serviço', valor: os.tipos_servico.join(', ') || '—' },
             { rotulo: 'Data programada', valor: os.data_programada ? os.data_programada.split('-').reverse().join('/') : '—' },
             { rotulo: 'Hora prevista', valor: os.hora_prevista ?? '—' },
@@ -165,7 +165,7 @@ export function OrdemServicoDetalhe() {
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-[19px] font-bold text-ink-900">{os.codigo}</h2>
-                <Badge tone={osStatusTone[os.status]}>{osStatusLabel[os.status]}</Badge>
+                <Badge tone={tomStatus(os.status)}>{rotuloStatus(os.status)}</Badge>
                 <Badge tone={os.origem === 'avulsa' ? 'muted' : 'info'}>{os.origem === 'avulsa' ? 'Avulsa' : `De ${os.orcamentoCodigo ?? 'orçamento'}`}</Badge>
                 {os.rascunho && <Badge tone="softWarn">Rascunho</Badge>}
               </div>
@@ -187,7 +187,7 @@ export function OrdemServicoDetalhe() {
           </div>
           {readOnly && (
             <div className="mt-3 flex items-center gap-2 rounded-lg bg-ink-50 px-3.5 py-2 text-[13px] text-ink-500">
-              <Lock className="h-4 w-4" />OS {osStatusLabel[os.status].toLowerCase()} — somente leitura.
+              <Lock className="h-4 w-4" />OS {rotuloStatus(os.status).toLowerCase()} — somente leitura.
               {os.cancelamento_motivo && <span className="text-ink-400">Motivo: {os.cancelamento_motivo}</span>}
             </div>
           )}

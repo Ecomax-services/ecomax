@@ -12,7 +12,7 @@ import { AssinaturaSheet } from '@/components/AssinaturaSheet';
 import { colors, fonts, radius } from '@/theme';
 import {
   getOs, listProdutos, listCronograma, registrarCheckIn, registrarCheckOut, salvarConsumo,
-  confirmarAssinatura, registrarFoto, marcarExecutada, osTag, isReadOnly, brTime,
+  confirmarAssinatura, registrarFoto, marcarExecutada, tagDoStatus, isReadOnly, brTime,
   type OsDetail, type OsProdutoItem, type CronogramaItem,
 } from '@/lib/operacional';
 import type { OsStackParamList } from '@/navigation/types';
@@ -137,7 +137,7 @@ export function OsDetailScreen({ route, navigation }: Props) {
     );
   }
 
-  const t = osTag[os.status];
+  const t = tagDoStatus(os.status);
   const readOnly = isReadOnly(os.status);
 
   return (

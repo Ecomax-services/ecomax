@@ -13,8 +13,8 @@ import { cn } from '@/lib/cn';
 import { imprimirFicha } from '@/lib/impressao';
 import {
   getOrdemServico, updateDadosGerais, duplicarOs,
-  osStatusLabel, osStatusTone, isReadOnly, fmtDateTime,
-  type OrdemServicoDetail, type OsStatus,
+  rotuloStatus, tomStatus, isReadOnly, fmtDateTime,
+  type OrdemServicoDetail,
 } from '@/lib/operacional';
 import {
   listPlanos, listPontos, salvarPonto, definirPontosPrevistos,
@@ -128,7 +128,7 @@ export function EmitirOs() {
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-[19px] font-bold text-ink-900">{os.codigo}</h2>
-                <Badge tone={osStatusTone[os.status]}>{osStatusLabel[os.status]}</Badge>
+                <Badge tone={tomStatus(os.status)}>{rotuloStatus(os.status)}</Badge>
               </div>
               <p className="mt-1 text-[13px] text-ink-500">
                 Cliente: <Link to={`/clientes/${os.clienteId}`} className="font-semibold text-forest-700 hover:underline">{os.cliente}</Link>
@@ -142,7 +142,7 @@ export function EmitirOs() {
                   titulo: `Planejamento · ${os.codigo}`,
                   subtitulo: os.cliente,
                   campos: [
-                    { rotulo: 'Situação', valor: osStatusLabel[os.status] },
+                    { rotulo: 'Situação', valor: rotuloStatus(os.status) },
                     { rotulo: 'Etapa', valor: exec.etapa || '—' },
                     { rotulo: 'Contato', valor: exec.contato || '—' },
                   ],
@@ -169,7 +169,7 @@ export function EmitirOs() {
           {encerrada && (
             <div className="mt-3 flex items-center gap-2 rounded-lg bg-ink-50 px-3.5 py-2 text-[13px] text-ink-500">
               <Lock className="h-4 w-4" />
-              OS {osStatusLabel[os.status].toLowerCase()} — o fluxo está encerrado.
+              OS {rotuloStatus(os.status).toLowerCase()} — o fluxo está encerrado.
             </div>
           )}
         </div>
@@ -187,7 +187,7 @@ export function EmitirOs() {
                   key={a.chave}
                   disabled={!habilitada}
                   onClick={() => { setAcao(a); setMotivo(''); setNovaData(os.data_programada ?? ''); }}
-                  title={habilitada ? '' : `Indisponível com a OS em "${osStatusLabel[os.status]}"`}
+                  title={habilitada ? '' : `Indisponível com a OS em "${rotuloStatus(os.status)}"`}
                   className={cn(
                     'flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition',
                     habilitada
@@ -288,7 +288,7 @@ export function EmitirOs() {
         <Modal open onClose={() => setAcao(null)}>
           <div className="border-b border-ink-100 px-7 py-[22px]">
             <h2 className="text-[19px] font-bold text-ink-900">{acao.n} · {acao.label}</h2>
-            {acao.para && <p className="mt-1 text-[13px] text-ink-500">A situação passa para "{osStatusLabel[acao.para as OsStatus]}".</p>}
+            {acao.para && <p className="mt-1 text-[13px] text-ink-500">A situação passa para "{rotuloStatus(acao.para)}".</p>}
             {acao.efeito === 'baixar_estoque' && <p className="mt-1 text-[13px] text-ink-500">Gera saída de estoque do consumo informado.</p>}
             {acao.efeito === 'email' && <p className="mt-1 text-[13px] text-ink-500">Marca que o cliente foi avisado.</p>}
           </div>

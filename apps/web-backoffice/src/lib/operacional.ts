@@ -108,6 +108,27 @@ export const OS_STATUSES: OsStatus[] = [
   'executada', 'concluida', 'remarcada', 'nao_executada', 'cancelada',
 ];
 
+/**
+ * Rótulo e tom de um status que pode não estar nos nove canônicos.
+ *
+ * Desde que Cadastros Auxiliares passou a permitir criar status, `os.status`
+ * deixou de ser um valor do union `OsStatus` em tempo de execução — pode ser
+ * qualquer slug cadastrado. Indexar o Record direto devolvia `undefined`, e o
+ * `.toLowerCase()` que vem logo depois em duas telas estourava em branco.
+ *
+ * Os nove continuam no mapa porque o tom deles é decisão de design, não do
+ * cadastro; o que vier de fora cai no rótulo derivado do próprio slug.
+ */
+export function rotuloStatus(status: string): string {
+  const conhecido = osStatusLabel[status as OsStatus];
+  if (conhecido) return conhecido;
+  const texto = status.replace(/_/g, ' ').trim();
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+export function tomStatus(status: string): BadgeTone {
+  return osStatusTone[status as OsStatus] ?? 'muted';
+}
+
 /** Situação final: a OS não aceita mais edição nem ação de fluxo. */
 export const isReadOnly = (status: OsStatus) =>
   status === 'concluida' || status === 'cancelada' || status === 'nao_executada';
@@ -195,7 +216,7 @@ export async function listOperacional(opts: ListOpts = {}): Promise<{ rows: Oper
       data: o.data_programada ? brDate(o.data_programada) : SEM_DATA_PROGRAMADA,
       dataSort: o.data_programada ?? o.created_at,
       funcionarios: funcs.length ? funcs.join(', ') : '—',
-      status: st, statusLabel: osStatusLabel[st] ?? st, statusTone: osStatusTone[st] ?? 'muted',
+      status: st, statusLabel: rotuloStatus(st), statusTone: tomStatus(st),
       valor: '—', origem, origemLabel: origem === 'avulsa' ? 'Avulsa' : 'A partir de orçamento',
       rascunho: !!o.rascunho,
     };
@@ -387,7 +408,7 @@ export async function setOsStatus(id: string, status: OsStatus): Promise<void> {
   }
   const { error } = await supabase.from('ordens_servico').update({ status }).eq('id', id);
   if (error) throw new Error(msgErro(error));
-  await hist(id, 'Status', osStatusLabel[os.status], osStatusLabel[status]);
+  await hist(id, 'Status', rotuloStatus(os.status), rotuloStatus(status));
   await audit('os_status', { os_id: id, de: os.status, para: status });
   if (status === 'executada') await auditarEvento('os_executada_portal', { os_id: id });
 }
@@ -399,7 +420,7 @@ export async function cancelarOs(id: string, motivo: string): Promise<void> {
   if (isReadOnly(os.status)) throw new Error('OS já finalizada.');
   const { error } = await supabase.from('ordens_servico').update({ status: 'cancelada', cancelamento_motivo: motivo.trim() }).eq('id', id);
   if (error) throw new Error(msgErro(error));
-  await hist(id, 'Status', osStatusLabel[os.status], 'Cancelada');
+  await hist(id, 'Status', rotuloStatus(os.status), 'Cancelada');
   await hist(id, 'Motivo do cancelamento', null, motivo.trim());
   await audit('os_cancelada', { os_id: id, motivo });
 }
