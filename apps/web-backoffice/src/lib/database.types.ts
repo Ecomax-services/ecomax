@@ -3198,9 +3198,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_key: ["backoffice", "portal_cliente", "mobile_operador"],
