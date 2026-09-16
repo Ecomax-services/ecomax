@@ -24,6 +24,20 @@ export const osTag: Record<OsStatus, { label: string; bg: string; fg: string }> 
   concluida: { label: 'Concluída', bg: '#a3eba3', fg: '#0f3f0f' },
   cancelada: { label: 'Cancelada', bg: '#ffddd5', fg: '#a81400' },
 };
+/**
+ * Etiqueta de um status que pode não estar nos nove canônicos.
+ *
+ * Cadastros Auxiliares passou a permitir criar status de OS. `osTag[status]`
+ * devolvia `undefined` para um status novo, e a tela de detalhe quebrava ao ler
+ * `t.label` logo em seguida — em campo, sem rede para diagnosticar.
+ */
+export function tagDoStatus(status: string): { label: string; bg: string; fg: string } {
+  const conhecida = osTag[status as OsStatus];
+  if (conhecida) return conhecida;
+  const texto = status.replace(/_/g, ' ').trim();
+  return { label: texto.charAt(0).toUpperCase() + texto.slice(1), bg: '#eeeff1', fg: '#5b6470' };
+}
+
 export const isReadOnly = (s: OsStatus) => s === 'concluida' || s === 'cancelada' || s === 'nao_executada';
 
 // ============================================================
@@ -150,7 +164,7 @@ export async function registrarCheckIn(osId: string, statusAtual: OsStatus): Pro
   // Registrar a ausência é tão útil quanto registrar a coordenada: sem isso não
   // dá para distinguir "não havia sinal" de "a versão antiga não capturava".
   await hist(osId, 'Local do check-in', null, coord ? `${coord.lat.toFixed(5)}, ${coord.lng.toFixed(5)}` : 'sem localização');
-  if (patch.status) await hist(osId, 'Status', osTag[statusAtual]?.label ?? statusAtual, osTag.em_andamento.label);
+  if (patch.status) await hist(osId, 'Status', tagDoStatus(statusAtual).label, osTag.em_andamento.label);
   return { comGps: coord !== null };
 }
 export async function registrarCheckOut(osId: string): Promise<{ comGps: boolean }> {
@@ -216,7 +230,7 @@ export async function marcarExecutada(osId: string): Promise<void> {
   if (!row?.assinatura_url) throw new Error('Colete a assinatura do cliente antes de finalizar.');
   const { error } = await supabase.from('ordens_servico').update({ status: 'executada' }).eq('id', osId);
   if (error) throw new Error(msgErro(error));
-  await hist(osId, 'Status', osTag[row.status as OsStatus]?.label ?? row.status, osTag.executada.label);
+  await hist(osId, 'Status', tagDoStatus(row.status).label, osTag.executada.label);
 }
 
 // ============================================================

@@ -11,9 +11,10 @@ import { imprimirLista } from '@/lib/impressao';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { useFiltroUrl, usePaginaUrl } from '@/lib/useFiltroUrl';
+import { listStatusOs } from '@/lib/configuracoes';
 import {
   listOperacional, cancelarOs, listClienteOptions, listFuncionarioOptions, listTiposServico,
-  OS_STATUSES, osStatusLabel, type OperacionalRow, type ListOpts,
+  type OperacionalRow, type ListOpts,
 } from '@/lib/operacional';
 
 export function OperacionalList() {
@@ -46,11 +47,16 @@ export function OperacionalList() {
   const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
   const [funcionarios, setFuncionarios] = useState<{ id: string; nome: string }[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
+  // Do catálogo, não de uma constante: um status criado em Cadastros
+  // Auxiliares precisa aparecer aqui, e um `?status=<novo>` na URL precisa
+  // ser aceito como válido.
+  const [statusOpcoes, setStatusOpcoes] = useState<{ valor: string; nome: string }[]>([]);
 
   // Filtros
   const [fKindRaw, setFKind] = useFiltroUrl('tipo', 'todos', ['todos', 'os', 'orcamento']);
   const fKind = fKindRaw as ListOpts['kind'];
-  const [fStatus, setFStatus] = useFiltroUrl('status', 'todos', ['todos', ...OS_STATUSES]);
+  const [fStatus, setFStatus] = useFiltroUrl('status', 'todos',
+    statusOpcoes.length ? ['todos', ...statusOpcoes.map((s) => s.valor)] : []);
   const [fCliente, setFCliente] = useFiltroUrl('cliente', '', ['', ...clientes.map((c) => c.id)]);
   const [fFuncionario, setFFuncionario] = useFiltroUrl('func', '', ['', ...funcionarios.map((f) => f.id)]);
   const [fTipo, setFTipo] = useFiltroUrl('servico', '', ['', ...tipos]);
@@ -63,6 +69,7 @@ export function OperacionalList() {
     listClienteOptions().then(setClientes).catch(() => {});
     listFuncionarioOptions().then((f) => setFuncionarios(f.map((x) => ({ id: x.id, nome: x.nome })))).catch(() => {});
     listTiposServico().then(setTipos).catch(() => {});
+    listStatusOs().then(setStatusOpcoes).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -176,7 +183,7 @@ export function OperacionalList() {
           <SelectField className={selCls} label="Tipo" value={fKind} onChange={(e) => setFKind(e.target.value)}
             options={[{ value: 'todos', label: 'OS e orçamentos' }, { value: 'os', label: 'Somente OS' }, { value: 'orcamento', label: 'Somente orçamentos' }]} />
           <SelectField className={selCls} label="Status" value={fStatus} onChange={(e) => setFStatus(e.target.value)}
-            options={[{ value: 'todos', label: 'Todos os status' }, ...OS_STATUSES.map((s) => ({ value: s, label: osStatusLabel[s] }))]} />
+            options={[{ value: 'todos', label: 'Todos os status' }, ...statusOpcoes.map((s) => ({ value: s.valor, label: s.nome }))]} />
           <SelectField className={selCls} label="Cliente" value={fCliente} onChange={(e) => setFCliente(e.target.value)}
             options={[{ value: '', label: 'Todos os clientes' }, ...clientes.map((c) => ({ value: c.id, label: c.nome }))]} />
           <SelectField className={selCls} label="Funcionário" value={fFuncionario} onChange={(e) => setFFuncionario(e.target.value)}

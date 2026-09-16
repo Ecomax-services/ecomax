@@ -12,7 +12,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { docTone, actionInfoMap, type UserActionKey } from '@/data/usuarios';
 import { SEM_DATA, docStateComArquivo, docLabel } from '@/lib/documentos';
-import { osStatusTone, osStatusLabel, type OsStatus } from '@/lib/operacional';
+import { tomStatus, rotuloStatus } from '@/lib/operacional';
 import type { OsDoFuncionario } from '@/lib/funcionarios';
 import {
   getFuncionario, acessoStatus, listOsDoFuncionario, indicadoresDe,
@@ -626,7 +626,7 @@ function Cronograma({ os }: { os: OsDoFuncionario[] }) {
                 <td className="px-4 py-3 pl-6 text-sm font-medium text-ink-800">{o.data}</td>
                 <td className="px-4 py-3 text-sm text-ink-700">{o.codigo}</td>
                 <td className="px-4 py-3 text-sm text-ink-600">{o.cliente}</td>
-                <td className="px-4 py-3 pr-6"><Badge tone={osStatusTone[o.status as OsStatus] ?? 'muted'}>{osStatusLabel[o.status as OsStatus] ?? o.status}</Badge></td>
+                <td className="px-4 py-3 pr-6"><Badge tone={tomStatus(o.status)}>{rotuloStatus(o.status)}</Badge></td>
               </tr>
             ))}
           </tbody>
@@ -664,7 +664,7 @@ function OsVinculadas({ os }: { os: OsDoFuncionario[] }) {
                 <td className="px-4 py-3 text-sm text-ink-600">{o.checkIn ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-ink-600">{o.checkOut ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-ink-600">{o.minutosEmCampo != null ? `${o.minutosEmCampo} min` : '—'}</td>
-                <td className="px-4 py-3 pr-6"><Badge tone={osStatusTone[o.status as OsStatus] ?? 'muted'}>{osStatusLabel[o.status as OsStatus] ?? o.status}</Badge></td>
+                <td className="px-4 py-3 pr-6"><Badge tone={tomStatus(o.status)}>{rotuloStatus(o.status)}</Badge></td>
               </tr>
             ))}
           </tbody>

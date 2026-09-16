@@ -5,26 +5,17 @@ import { Topbar } from '@/components/Topbar';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Drawer } from '@/components/ui/Drawer';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { TextField, TextareaField, SearchInput } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import {
-  CATALOGOS, listCatalogoItens, createCatalogoItem, updateCatalogoItem,
-  setCatalogoItemAtivo, deleteCatalogoItem, type CatalogoItem, type CatalogoMeta,
+  CATALOGOS, listCatalogoItens, contarItensPorCatalogo, createCatalogoItem, updateCatalogoItem,
+  setCatalogoItemAtivo, listCatalogoAtivos, type CatalogoItem, type CatalogoMeta,
 } from '@/lib/configuracoes';
+import { PALETA_TAGS as PALETA } from '@/lib/paletaTags';
+import { PainelPlanilha, PainelProdutosPorTipo } from './CadastrosEspeciais';
 import { maskInt } from '@/lib/masks';
-
-const PALETA: { bg: string; fg: string; nome: string }[] = [
-  { bg: '#d3f7d3', fg: '#155015', nome: 'Verde' },
-  { bg: '#a3eba3', fg: '#0f3f0f', nome: 'Verde escuro' },
-  { bg: '#e8eefc', fg: '#3056b5', nome: 'Azul' },
-  { bg: '#fdebd0', fg: '#b45309', nome: 'Âmbar' },
-  { bg: '#ffddd5', fg: '#a81400', nome: 'Vermelho' },
-  { bg: '#ede9fe', fg: '#6d28d9', nome: 'Roxo' },
-  { bg: '#f2f3f4', fg: '#686f7d', nome: 'Cinza' },
-];
 
 type DrawerState = { item?: CatalogoItem; isNew: boolean };
 
@@ -33,7 +24,6 @@ export function CadastrosAuxiliares() {
   const { can } = useAuth();
   const canCreate = can('configuracoes', 'criar');
   const canEdit = can('configuracoes', 'editar');
-  const canDelete = can('configuracoes', 'excluir');
 
   const [catKey, setCatKey] = useState<string>(CATALOGOS[0].key);
   const [items, setItems] = useState<CatalogoItem[]>([]);
@@ -41,21 +31,23 @@ export function CadastrosAuxiliares() {
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
   const [form, setForm] = useState({ nome: '', observacao: '', cor_bg: '', cor_fg: '', ativo: true, template_mensagem: '', prazo_padrao: '' });
   const [saving, setSaving] = useState(false);
-  const [confirmDel, setConfirmDel] = useState<CatalogoItem | null>(null);
 
   const meta = useMemo<CatalogoMeta>(() => CATALOGOS.find((c) => c.key === catKey)!, [catKey]);
 
-  // Agrupa preservando a ordem de CATALOGOS — o Map mantém a ordem de inserção,
-  // então o grupo aparece onde seu primeiro catálogo aparece na lista.
-  const grupos = useMemo(() => {
-    const m = new Map<string, CatalogoMeta[]>();
-    CATALOGOS.forEach((c) => m.set(c.grupo, [...(m.get(c.grupo) ?? []), c]));
-    return [...m.entries()];
-  }, []);
+  // Contagem de todos os catálogos, para a pílula que o protótipo mostra em
+  // cada linha da coluna. Recarrega quando o catálogo aberto muda porque criar
+  // ou excluir um item altera o número da linha correspondente.
+  const [contagens, setContagens] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
-    try { setItems(await listCatalogoItens(catKey)); } catch (e) { showToast((e as Error).message); }
-  }, [catKey, showToast]);
+    try {
+      // Os dois especiais não vivem em catalogo_itens: a pílula deles conta
+      // tipos de serviço, que é o eixo das abas dos dois painéis.
+      const [totais, tiposServico] = await Promise.all([contarItensPorCatalogo(), listCatalogoAtivos('tipos_servico')]);
+      setContagens({ ...totais, planilhas: tiposServico.length, produtos_tipo: tiposServico.length });
+      if (!meta.especial) setItems(await listCatalogoItens(catKey));
+    } catch (e) { showToast((e as Error).message); }
+  }, [catKey, meta.especial, showToast]);
   useEffect(() => { load(); }, [load]);
 
   const rows = useMemo(
@@ -102,12 +94,6 @@ export function CadastrosAuxiliares() {
     catch (e) { showToast((e as Error).message); }
   };
 
-  const excluir = async () => {
-    if (!confirmDel) return;
-    try { await deleteCatalogoItem(confirmDel.id); setConfirmDel(null); showToast('Item excluído'); await load(); }
-    catch (e) { showToast((e as Error).message); }
-  };
-
   const th = 'px-4 py-3 text-left text-xs font-bold uppercase text-ink-400';
   const up = (k: keyof typeof form, v: string | boolean) => setForm((s) => ({ ...s, [k]: v }));
 
@@ -122,34 +108,36 @@ export function CadastrosAuxiliares() {
         <div className="grid grid-cols-[240px_1fr] gap-5">
           {/* Lista de catálogos */}
           <div className="self-start rounded-2xl border border-ink-100 bg-white p-2">
-            {grupos.map(([grupo, cats]) => (
-              <div key={grupo} className="mb-1 last:mb-0">
-                <p className="px-3 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-400">{grupo}</p>
-                {cats.map((c) => (
-                  <button
-                    key={c.key}
-                    onClick={() => { setCatKey(c.key); setSearch(''); }}
-                    className={cn(
-                      'flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2.5 text-left text-[13px] leading-tight transition-colors',
-                      c.key === catKey ? 'border border-forest-accent bg-forest-50 font-semibold text-forest-900' : 'border border-transparent font-medium text-ink-700 hover:bg-ink-50',
-                    )}
-                  >
-                    <span>{c.label}</span>
-                    {c.key === catKey && <span className="shrink-0 text-xs font-bold text-forest-700">{items.length}</span>}
-                  </button>
-                ))}
-              </div>
+            <p className="px-3 pb-2 pt-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-400">Catálogos</p>
+            {CATALOGOS.map((c) => (
+              <button
+                key={c.key}
+                onClick={() => { setCatKey(c.key); setSearch(''); }}
+                className={cn(
+                  'flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2.5 text-left text-[13px] leading-tight transition-colors',
+                  c.key === catKey ? 'border border-forest-accent bg-forest-50 font-semibold text-forest-900' : 'border border-transparent font-medium text-ink-700 hover:bg-ink-50',
+                )}
+              >
+                <span>{c.label}</span>
+                <span className="shrink-0 rounded-full bg-ink-50 px-2 py-0.5 text-xs text-ink-400">
+                  {c.key === catKey && !c.especial ? items.length : contagens[c.key] ?? 0}
+                </span>
+              </button>
             ))}
           </div>
 
+          {meta.especial === 'planilha' && <PainelPlanilha perms={{ canCreate, canEdit }} />}
+          {meta.especial === 'produtos_tipo' && <PainelProdutosPorTipo perms={{ canCreate, canEdit, canDesvincular: can('configuracoes', 'excluir') }} />}
+
           {/* Itens do catálogo */}
+          {!meta.especial && (
           <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-baseline gap-2">
                 <span className="text-[17px] font-bold text-ink-900">{meta.label}</span>
                 <span className="text-[13px] text-ink-400">{items.length} itens cadastrados</span>
               </div>
-              {canCreate && !meta.fixo && <Button onClick={openNew}><Plus className="h-5 w-5" />Novo item</Button>}
+              {canCreate && <Button onClick={openNew}><Plus className="h-5 w-5" />Novo item</Button>}
             </div>
 
             <SearchInput containerClassName="mb-4 w-[280px]" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar item" />
@@ -159,13 +147,16 @@ export function CadastrosAuxiliares() {
                 <thead>
                   <tr className="bg-ink-50">
                     <th className={cn(th, 'pl-6')}>Item</th>
+                    {/* A observação é digitada no drawer e não tinha onde
+                        aparecer: quem escrevia a nota não a via mais. */}
+                    <th className={th}>Observação</th>
                     <th className={cn(th, 'text-center')}>Em uso</th>
                     <th className={cn(th, 'text-center')}>Status</th>
                     <th className={cn(th, 'pr-6 text-right')}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.length === 0 && <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum item.</td></tr>}
+                  {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum item.</td></tr>}
                   {rows.map((it) => (
                     <tr key={it.id} className="border-t border-ink-100">
                       <td className="px-4 py-3.5 pl-6">
@@ -175,14 +166,16 @@ export function CadastrosAuxiliares() {
                           <span className="text-sm font-medium text-ink-800">{it.nome}</span>
                         )}
                       </td>
+                      <td className="max-w-[280px] px-4 py-3.5 text-sm text-ink-500">
+                        <span className="block truncate" title={it.observacao ?? ''}>{it.observacao || '—'}</span>
+                      </td>
                       <td className="px-4 py-3.5 text-center text-sm text-ink-600">{it.uso > 0 ? `${it.uso} ${it.uso === 1 ? 'registro' : 'registros'}` : '—'}</td>
                       <td className="px-4 py-3.5 text-center"><Badge tone={it.ativo ? 'success' : 'muted'}>{it.ativo ? 'Ativo' : 'Inativo'}</Badge></td>
                       <td className="px-4 py-3.5 pr-6 text-right">
-                        {!canEdit && !canDelete && <span className="text-[13px] text-ink-400">—</span>}
+                        {!canEdit && <span className="text-[13px] text-ink-400">—</span>}
                         <div className="inline-flex justify-end gap-2">
                           {canEdit && <ActionBtn onClick={() => openEdit(it)}>Editar</ActionBtn>}
-                          {canEdit && <ActionBtn onClick={() => toggleAtivo(it)}>{it.ativo ? 'Inativar' : 'Ativar'}</ActionBtn>}
-                          {canDelete && !meta.fixo && it.uso === 0 && <ActionBtn danger onClick={() => setConfirmDel(it)}>Excluir</ActionBtn>}
+                          {canEdit && <ActionBtn onClick={() => toggleAtivo(it)}>{it.ativo ? 'Inativar' : 'Reativar'}</ActionBtn>}
                         </div>
                       </td>
                     </tr>
@@ -190,12 +183,13 @@ export function CadastrosAuxiliares() {
                 </tbody>
               </table>
               <p className="border-t border-ink-100 px-6 py-3.5 text-[13px] text-ink-400">
-                {meta.fixo
-                  ? 'Este conjunto é fixo no banco: dá para renomear, recolorir e reordenar, mas não criar nem excluir — um item novo aqui não poderia ser usado pelo módulo.'
-                  : 'Itens com uso registrado podem ser inativados, mas não excluídos.'}
+                {meta.slug
+                  ? 'Itens em uso por alguma OS não podem ser inativados — a OS ficaria com uma situação que o sistema não reconhece.'
+                  : 'Itens que saem de uso são inativados: os registros feitos com eles continuam legíveis.'}
               </p>
             </div>
           </div>
+          )}
         </div>
       </div>
 
@@ -261,16 +255,6 @@ export function CadastrosAuxiliares() {
         </div>
       </Drawer>
 
-      <ConfirmDialog
-        open={!!confirmDel}
-        onClose={() => setConfirmDel(null)}
-        onConfirm={excluir}
-        title={confirmDel ? `Excluir "${confirmDel.nome}"` : ''}
-        description="O item será removido permanentemente do catálogo. Esta ação não pode ser desfeita."
-        confirmLabel="Excluir item"
-        cancelLabel="Cancelar"
-        destructive
-      />
     </>
   );
 }

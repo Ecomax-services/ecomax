@@ -2312,6 +2312,48 @@ export type Database = {
           },
         ]
       }
+      planilha_itens: {
+        Row: {
+          ativo: boolean
+          cor_bg: string | null
+          cor_fg: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          observacao: string | null
+          ordem: number
+          tipo_servico: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cor_bg?: string | null
+          cor_fg?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+          observacao?: string | null
+          ordem?: number
+          tipo_servico: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cor_bg?: string | null
+          cor_fg?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          observacao?: string | null
+          ordem?: number
+          tipo_servico?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       produtos: {
         Row: {
           anvisa_url: string | null
@@ -2537,6 +2579,51 @@ export type Database = {
             columns: ["solicitante_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tipo_servico_produtos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          produto_id: string
+          qtd_padrao: number
+          tipo_servico: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          produto_id: string
+          qtd_padrao?: number
+          tipo_servico: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          produto_id?: string
+          qtd_padrao?: number
+          tipo_servico?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tipo_servico_produtos_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tipo_servico_produtos_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_produtos"
             referencedColumns: ["id"]
           },
         ]
