@@ -146,7 +146,7 @@ export function CadastrosAuxiliares() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-ink-50">
-                    <th className={cn(th, 'pl-6')}>Nome</th>
+                    <th className={cn(th, 'pl-6')}>Item</th>
                     <th className={cn(th, 'text-center')}>Em uso</th>
                     <th className={cn(th, 'text-center')}>Status</th>
                     <th className={cn(th, 'pr-6 text-right')}>Ações</th>
