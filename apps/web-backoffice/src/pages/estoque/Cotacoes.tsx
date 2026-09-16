@@ -104,17 +104,19 @@ export function Cotacoes() {
               <th className={cn(th, 'pl-6')}>Código</th>
               <th className={th}>Produto</th>
               <th className={th}>Qtd</th>
+                <th className={th}>Fornecedores</th>
               <th className={th}>Data</th>
               <th className={cn(th, 'pr-6')}>Status</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-ink-400">Nenhuma cotação.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-ink-400">Nenhuma cotação.</td></tr>}
             {rows.map((c) => (
               <tr key={c.id} onClick={() => setDetail(c)} className="cursor-pointer border-t border-ink-100 hover:bg-forest-50/60">
                 <td className="px-4 py-3.5 pl-6 text-sm font-semibold text-forest-900">{c.cod}</td>
                 <td className="px-4 py-3.5 text-sm text-ink-800">{c.prod}</td>
                 <td className="px-4 py-3.5 text-sm text-ink-700">{c.qtd}</td>
+                  <td className="px-4 py-3.5 text-sm text-ink-700">{c.fornecedores === 1 ? '1 fornecedor' : `${c.fornecedores} fornecedores`}</td>
                 <td className="px-4 py-3.5 text-sm text-ink-600">{c.date}</td>
                 <td className="px-4 py-3.5 pr-6"><Badge tone={c.tone}>{c.status}</Badge></td>
               </tr>

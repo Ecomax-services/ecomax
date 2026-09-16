@@ -477,7 +477,8 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "funcionarios"
             referencedColumns: ["id"]
-          },]
+          },
+        ]
       }
       comercial_follow_ups: {
         Row: {
@@ -2976,6 +2977,20 @@ export type Database = {
       }
       storage_os_id: { Args: { _name: string }; Returns: string }
       storage_os_tipo: { Args: { _name: string }; Returns: string }
+      ultimo_acesso: {
+        Args: { _ids: string[] }
+        Returns: {
+          profile_id: string
+          ultimo_login: string
+        }[]
+      }
+      valor_estoque_por_base: {
+        Args: never
+        Returns: {
+          base_id: string
+          valor: number
+        }[]
+      }
     }
     Enums: {
       app_key: "backoffice" | "portal_cliente" | "mobile_operador"

@@ -48,6 +48,8 @@ export interface BaseRow {
   central: boolean;
   prods: number;
   itens: number;
+  /** Valor do estoque na base, pelo último custo de compra de cada produto. */
+  valorEstoque: number;
   status: string;
   tone: BadgeTone;
   cep: string | null;
@@ -85,6 +87,8 @@ export interface CotacaoRow {
   cod: string;
   prod: string;
   qtd: string;
+  /** Quantos fornecedores foram consultados — a razão de a cotação existir. */
+  fornecedores: number;
   date: string;
   status: string;
   statusKey: string;
@@ -278,13 +282,22 @@ export async function listProdutosParaVincular(fornecedorId: string): Promise<{ 
 
 // ---------- Bases ----------
 export async function listBases(): Promise<BaseRow[]> {
-  const { data, error } = await supabase.from('vw_bases').select('*').order('central', { ascending: false }).order('nome');
+  // O valor vem de uma função no banco, e não de uma soma aqui: sem preço em
+  // `produtos`, o custo unitário sai da última requisição de compra de cada
+  // item, e essa conta não deve viver espalhada pela tela.
+  const [{ data, error }, { data: valores }] = await Promise.all([
+    supabase.from('vw_bases').select('*').order('central', { ascending: false }).order('nome'),
+    supabase.rpc('valor_estoque_por_base'),
+  ]);
   if (error) throw new Error(msgErro(error));
+  const valorPorBase: Record<string, number> = {};
+  ((valores as any[]) ?? []).forEach((v) => { valorPorBase[v.base_id] = Number(v.valor); });
   return (data as any[]).map((b) => {
     const endereco = [b.logradouro, b.numero, b.complemento, b.bairro].filter(Boolean).join(', ');
     return {
       id: b.id, nome: b.nome, cidade: b.cidade ?? '—', uf: b.uf ?? '', resp: b.responsavel_nome ?? '—',
       responsavel_id: b.responsavel_id, central: b.central, prods: Number(b.num_produtos), itens: Number(b.itens_total),
+      valorEstoque: valorPorBase[b.id] ?? 0,
       status: b.ativo ? 'Ativa' : 'Inativa', tone: (b.ativo ? 'success' : 'muted') as BadgeTone,
       cep: b.cep ?? null, logradouro: b.logradouro ?? null, numero: b.numero ?? null, complemento: b.complemento ?? null, bairro: b.bairro ?? null,
       endereco: endereco || '—',
@@ -527,11 +540,13 @@ export async function cancelarTransferencia(id: string) {
 // ---------- Cotações ----------
 export async function listCotacoes(): Promise<CotacaoRow[]> {
   const { data, error } = await supabase
-    .from('cotacoes').select('id, codigo, quantidade, status, created_at, produto:produto_id(nome)')
+    .from('cotacoes')
+    .select('id, codigo, quantidade, status, created_at, produto:produto_id(nome), respostas:cotacao_respostas(count)')
     .order('created_at', { ascending: false });
   if (error) throw new Error(msgErro(error));
   return (data as any[]).map((c) => ({
     id: c.id, cod: c.codigo, prod: one<any>(c.produto)?.nome ?? '—', qtd: c.quantidade ?? '—',
+    fornecedores: c.respostas?.[0]?.count ?? 0,
     date: new Date(c.created_at).toLocaleDateString('pt-BR'),
     status: cotLabelMap[c.status] ?? c.status, statusKey: c.status, tone: cotToneMap[c.status] ?? 'muted',
   }));
