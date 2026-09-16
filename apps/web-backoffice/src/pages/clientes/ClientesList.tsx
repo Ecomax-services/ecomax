@@ -11,6 +11,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { listClientes, setClienteAtivo, getKpisClientes, type ClienteRow, type KpisClientes } from '@/lib/clientes';
 import { ClienteFormDrawer } from '@/pages/clientes/ClienteFormDrawer';
+import { VisualizadorDocumento } from '@/components/VisualizadorDocumento';
 import { copiar } from '@/lib/clipboard';
 import { useFiltroUrl, usePaginaUrl } from '@/lib/useFiltroUrl';
 
@@ -22,19 +23,31 @@ const abcClasse: Record<string, string> = {
 };
 
 function BotaoDoc({
-  ativo, titulo, onClick, children,
-}: { ativo: boolean; titulo: string; onClick: () => void; children: React.ReactNode }) {
+  caminho, rotulo, cliente, onAbrir, children,
+}: {
+  caminho: string | null; rotulo: string; cliente: string;
+  onAbrir: (d: { caminho: string; titulo: string; sub: string }) => void;
+  children: React.ReactNode;
+}) {
+  const { showToast } = useToast();
+  const tem = !!caminho;
+  // Clicável mesmo sem documento, como no protótipo: um botão morto não
+  // explica nada, e a frase que o usuário precisa ler é justamente "não há
+  // documento publicado para este cliente".
+  const clicar = () => {
+    if (!caminho) return showToast(`Nenhum ${rotulo.toLowerCase()} publicado para ${cliente}.`);
+    onAbrir({ caminho, titulo: `${rotulo}: ${cliente}`, sub: caminho.split('/').pop() ?? '' });
+  };
   return (
     <button
-      onClick={ativo ? onClick : undefined}
-      disabled={!ativo}
-      title={titulo}
-      aria-label={titulo}
+      onClick={clicar}
+      title={tem ? `${rotulo} publicado para ${cliente} — clique para abrir` : `Sem ${rotulo.toLowerCase()} publicado para este cliente`}
+      aria-label={tem ? `Abrir ${rotulo.toLowerCase()} de ${cliente}` : `Sem ${rotulo.toLowerCase()} publicado para ${cliente}`}
       className={cn(
-        'rounded-lg border p-1.5',
-        ativo
+        'rounded-lg border p-1.5 transition-colors',
+        tem
           ? 'border-forest-accent bg-forest-50 text-forest-700 hover:bg-forest-100'
-          : 'cursor-not-allowed border-ink-100 bg-white text-ink-200',
+          : 'border-ink-100 bg-white text-ink-200 hover:border-ink-200 hover:text-ink-400',
       )}
     >
       {children}
@@ -59,6 +72,7 @@ export function ClientesList() {
   const [loading, setLoading] = useState(true);
   const [menu, setMenu] = useState<string | null>(null);
   const [kpis, setKpis] = useState<KpisClientes | null>(null);
+  const [doc, setDoc] = useState<{ caminho: string; titulo: string; sub: string } | null>(null);
 
   /**
    * Copia o endereço do Portal do Cliente.
@@ -168,16 +182,18 @@ export function ClientesList() {
                     <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
                       <span className="flex items-center gap-1.5">
                         <BotaoDoc
-                          ativo={c.temMapeamento}
-                          titulo={c.temMapeamento ? `Mapeamento publicado para ${c.nome}` : 'Sem mapeamento publicado para este cliente'}
-                          onClick={() => navigate(`/clientes/${c.id}?aba=documentos`)}
+                          caminho={c.mapeamentoPath}
+                          rotulo="Mapeamento"
+                          cliente={c.nome}
+                          onAbrir={setDoc}
                         >
                           <Map className="h-4 w-4" />
                         </BotaoDoc>
                         <BotaoDoc
-                          ativo={c.temRelatorio}
-                          titulo={c.temRelatorio ? `Relatório técnico publicado para ${c.nome}` : 'Sem relatório técnico publicado para este cliente'}
-                          onClick={() => navigate(`/clientes/${c.id}?aba=documentos`)}
+                          caminho={c.relatorioPath}
+                          rotulo="Relatório técnico"
+                          cliente={c.nome}
+                          onAbrir={setDoc}
                         >
                           <FileCheck2 className="h-4 w-4" />
                         </BotaoDoc>
@@ -246,6 +262,7 @@ export function ClientesList() {
         onClose={() => setDrawer(null)}
         onSaved={() => { setDrawer(null); load(); }}
       />
+      {doc && <VisualizadorDocumento doc={doc} onClose={() => setDoc(null)} />}
     </>
   );
 }
