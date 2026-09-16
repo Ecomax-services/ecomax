@@ -20,6 +20,7 @@ import { EstoqueSaldo } from '@/pages/estoque/EstoqueSaldo';
 import { ClientesList } from '@/pages/clientes/ClientesList';
 import { ClienteDetalhe } from '@/pages/clientes/ClienteDetalhe';
 import { ElaborarOrcamento } from '@/pages/clientes/ElaborarOrcamento';
+import { FuncionarioIntegrado } from '@/pages/clientes/FuncionarioIntegrado';
 import { OperacionalList } from '@/pages/operacional/OperacionalList';
 import { ComercialHub } from '@/pages/comercial/ComercialHub';
 import { FollowUps } from '@/pages/comercial/FollowUps';
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
           { path: '/clientes', element: <ClientesList /> },
           { path: '/clientes/:id', element: <ClienteDetalhe /> },
           { path: '/clientes/orcamentos/:id', element: <ElaborarOrcamento /> },
+          { path: '/clientes/:clienteId/funcionarios/:funcionarioId', element: <FuncionarioIntegrado /> },
         ],
       },
       {

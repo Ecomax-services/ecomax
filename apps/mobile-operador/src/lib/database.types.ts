@@ -274,18 +274,21 @@ export type Database = {
           created_at: string
           funcionario_id: string
           id: string
+          vencimento: string | null
         }
         Insert: {
           cliente_id: string
           created_at?: string
           funcionario_id: string
           id?: string
+          vencimento?: string | null
         }
         Update: {
           cliente_id?: string
           created_at?: string
           funcionario_id?: string
           id?: string
+          vencimento?: string | null
         }
         Relationships: [
           {
@@ -1244,6 +1247,47 @@ export type Database = {
           },
         ]
       }
+      funcionario_servicos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          funcionario_id: string
+          habilitacao: string | null
+          id: string
+          tipo_servico: string
+          updated_at: string
+          validade: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          funcionario_id: string
+          habilitacao?: string | null
+          id?: string
+          tipo_servico: string
+          updated_at?: string
+          validade?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          funcionario_id?: string
+          habilitacao?: string | null
+          id?: string
+          tipo_servico?: string
+          updated_at?: string
+          validade?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funcionario_servicos_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funcionarios: {
         Row: {
           aso_arquivo_url: string | null
@@ -1279,6 +1323,7 @@ export type Database = {
           turno: string | null
           uf: string | null
           updated_at: string
+          utiliza_caixa: boolean
         }
         Insert: {
           aso_arquivo_url?: string | null
@@ -1314,6 +1359,7 @@ export type Database = {
           turno?: string | null
           uf?: string | null
           updated_at?: string
+          utiliza_caixa?: boolean
         }
         Update: {
           aso_arquivo_url?: string | null
@@ -1349,6 +1395,7 @@ export type Database = {
           turno?: string | null
           uf?: string | null
           updated_at?: string
+          utiliza_caixa?: boolean
         }
         Relationships: [
           {

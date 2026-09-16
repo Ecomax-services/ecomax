@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Info } from 'lucide-react';
+import { Info, Mail, X } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { cn } from '@/lib/cn';
 import {
-  CountHeadline, Empty, ErrorBanner, Loading, SearchInput, TH,
+  CountHeadline, ErrorBanner, Loading, SearchInput, TH,
 } from '@/components/ui/DataSection';
 import {
   listColaboradores, listTiposDocumentoColaborador, abrirDocumento, validadeMeta,
@@ -71,11 +71,11 @@ export function Colaboradores() {
             </div>
 
             {visiveis.length === 0 ? (
-              <Empty>
-                {rows.length === 0
-                  ? 'Nenhum colaborador atendeu suas ordens de serviço ainda.'
-                  : 'Nenhum colaborador para esta busca.'}
-              </Empty>
+              <BuscaSemResultado
+                buscou={rows.length > 0}
+                termo={busca}
+                onLimpar={() => setBusca('')}
+              />
             ) : (
               <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
                 <table className="w-full border-collapse" style={{ minWidth: 320 + tipos.length * 130 }}>
@@ -134,5 +134,55 @@ export function Colaboradores() {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * O que o cliente vê quando a busca não acha ninguém.
+ *
+ * O protótipo não para em "nenhum resultado": oferece o caminho de saída, que
+ * é pedir a documentação ao RH da Ecomax. Sem isso o cliente fica olhando uma
+ * tela vazia sem saber que existe alguém para perguntar — e a lista aqui só
+ * mostra quem já esteve numa OS dele, então "não está na lista" é uma
+ * situação normal, não um erro.
+ */
+function BuscaSemResultado({
+  buscou, termo, onLimpar,
+}: { buscou: boolean; termo: string; onLimpar: () => void }) {
+  const assunto = encodeURIComponent('Documentação de colaborador — solicitação pelo portal');
+  const corpo = encodeURIComponent(
+    `Olá,\n\nGostaria de solicitar a documentação do colaborador${termo.trim() ? ` "${termo.trim()}"` : ''}.\n\nObrigado.`,
+  );
+  const rh = import.meta.env.VITE_EMAIL_RH ?? 'contato@ecomax.com.br';
+
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-ink-200 bg-white px-6 py-8 text-center">
+      <p className="text-sm text-ink-500">
+        {buscou
+          ? <>Nenhum colaborador encontrado para “{termo}”.</>
+          : 'Nenhum colaborador atendeu suas ordens de serviço ainda.'}
+      </p>
+      <p className="max-w-[420px] text-[13px] text-ink-400">
+        {buscou
+          ? 'Confira a grafia do nome. Se o colaborador não estiver na lista, solicite a documentação ao RH da Ecomax.'
+          : 'Assim que uma OS for executada, quem esteve no local aparece aqui com a documentação.'}
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <a
+          href={`mailto:${rh}?subject=${assunto}&body=${corpo}`}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-forest-700 px-4 py-2 text-[13px] font-semibold text-white hover:bg-forest-800"
+        >
+          <Mail className="h-4 w-4" />Solicitar ao RH por e-mail
+        </a>
+        {buscou && (
+          <button
+            onClick={onLimpar}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-4 py-2 text-[13px] font-semibold text-ink-700 hover:bg-ink-50"
+          >
+            <X className="h-4 w-4" />Limpar busca
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
