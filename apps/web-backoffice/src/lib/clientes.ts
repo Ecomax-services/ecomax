@@ -37,9 +37,16 @@ export interface ClienteRow {
   doc: string;              // CNPJ ou CPF, para a busca e exportações
   endereco: string;
   ativo: boolean;
-  /** Documentos publicados do cliente — alimentam a coluna "Documentos". */
-  temMapeamento: boolean;
-  temRelatorio: boolean;
+  /**
+   * Caminho no storage do documento mais recente, ou null.
+   *
+   * Guardar o caminho e não um booleano é o que separa "existe registro" de
+   * "existe arquivo para abrir": dois dos relatórios publicados hoje estão com
+   * `arquivo_url` nulo, e um ícone "disponível" que não abre nada é pior do
+   * que um ícone apagado.
+   */
+  mapeamentoPath: string | null;
+  relatorioPath: string | null;
 }
 export interface ClienteDetail extends ClienteRow {
   razao_social: string | null;
@@ -116,8 +123,8 @@ export async function listClientes(opts: { search?: string; page?: number; pageS
       gestor: g?.nome_completo ?? null,
       cnpj: c.cnpj ?? null, cpf: c.cpf ?? null,
       doc: c.cnpj || c.cpf || '—', endereco: composeEndereco(c), ativo: c.ativo,
-      temMapeamento: docs[c.id]?.mapeamento ?? false,
-      temRelatorio: docs[c.id]?.relatorio ?? false,
+      mapeamentoPath: docs[c.id]?.mapeamento ?? null,
+      relatorioPath: docs[c.id]?.relatorio ?? null,
     };
   });
   return { rows, total: count ?? 0 };
@@ -132,20 +139,31 @@ export async function listClientes(opts: { search?: string; page?: number; pageS
  */
 async function documentosPorCliente(
   ids: string[],
-): Promise<Record<string, { mapeamento: boolean; relatorio: boolean }>> {
-  const out: Record<string, { mapeamento: boolean; relatorio: boolean }> = {};
+): Promise<Record<string, { mapeamento: string | null; relatorio: string | null }>> {
+  const out: Record<string, { mapeamento: string | null; relatorio: string | null }> = {};
   if (ids.length === 0) return out;
 
   const [mapas, relatorios] = await Promise.all([
-    supabase.from('ordens_servico').select('cliente_id').in('cliente_id', ids).not('mapa_pontos_url', 'is', null),
-    supabase.from('os_relatorios').select('os:os_id(cliente_id)').eq('publicado', true),
+    supabase.from('ordens_servico').select('cliente_id, mapa_pontos_url, updated_at')
+      .in('cliente_id', ids).not('mapa_pontos_url', 'is', null)
+      .order('updated_at', { ascending: false }),
+    // `arquivo_url` não nulo, e não só `publicado`: relatório publicado sem
+    // arquivo existe no banco de hoje, e o ícone não pode prometer o que não
+    // tem como abrir.
+    supabase.from('os_relatorios').select('arquivo_url, created_at, os:os_id(cliente_id)')
+      .eq('publicado', true).not('arquivo_url', 'is', null)
+      .order('created_at', { ascending: false }),
   ]);
 
-  ids.forEach((id) => { out[id] = { mapeamento: false, relatorio: false }; });
-  (mapas.data as any[] | null)?.forEach((r) => { if (out[r.cliente_id]) out[r.cliente_id].mapeamento = true; });
+  ids.forEach((id) => { out[id] = { mapeamento: null, relatorio: null }; });
+  (mapas.data as any[] | null)?.forEach((r) => {
+    if (out[r.cliente_id] && !out[r.cliente_id].mapeamento) out[r.cliente_id].mapeamento = r.mapa_pontos_url;
+  });
   (relatorios.data as any[] | null)?.forEach((r) => {
     const o = Array.isArray(r.os) ? r.os[0] : r.os;
-    if (o?.cliente_id && out[o.cliente_id]) out[o.cliente_id].relatorio = true;
+    if (o?.cliente_id && out[o.cliente_id] && !out[o.cliente_id].relatorio) {
+      out[o.cliente_id].relatorio = r.arquivo_url;
+    }
   });
   return out;
 }
@@ -173,7 +191,7 @@ export async function getCliente(id: string): Promise<ClienteDetail> {
   return {
     id: c.id, nome: c.nome, razao: c.razao_social ?? '—', regiao: c.regiao ?? '—',
     abc: c.classificacao_abc ?? null, gestor: g?.nome_completo ?? null, gestor_id: c.gestor_id ?? null,
-    temMapeamento: docs[c.id]?.mapeamento ?? false, temRelatorio: docs[c.id]?.relatorio ?? false,
+    mapeamentoPath: docs[c.id]?.mapeamento ?? null, relatorioPath: docs[c.id]?.relatorio ?? null,
     doc: c.cnpj || c.cpf || '—', endereco: composeEndereco(c), ativo: c.ativo,
     razao_social: c.razao_social, tipo_pessoa: c.tipo_pessoa, cnpj: c.cnpj, cpf: c.cpf,
     cep: c.cep, logradouro: c.logradouro, numero: c.numero, complemento: c.complemento,
