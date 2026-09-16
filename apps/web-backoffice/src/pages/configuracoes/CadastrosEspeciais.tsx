@@ -196,7 +196,10 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-ink-50">
-              <th className={cn(th, 'pl-6')}>Status / legenda</th>
+              {/* "Nome", e não "Status / legenda" como no protótipo: o nome é a
+                  própria etiqueta colorida, e com o rótulo antigo quem abria a
+                  tela procurava uma coluna de nome que já estava na frente. */}
+              <th className={cn(th, 'pl-6')}>Nome</th>
               <th className={cn(th, 'text-center')}>Em uso</th>
               <th className={cn(th, 'text-center')}>Situação</th>
               <th className={cn(th, 'pr-6 text-right')}>Ações</th>
