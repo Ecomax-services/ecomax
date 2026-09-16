@@ -28,15 +28,30 @@ export interface ClienteRow {
   nome: string;
   razao: string;
   regiao: string;
-  doc: string;              // CNPJ ou CPF
+  /** Curva ABC, mantida em Gestão de Clientes. Somente leitura nos outros módulos. */
+  abc: string | null;
+  /** Nome do gestor responsável, ou null quando ninguém foi atribuído. */
+  gestor: string | null;
+  cnpj: string | null;
+  cpf: string | null;
+  doc: string;              // CNPJ ou CPF, para a busca e exportações
   endereco: string;
   ativo: boolean;
+  /** Documentos publicados do cliente — alimentam a coluna "Documentos". */
+  temMapeamento: boolean;
+  temRelatorio: boolean;
 }
 export interface ClienteDetail extends ClienteRow {
   razao_social: string | null;
   tipo_pessoa: 'pf' | 'pj';
-  cnpj: string | null;
-  cpf: string | null;
+  /**
+   * O id, e não só o nome que vem em `ClienteRow.gestor`.
+   *
+   * O formulário de edição precisa dele para pré-selecionar o gestor atual.
+   * Sem isso o campo abria vazio e o save gravava null — editar o telefone de
+   * um cliente apagava o gestor dele, sem aviso nenhum.
+   */
+  gestor_id: string | null;
   cep: string | null; logradouro: string | null; numero: string | null; complemento: string | null;
   bairro: string | null; cidade: string | null; uf: string | null;
   email: string | null;
@@ -54,24 +69,85 @@ export async function listClientes(opts: { search?: string; page?: number; pageS
   const page = opts.page ?? 1;
   const pageSize = opts.pageSize ?? 10;
   const from = (page - 1) * pageSize;
-  let q = supabase.from('clientes').select('*', { count: 'exact' }).order('nome').range(from, from + pageSize - 1);
+  let q = supabase
+    .from('clientes')
+    .select('*, gestor:gestor_id(nome_completo)', { count: 'exact' })
+    .order('nome')
+    .range(from, from + pageSize - 1);
   const s = opts.search?.trim();
   if (s) q = q.or(`nome.ilike.%${s}%,razao_social.ilike.%${s}%`);
   const { data, error, count } = await q;
   if (error) throw new Error(msgErro(error));
-  const rows = (data as any[]).map((c) => ({
-    id: c.id, nome: c.nome, razao: c.razao_social ?? '—', regiao: c.regiao ?? '—',
-    doc: c.cnpj || c.cpf || '—', endereco: composeEndereco(c), ativo: c.ativo,
-  }));
+
+  const ids = (data as any[]).map((c) => c.id);
+  const docs = await documentosPorCliente(ids);
+
+  const rows = (data as any[]).map((c) => {
+    const g = Array.isArray(c.gestor) ? c.gestor[0] : c.gestor;
+    return {
+      id: c.id, nome: c.nome, razao: c.razao_social ?? '—', regiao: c.regiao ?? '—',
+      abc: c.classificacao_abc ?? null,
+      gestor: g?.nome_completo ?? null,
+      cnpj: c.cnpj ?? null, cpf: c.cpf ?? null,
+      doc: c.cnpj || c.cpf || '—', endereco: composeEndereco(c), ativo: c.ativo,
+      temMapeamento: docs[c.id]?.mapeamento ?? false,
+      temRelatorio: docs[c.id]?.relatorio ?? false,
+    };
+  });
   return { rows, total: count ?? 0 };
 }
 
+/**
+ * Quais clientes da página têm mapeamento e relatório técnico publicados.
+ *
+ * Duas consultas para a página inteira, e não duas por linha: com 25 clientes
+ * por página o caminho ingênuo custaria 50 idas ao servidor só para desenhar
+ * dois ícones.
+ */
+async function documentosPorCliente(
+  ids: string[],
+): Promise<Record<string, { mapeamento: boolean; relatorio: boolean }>> {
+  const out: Record<string, { mapeamento: boolean; relatorio: boolean }> = {};
+  if (ids.length === 0) return out;
+
+  const [mapas, relatorios] = await Promise.all([
+    supabase.from('ordens_servico').select('cliente_id').in('cliente_id', ids).not('mapa_pontos_url', 'is', null),
+    supabase.from('os_relatorios').select('os:os_id(cliente_id)').eq('publicado', true),
+  ]);
+
+  ids.forEach((id) => { out[id] = { mapeamento: false, relatorio: false }; });
+  (mapas.data as any[] | null)?.forEach((r) => { if (out[r.cliente_id]) out[r.cliente_id].mapeamento = true; });
+  (relatorios.data as any[] | null)?.forEach((r) => {
+    const o = Array.isArray(r.os) ? r.os[0] : r.os;
+    if (o?.cliente_id && out[o.cliente_id]) out[o.cliente_id].relatorio = true;
+  });
+  return out;
+}
+
+/** Funcionários que podem ser gestor responsável de um cliente. */
+export async function listGestoresOptions(): Promise<{ id: string; nome: string }[]> {
+  const { data, error } = await supabase
+    .from('funcionarios').select('id, nome_completo').eq('ativo', true).order('nome_completo');
+  if (error) throw new Error(msgErro(error));
+  return (data as any[]).map((f) => ({ id: f.id, nome: f.nome_completo }));
+}
+
+export async function definirGestor(clienteId: string, gestorId: string | null): Promise<void> {
+  const { error } = await supabase.from('clientes').update({ gestor_id: gestorId }).eq('id', clienteId);
+  if (error) throw new Error(msgErro(error));
+}
+
 export async function getCliente(id: string): Promise<ClienteDetail> {
-  const { data, error } = await supabase.from('clientes').select('*').eq('id', id).single();
+  const { data, error } = await supabase
+    .from('clientes').select('*, gestor:gestor_id(nome_completo)').eq('id', id).single();
   if (error) throw new Error(msgErro(error));
   const c = data as any;
+  const g = Array.isArray(c.gestor) ? c.gestor[0] : c.gestor;
+  const docs = await documentosPorCliente([c.id]);
   return {
     id: c.id, nome: c.nome, razao: c.razao_social ?? '—', regiao: c.regiao ?? '—',
+    abc: c.classificacao_abc ?? null, gestor: g?.nome_completo ?? null, gestor_id: c.gestor_id ?? null,
+    temMapeamento: docs[c.id]?.mapeamento ?? false, temRelatorio: docs[c.id]?.relatorio ?? false,
     doc: c.cnpj || c.cpf || '—', endereco: composeEndereco(c), ativo: c.ativo,
     razao_social: c.razao_social, tipo_pessoa: c.tipo_pessoa, cnpj: c.cnpj, cpf: c.cpf,
     cep: c.cep, logradouro: c.logradouro, numero: c.numero, complemento: c.complemento,
@@ -85,6 +161,10 @@ export interface ClienteInput {
   cep: string | null; logradouro: string | null; numero: string | null; complemento: string | null;
   bairro: string | null; cidade: string | null; uf: string | null;
   email: string | null; telefone: string | null; observacoes: string | null;
+  /** Gestor responsável e curva ABC: a lista mostra, então o cadastro precisa
+   *  deixar definir — senão a coluna nasce imutável. */
+  gestor_id?: string | null;
+  classificacao_abc?: string | null;
 }
 export async function createCliente(input: ClienteInput): Promise<string> {
   const { data, error } = await supabase.from('clientes').insert({ ...input, created_by: await actorId() }).select('id').single();

@@ -4,12 +4,13 @@ import { Drawer } from '@/components/ui/Drawer';
 import { SelectField, TextField, TextareaField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { maskCPF, maskCNPJ, maskCEP, maskPhone } from '@/lib/masks';
-import { getCliente, createCliente, updateCliente, type ClienteInput } from '@/lib/clientes';
+import { getCliente, createCliente, updateCliente, listGestoresOptions, type ClienteInput } from '@/lib/clientes';
 import { cnpjValido, cpfValido, emailValido, cepValido } from '@/lib/documentosFiscais';
 import { buscarCep, cepCompleto } from '@/lib/cep';
 
 const empty = {
   tipo_pessoa: 'pj' as 'pf' | 'pj', nome: '', razao_social: '', cnpj: '', cpf: '', regiao: '',
+  gestor_id: '', classificacao_abc: '',
   cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
   email: '', telefone: '', observacoes: '',
 };
@@ -23,6 +24,8 @@ export function ClienteFormDrawer({
 }) {
   const { showToast } = useToast();
   const [form, setForm] = useState<FormState>(empty);
+  const [gestores, setGestores] = useState<{ id: string; nome: string }[]>([]);
+  useEffect(() => { listGestoresOptions().then(setGestores).catch(() => {}); }, []);
   const [saving, setSaving] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const isNew = !clienteId;
@@ -32,7 +35,8 @@ export function ClienteFormDrawer({
     if (!clienteId) { setForm(empty); return; }
     getCliente(clienteId).then((c) => setForm({
       tipo_pessoa: c.tipo_pessoa, nome: c.nome, razao_social: c.razao_social ?? '', cnpj: c.cnpj ?? '', cpf: c.cpf ?? '',
-      regiao: c.regiao === '—' ? '' : c.regiao, cep: c.cep ?? '', logradouro: c.logradouro ?? '', numero: c.numero ?? '',
+      regiao: c.regiao === '—' ? '' : c.regiao,
+      gestor_id: c.gestor_id ?? '', classificacao_abc: c.abc ?? '', cep: c.cep ?? '', logradouro: c.logradouro ?? '', numero: c.numero ?? '',
       complemento: c.complemento ?? '', bairro: c.bairro ?? '', cidade: c.cidade ?? '', uf: c.uf ?? '',
       email: c.email ?? '', telefone: c.telefone ?? '', observacoes: c.observacoes ?? '',
     })).catch((e) => showToast((e as Error).message));
@@ -92,6 +96,8 @@ export function ClienteFormDrawer({
         cep: form.cep || null, logradouro: form.logradouro || null, numero: form.numero || null,
         complemento: form.complemento || null, bairro: form.bairro || null, cidade: form.cidade || null, uf: form.uf || null,
         email: form.email || null, telefone: form.telefone || null, observacoes: form.observacoes || null,
+        gestor_id: form.gestor_id || null,
+        classificacao_abc: form.classificacao_abc || null,
       };
       const id = isNew ? await createCliente(payload) : (await updateCliente(clienteId!, payload), clienteId!);
       showToast('Cliente salvo');
@@ -116,6 +122,16 @@ export function ClienteFormDrawer({
       <div className="flex flex-col gap-4">
         <SelectField label="Tipo de pessoa" value={form.tipo_pessoa} onChange={(e) => up('tipo_pessoa', e.target.value)} options={[{ value: 'pj', label: 'Pessoa Jurídica' }, { value: 'pf', label: 'Pessoa Física' }]} />
         <TextField label="Nome" required value={form.nome} onChange={(e) => up('nome', e.target.value)} placeholder={form.tipo_pessoa === 'pj' ? 'Nome fantasia' : 'Nome completo'} />
+        <div className="grid grid-cols-2 gap-3.5">
+          <SelectField
+            label="Gestor responsável" value={form.gestor_id} onChange={(e) => up('gestor_id', e.target.value)}
+            options={[{ value: '', label: 'Sem gestor definido' }, ...gestores.map((g) => ({ value: g.id, label: g.nome }))]}
+          />
+          <SelectField
+            label="Classificação ABC" value={form.classificacao_abc} onChange={(e) => up('classificacao_abc', e.target.value)}
+            options={[{ value: '', label: 'Não classificado' }, ...['A', 'B', 'C'].map((c) => ({ value: c, label: `Classe ${c}` }))]}
+          />
+        </div>
         {form.tipo_pessoa === 'pj' ? (
           <div className="grid grid-cols-2 gap-3.5">
             <TextField label="Razão social" required value={form.razao_social} onChange={(e) => up('razao_social', e.target.value)} placeholder="Razão social" />
