@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, MoreVertical, ChevronLeft, ChevronRight, Link2, FileBadge } from 'lucide-react';
+import { Plus, MoreVertical, ChevronLeft, ChevronRight, Link2, FileBadge, Map, FileCheck2 } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -12,6 +12,34 @@ import { listClientes, setClienteAtivo, type ClienteRow } from '@/lib/clientes';
 import { ClienteFormDrawer } from '@/pages/clientes/ClienteFormDrawer';
 import { copiar } from '@/lib/clipboard';
 import { useFiltroUrl, usePaginaUrl } from '@/lib/useFiltroUrl';
+
+/** Cor da pill de classificação ABC — a mesma de Garantias. */
+const abcClasse: Record<string, string> = {
+  A: 'bg-forest-100 text-forest-900',
+  B: 'bg-tag-softWarnBg text-tag-warnFg',
+  C: 'bg-ink-100 text-ink-500',
+};
+
+function BotaoDoc({
+  ativo, titulo, onClick, children,
+}: { ativo: boolean; titulo: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={ativo ? onClick : undefined}
+      disabled={!ativo}
+      title={titulo}
+      aria-label={titulo}
+      className={cn(
+        'rounded-lg border p-1.5',
+        ativo
+          ? 'border-forest-accent bg-forest-50 text-forest-700 hover:bg-forest-100'
+          : 'cursor-not-allowed border-ink-100 bg-white text-ink-200',
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function ClientesList() {
   const navigate = useNavigate();
@@ -88,29 +116,67 @@ export function ClientesList() {
               <thead>
                 <tr className="bg-ink-50">
                   <th className={cn(th, 'pl-6')}>Nome</th>
+                  <th className={th}>ABC</th>
                   <th className={th}>Razão social</th>
-                  <th className={th}>Região</th>
-                  <th className={th}>CNPJ / CPF</th>
+                  <th className={th}>Documentos</th>
+                  <th className={th}>Gestor responsável</th>
+                  <th className={th}>Região da cidade</th>
+                  <th className={th}>CNPJ</th>
+                  <th className={th}>CPF</th>
                   <th className={th}>Endereço</th>
-                  <th className={th}>Status</th>
                   <th className={cn(th, 'pr-6 text-right')}>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {loading && <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-ink-400">Carregando…</td></tr>}
-                {!loading && rows.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum cliente encontrado.</td></tr>}
+                {loading && <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-ink-400">Carregando…</td></tr>}
+                {!loading && rows.length === 0 && <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-ink-400">Nenhum cliente encontrado.</td></tr>}
                 {!loading && rows.map((c) => (
                   <tr key={c.id} onClick={() => navigate(`/clientes/${c.id}`)} className={cn('cursor-pointer border-t border-ink-100 hover:bg-forest-50/60',
                     // A opacidade fica só no texto dos dados. Antes ela cobria a
                     // linha inteira, e o menu de ações desbotava junto — quem
                     // queria reativar o cliente mal enxergava o botão para isso.
                     !c.ativo && '[&>td:not(:last-child)]:opacity-60')}>
-                    <td className="px-4 py-3.5 pl-6 text-sm font-semibold text-forest-900">{c.nome}</td>
+                    <td className="px-4 py-3.5 pl-6 text-sm">
+                      <span className="flex items-center gap-2">
+                        <span className="font-semibold text-forest-900">{c.nome}</span>
+                        {!c.ativo && <Badge tone="muted">Inativo</Badge>}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      {c.abc
+                        ? <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-bold', abcClasse[c.abc] ?? 'bg-ink-100 text-ink-500')}>{c.abc}</span>
+                        : <span className="text-[13px] text-ink-300">—</span>}
+                    </td>
                     <td className="px-4 py-3.5 text-sm text-ink-700">{c.razao}</td>
+                    {/* Os dois documentos que o cliente vê no portal. O botão
+                        desabilitado diz no title por que está desabilitado —
+                        "sem mapeamento" é informação, e some se o ícone
+                        simplesmente não aparecer. */}
+                    <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+                      <span className="flex items-center gap-1.5">
+                        <BotaoDoc
+                          ativo={c.temMapeamento}
+                          titulo={c.temMapeamento ? `Mapeamento publicado para ${c.nome}` : 'Sem mapeamento publicado para este cliente'}
+                          onClick={() => navigate(`/clientes/${c.id}?aba=documentos`)}
+                        >
+                          <Map className="h-4 w-4" />
+                        </BotaoDoc>
+                        <BotaoDoc
+                          ativo={c.temRelatorio}
+                          titulo={c.temRelatorio ? `Relatório técnico publicado para ${c.nome}` : 'Sem relatório técnico publicado para este cliente'}
+                          onClick={() => navigate(`/clientes/${c.id}?aba=documentos`)}
+                        >
+                          <FileCheck2 className="h-4 w-4" />
+                        </BotaoDoc>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-sm text-ink-700">
+                      {c.gestor ?? <span className="text-ink-300">—</span>}
+                    </td>
                     <td className="px-4 py-3.5 text-sm text-ink-700">{c.regiao}</td>
-                    <td className="px-4 py-3.5 text-sm text-ink-700">{c.doc}</td>
+                    <td className="px-4 py-3.5 text-sm text-ink-700">{c.cnpj ?? <span className="text-ink-300">—</span>}</td>
+                    <td className="px-4 py-3.5 text-sm text-ink-700">{c.cpf ?? <span className="text-ink-300">—</span>}</td>
                     <td className="px-4 py-3.5 text-sm text-ink-600">{c.endereco}</td>
-                    <td className="px-4 py-3.5"><Badge tone={c.ativo ? 'success' : 'muted'}>{c.ativo ? 'Ativo' : 'Inativo'}</Badge></td>
                     <td className="px-4 py-3.5 pr-6 text-right" onClick={(e) => e.stopPropagation()}>
                       {(canEdit || canCreate) ? (
                         <div className="relative inline-block">
