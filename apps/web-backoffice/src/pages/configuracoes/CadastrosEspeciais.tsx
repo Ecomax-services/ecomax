@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Drawer } from '@/components/ui/Drawer';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { TextField, TextareaField, SearchInput } from '@/components/ui/Field';
+import { TextField, TextareaField, SearchInput, SelectField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import { PALETA_TAGS } from '@/lib/paletaTags';
@@ -105,7 +105,7 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
   const [contagens, setContagens] = useState<Record<string, number>>({});
   const [busca, setBusca] = useState('');
   const [drawer, setDrawer] = useState<PlanilhaDrawer | null>(null);
-  const [form, setForm] = useState({ nome: '', observacao: '', cor_bg: PALETA_TAGS[0].bg, cor_fg: PALETA_TAGS[0].fg, ativo: true });
+  const [form, setForm] = useState({ tipo_servico: '', nome: '', observacao: '', cor_bg: PALETA_TAGS[0].bg, cor_fg: PALETA_TAGS[0].fg, ativo: true });
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => { if (!sel && tipos.length) setSel(tipos[0]); }, [tipos, sel]);
@@ -126,12 +126,12 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
   );
 
   const abrirNovo = () => {
-    setForm({ nome: '', observacao: '', cor_bg: PALETA_TAGS[0].bg, cor_fg: PALETA_TAGS[0].fg, ativo: true });
+    setForm({ tipo_servico: sel, nome: '', observacao: '', cor_bg: PALETA_TAGS[0].bg, cor_fg: PALETA_TAGS[0].fg, ativo: true });
     setDrawer({ isNew: true });
   };
   const abrirEdicao = (it: PlanilhaItem) => {
     setForm({
-      nome: it.nome, observacao: it.observacao ?? '',
+      tipo_servico: it.tipo_servico, nome: it.nome, observacao: it.observacao ?? '',
       cor_bg: it.cor_bg ?? PALETA_TAGS[0].bg, cor_fg: it.cor_fg ?? PALETA_TAGS[0].fg, ativo: it.ativo,
     });
     setDrawer({ item: it, isNew: false });
@@ -141,16 +141,20 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
     if (!form.nome.trim()) return showToast('Informe o nome do status.');
     setSalvando(true);
     try {
+      const destino = form.tipo_servico || sel;
       const payload = {
-        tipo_servico: sel, nome: form.nome.trim(),
+        tipo_servico: destino, nome: form.nome.trim(),
         cor_bg: form.cor_bg, cor_fg: form.cor_fg,
         observacao: form.observacao.trim() || null, ativo: form.ativo,
       };
       if (drawer?.isNew) await createPlanilhaItem(payload);
       else if (drawer?.item) await updatePlanilhaItem(drawer.item.id, payload);
       setDrawer(null);
-      showToast('Status salvo');
-      await load();
+      showToast(destino === sel ? 'Status salvo' : `Status movido para ${destino}`);
+      // Sem isto, salvar mudando o tipo faz o item sumir: ele foi para outra
+      // aba e a tela continua na aba antiga, como se nada tivesse acontecido.
+      if (destino !== sel) setSel(destino);
+      else await load();
     } catch (e) { showToast((e as Error).message); } finally { setSalvando(false); }
   };
 
@@ -242,7 +246,7 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
         open={!!drawer}
         onClose={() => setDrawer(null)}
         title={drawer?.isNew ? 'Novo status' : 'Editar status'}
-        subtitle={`Planilha de ${sel}`}
+        subtitle={`Planilha de ${form.tipo_servico || sel}`}
         footer={
           <>
             <Button variant="secondary" fullWidth onClick={() => setDrawer(null)} className="h-[52px]">Cancelar</Button>
@@ -251,6 +255,16 @@ export function PainelPlanilha({ perms }: { perms: PermissoesCatalogo }) {
         }
       >
         <div className="flex flex-col gap-4">
+          {/* O tipo de serviço era implícito: o drawer gravava na aba aberta e
+              só dizia qual no subtítulo. Dava para criar, não para escolher —
+              nem para mover um status de uma planilha para outra ao editar. */}
+          <SelectField
+            label="Tipo de serviço"
+            required
+            value={form.tipo_servico}
+            onChange={(e) => setForm((s) => ({ ...s, tipo_servico: e.target.value }))}
+            options={tipos.map((t) => ({ value: t, label: t }))}
+          />
           <TextField label="Nome" required value={form.nome} onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))} placeholder="Ex.: Consumo parcial" />
           <div>
             <p className="mb-2 text-[13px] font-semibold text-ink-700">Cor da etiqueta</p>
