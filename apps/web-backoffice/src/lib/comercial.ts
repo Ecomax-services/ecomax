@@ -295,6 +295,8 @@ export interface GarantiaRow {
   diasRestantes: number | null;
   dataContato: string;
   temLink: boolean;
+  /** Tipos de serviço cobertos — alimenta a coluna e o filtro "Tipo". */
+  servicos: string[];
 }
 
 function toGarantia(r: any): GarantiaRow {
@@ -312,12 +314,14 @@ function toGarantia(r: any): GarantiaRow {
     diasRestantes: diasAte(r.data_validade),
     dataContato: brDate(r.data_contato_renovacao),
     temLink: (r.links?.[0]?.count ?? 0) > 0,
+    servicos: (r.servicos ?? []).map((s: any) => s.tipo_servico).filter(Boolean),
   };
 }
 
 const GARANTIA_SELECT =
   'id, os_id, cliente_id, data_execucao, data_validade, status, data_contato_renovacao, ' +
-  'os:os_id(codigo), cliente:cliente_id(nome, classificacao_abc), links:comercial_garantia_links(count)';
+  'os:os_id(codigo), cliente:cliente_id(nome, classificacao_abc), links:comercial_garantia_links(count), ' +
+  'servicos:comercial_garantia_servicos(tipo_servico)';
 
 export type GarantiaAba = 'todas' | 'vencendo' | 'aguardando';
 
@@ -325,6 +329,14 @@ export interface ListGarantiasOpts {
   aba?: GarantiaAba;
   busca?: string;
   status?: string;
+  /** 'A' | 'B' | 'C' | 'todos' — classificação do cliente, só leitura aqui. */
+  abc?: string;
+  /** Recorte por vencimento: 'vencidas' | '30' | '60' | '90' | 'todos'. */
+  validade?: string;
+  /** Tipo de serviço coberto pela garantia. */
+  tipo?: string;
+  ordem?: 'validade' | 'cliente' | 'abc' | 'status';
+  ordemDesc?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -338,7 +350,10 @@ export interface ListGarantiasOpts {
 export async function listGarantias(
   opts: ListGarantiasOpts = {},
 ): Promise<{ rows: GarantiaRow[]; total: number }> {
-  const { aba = 'todas', busca, status, page = 1, pageSize = 25 } = opts;
+  const {
+    aba = 'todas', busca, status, abc, validade, tipo,
+    ordem = 'validade', ordemDesc = false, page = 1, pageSize = 25,
+  } = opts;
   let q = supabase.from('comercial_garantias').select(GARANTIA_SELECT, { count: 'exact' });
 
   if (aba === 'vencendo') {
@@ -350,19 +365,97 @@ export async function listGarantias(
   }
   if (status && status !== 'todos') q = q.eq('status', status);
 
+  // Vencimento vai para o servidor porque é comparação de data numa coluna
+  // própria — filtrar isso no navegador quebraria a contagem da paginação.
+  if (validade === 'vencidas') q = q.lt('data_validade', hojeISO());
+  else if (validade === '30' || validade === '60' || validade === '90') {
+    q = q.gte('data_validade', hojeISO()).lte('data_validade', emDiasISO(Number(validade)));
+  }
+
+  const colunaOrdem = ordem === 'cliente' ? 'cliente(nome)'
+    : ordem === 'status' ? 'status'
+    : ordem === 'abc' ? 'cliente(classificacao_abc)'
+    : 'data_validade';
+
   const from = (page - 1) * pageSize;
-  const { data, count, error } = await q.order('data_validade').range(from, from + pageSize - 1);
+  const { data, count, error } = await q
+    .order(colunaOrdem, { ascending: !ordemDesc })
+    .range(from, from + pageSize - 1);
   if (error) throw new Error(msgErro(error));
 
   let rows = (data as any[]).map(toGarantia);
-  // A busca é por nome do cliente e código da OS, que vivem em tabelas
-  // relacionadas — o PostgREST não filtra por elas num `or` simples, então o
-  // recorte acontece sobre a página já paginada.
+  // Busca, ABC e tipo de serviço vivem em tabelas relacionadas — o PostgREST
+  // não filtra por elas num `or` simples, então o recorte acontece sobre a
+  // página já paginada. A contagem total continua sendo a do servidor.
   if (busca?.trim()) {
     const s = busca.trim().toLowerCase();
     rows = rows.filter((r) => `${r.osCodigo} ${r.cliente}`.toLowerCase().includes(s));
   }
+  if (abc && abc !== 'todos') rows = rows.filter((r) => (r.abc ?? '—') === abc);
+  if (tipo && tipo !== 'todos') rows = rows.filter((r) => r.servicos.includes(tipo));
   return { rows, total: count ?? 0 };
+}
+
+/**
+ * Gera o link público de várias garantias de uma vez.
+ *
+ * Devolve o que conseguiu e o que recusou, em vez de estourar no primeiro
+ * problema: numa seleção de dez, é normal que algumas estejam num status que
+ * não permite link, e abortar tudo por causa delas desperdiça as outras nove.
+ * A tela mostra os dois números — silenciar os ignorados seria mentir sobre o
+ * que aconteceu.
+ */
+export async function gerarLinksEmLote(
+  garantias: { id: string; osCodigo: string; status: string }[],
+  dias = 30,
+): Promise<{ gerados: { osCodigo: string; url: string }[]; ignorados: { osCodigo: string; motivo: string }[] }> {
+  const gerados: { osCodigo: string; url: string }[] = [];
+  const ignorados: { osCodigo: string; motivo: string }[] = [];
+  for (const g of garantias) {
+    if (!podeGerarLink(g.status)) {
+      ignorados.push({ osCodigo: g.osCodigo, motivo: `status "${g.status}"` });
+      continue;
+    }
+    try {
+      const l = await gerarLinkGarantia(g.id, g.status, dias);
+      gerados.push({ osCodigo: g.osCodigo, url: l.url });
+    } catch (e) {
+      ignorados.push({ osCodigo: g.osCodigo, motivo: (e as Error).message });
+    }
+  }
+  return { gerados, ignorados };
+}
+
+/** Mesma ideia do lote de links: aplica no que pode e relata o resto. */
+export async function mudarStatusEmLote(
+  garantias: { id: string; osCodigo: string }[],
+  novo: string,
+  comentario: string,
+): Promise<{ ok: string[]; falhas: { osCodigo: string; motivo: string }[] }> {
+  const ok: string[] = [];
+  const falhas: { osCodigo: string; motivo: string }[] = [];
+  for (const g of garantias) {
+    try {
+      await mudarStatusGarantia(g.id, novo, comentario);
+      ok.push(g.osCodigo);
+    } catch (e) {
+      falhas.push({ osCodigo: g.osCodigo, motivo: (e as Error).message });
+    }
+  }
+  return { ok, falhas };
+}
+
+/** CSV das garantias, com BOM para o Excel não comer os acentos. */
+export function garantiasParaCsv(rows: GarantiaRow[]): string {
+  const cab = ['OS', 'Cliente', 'ABC', 'Execução', 'Validade', 'Dias restantes', 'Status', 'Serviços', 'Link público', 'Contato'];
+  const linhas = rows.map((g) => [
+    g.osCodigo, g.cliente, g.abc ?? '', g.dataExecucao, g.dataValidade,
+    g.diasRestantes === null ? '' : String(g.diasRestantes),
+    g.status, g.servicos.join(', '), g.temLink ? 'Sim' : 'Não', g.dataContato,
+  ]);
+  return [cab, ...linhas]
+    .map((l) => l.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';'))
+    .join('\n');
 }
 
 export async function getGarantia(id: string): Promise<GarantiaRow | null> {
