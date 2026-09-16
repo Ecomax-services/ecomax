@@ -14,8 +14,6 @@ export interface CatalogoMeta {
   colored: boolean;
   /** Tipos de serviço: guarda template de mensagem + prazo padrão do link público. */
   servico?: boolean;
-  /** Agrupador da coluna lateral. São 18 catálogos — lista solta fica ilegível. */
-  grupo: string;
   /**
    * Conjunto de valores preso por check constraint no banco (`status_os`,
    * `etapas_os`). Renomear e recolorir vale; criar e excluir, não — o item novo
@@ -24,36 +22,53 @@ export interface CatalogoMeta {
   fixo?: boolean;
 }
 
-/** Os 18 catálogos auxiliares. `key` bate com a coluna `catalogo` do banco. */
+/**
+ * Os 18 catálogos auxiliares. `key` bate com a coluna `catalogo` do banco.
+ *
+ * A ORDEM É A DO PROTÓTIPO APROVADO, não uma escolha nossa. O protótipo mostra
+ * uma lista plana; uma versão anterior daqui agrupava em cinco cabeçalhos
+ * ("Operacional", "Comercial", …) porque 18 itens soltos pareciam demais. Era
+ * julgamento meu contra um desenho que o cliente já tinha aprovado — e quem
+ * abre a tela depois de ver o protótipo percebe na hora.
+ *
+ * O protótipo tem 13 catálogos; nós temos 18. Os cinco a mais entram logo
+ * depois do parente mais próximo na sequência do desenho (Etapas da OS depois
+ * de Status de OS, Frequências depois de Tipos de controle, e assim por
+ * diante), de modo que a espinha do desenho fica intacta.
+ */
 export const CATALOGOS: CatalogoMeta[] = [
-  // Operacional
-  { key: 'status_os', label: 'Status de OS', colored: true, grupo: 'Operacional', fixo: true },
-  { key: 'etapas_os', label: 'Etapas da OS', colored: false, grupo: 'Operacional', fixo: true },
-  { key: 'tipos_servico', label: 'Tipos de serviço', colored: false, grupo: 'Operacional', servico: true },
-  { key: 'tipos_controle', label: 'Tipos de controle', colored: false, grupo: 'Operacional' },
-  { key: 'frequencias', label: 'Frequências', colored: false, grupo: 'Operacional' },
-  { key: 'pragas', label: 'Pragas-alvo', colored: false, grupo: 'Operacional' },
-  { key: 'epis', label: 'EPIs', colored: false, grupo: 'Operacional' },
-
-  // Comercial
-  { key: 'status_garantia', label: 'Status de garantia', colored: true, grupo: 'Comercial' },
-  { key: 'status_follow_up', label: 'Status de follow-up', colored: true, grupo: 'Comercial' },
-
-  // Documentos
-  { key: 'tipos_documento', label: 'Tipos de documento da OS', colored: false, grupo: 'Documentos' },
-  { key: 'categorias_documento_cliente', label: 'Categorias de documento do cliente', colored: false, grupo: 'Documentos' },
-  { key: 'documentos_colaborador', label: 'Documentos do colaborador', colored: false, grupo: 'Documentos' },
-
-  // Estoque
-  { key: 'categorias_produto', label: 'Categorias de produto', colored: false, grupo: 'Estoque' },
-  { key: 'unidades', label: 'Unidades de medida', colored: false, grupo: 'Estoque' },
-  { key: 'motivos_ajuste', label: 'Motivos de ajuste de estoque', colored: false, grupo: 'Estoque' },
-
-  // Pessoas e acessos
-  { key: 'setores', label: 'Setores', colored: false, grupo: 'Pessoas e acessos' },
-  { key: 'cargos', label: 'Cargos', colored: false, grupo: 'Pessoas e acessos' },
-  { key: 'perfis_portal', label: 'Perfis do portal do cliente', colored: false, grupo: 'Pessoas e acessos' },
+  { key: 'status_os', label: 'Status de OS', colored: true, fixo: true },
+  { key: 'etapas_os', label: 'Etapas da OS', colored: false, fixo: true },
+  { key: 'status_garantia', label: 'Status de garantia', colored: true },
+  { key: 'status_follow_up', label: 'Status de follow-up', colored: true },
+  { key: 'tipos_documento', label: 'Tipos de documento da OS', colored: false },
+  { key: 'categorias_documento_cliente', label: 'Categorias de documento do cliente', colored: false },
+  { key: 'documentos_colaborador', label: 'Documentos do colaborador', colored: false },
+  { key: 'categorias_produto', label: 'Categorias de produto', colored: false },
+  { key: 'unidades', label: 'Unidades de medida', colored: false },
+  { key: 'tipos_servico', label: 'Tipos de serviço', colored: false, servico: true },
+  { key: 'tipos_controle', label: 'Tipos de controle', colored: false },
+  { key: 'frequencias', label: 'Frequências', colored: false },
+  { key: 'setores', label: 'Setores', colored: false },
+  { key: 'cargos', label: 'Cargos', colored: false },
+  { key: 'perfis_portal', label: 'Perfis do portal do cliente', colored: false },
+  { key: 'motivos_ajuste', label: 'Motivos de ajuste de estoque', colored: false },
+  { key: 'pragas', label: 'Pragas-alvo', colored: false },
+  { key: 'epis', label: 'EPIs', colored: false },
 ];
+
+/**
+ * Quantos itens cada catálogo tem — o protótipo mostra esse número numa pílula
+ * ao lado de TODOS os catálogos, não só do selecionado. Uma consulta só, porque
+ * dezoito seriam dezoito viagens ao servidor para exibir dezoito números.
+ */
+export async function contarItensPorCatalogo(): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from('catalogo_itens').select('catalogo');
+  if (error) throw new Error(msgErro(error));
+  const out: Record<string, number> = {};
+  (data as { catalogo: string }[]).forEach((r) => { out[r.catalogo] = (out[r.catalogo] ?? 0) + 1; });
+  return out;
+}
 
 export interface CatalogoItem {
   id: string;

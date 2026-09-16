@@ -11,7 +11,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import {
-  CATALOGOS, listCatalogoItens, createCatalogoItem, updateCatalogoItem,
+  CATALOGOS, listCatalogoItens, contarItensPorCatalogo, createCatalogoItem, updateCatalogoItem,
   setCatalogoItemAtivo, deleteCatalogoItem, type CatalogoItem, type CatalogoMeta,
 } from '@/lib/configuracoes';
 import { maskInt } from '@/lib/masks';
@@ -45,16 +45,17 @@ export function CadastrosAuxiliares() {
 
   const meta = useMemo<CatalogoMeta>(() => CATALOGOS.find((c) => c.key === catKey)!, [catKey]);
 
-  // Agrupa preservando a ordem de CATALOGOS — o Map mantém a ordem de inserção,
-  // então o grupo aparece onde seu primeiro catálogo aparece na lista.
-  const grupos = useMemo(() => {
-    const m = new Map<string, CatalogoMeta[]>();
-    CATALOGOS.forEach((c) => m.set(c.grupo, [...(m.get(c.grupo) ?? []), c]));
-    return [...m.entries()];
-  }, []);
+  // Contagem de todos os catálogos, para a pílula que o protótipo mostra em
+  // cada linha da coluna. Recarrega quando o catálogo aberto muda porque criar
+  // ou excluir um item altera o número da linha correspondente.
+  const [contagens, setContagens] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
-    try { setItems(await listCatalogoItens(catKey)); } catch (e) { showToast((e as Error).message); }
+    try {
+      const [lista, totais] = await Promise.all([listCatalogoItens(catKey), contarItensPorCatalogo()]);
+      setItems(lista);
+      setContagens(totais);
+    } catch (e) { showToast((e as Error).message); }
   }, [catKey, showToast]);
   useEffect(() => { load(); }, [load]);
 
@@ -122,23 +123,21 @@ export function CadastrosAuxiliares() {
         <div className="grid grid-cols-[240px_1fr] gap-5">
           {/* Lista de catálogos */}
           <div className="self-start rounded-2xl border border-ink-100 bg-white p-2">
-            {grupos.map(([grupo, cats]) => (
-              <div key={grupo} className="mb-1 last:mb-0">
-                <p className="px-3 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-400">{grupo}</p>
-                {cats.map((c) => (
-                  <button
-                    key={c.key}
-                    onClick={() => { setCatKey(c.key); setSearch(''); }}
-                    className={cn(
-                      'flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2.5 text-left text-[13px] leading-tight transition-colors',
-                      c.key === catKey ? 'border border-forest-accent bg-forest-50 font-semibold text-forest-900' : 'border border-transparent font-medium text-ink-700 hover:bg-ink-50',
-                    )}
-                  >
-                    <span>{c.label}</span>
-                    {c.key === catKey && <span className="shrink-0 text-xs font-bold text-forest-700">{items.length}</span>}
-                  </button>
-                ))}
-              </div>
+            <p className="px-3 pb-2 pt-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-400">Catálogos</p>
+            {CATALOGOS.map((c) => (
+              <button
+                key={c.key}
+                onClick={() => { setCatKey(c.key); setSearch(''); }}
+                className={cn(
+                  'flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2.5 text-left text-[13px] leading-tight transition-colors',
+                  c.key === catKey ? 'border border-forest-accent bg-forest-50 font-semibold text-forest-900' : 'border border-transparent font-medium text-ink-700 hover:bg-ink-50',
+                )}
+              >
+                <span>{c.label}</span>
+                <span className="shrink-0 rounded-full bg-ink-50 px-2 py-0.5 text-xs text-ink-400">
+                  {c.key === catKey ? items.length : contagens[c.key] ?? 0}
+                </span>
+              </button>
             ))}
           </div>
 
