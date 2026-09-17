@@ -12,3 +12,14 @@ npm-debug.*
 *.key
 *.mobileprovision
 .DS_Store
+
+# Projeto nativo gerado por `expo prebuild`.
+#
+# Fora do git de propósito: com Continuous Native Generation, quem manda é o
+# app.json. Commitar ios/ e android/ cria a mesma configuração em dois lugares
+# — e o segundo passa a divergir em silêncio, porque mudar o app.json deixa de
+# ter efeito e mexer no Xcode é perdido no próximo prebuild.
+#
+# Para abrir no Xcode: npx expo prebuild -p ios --clean
+/ios
+/android

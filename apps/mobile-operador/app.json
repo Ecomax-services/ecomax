@@ -21,8 +21,13 @@
       "supportsTablet": false,
       "bundleIdentifier": "br.com.ecomax.operador",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "O Ecomax Operador registra onde o check-in e o check-out da ordem de serviço aconteceram, como comprovação do atendimento."
-      }
+        "NSCameraUsageDescription": "O Ecomax Operador usa a câmera para você fotografar a execução do serviço e anexar as fotos à ordem de serviço.",
+        "NSPhotoLibraryUsageDescription": "O Ecomax Operador acessa suas fotos para você anexar imagens já existentes à ordem de serviço.",
+        "NSLocationWhenInUseUsageDescription": "O Ecomax Operador registra onde o check-in e o check-out da ordem de serviço aconteceram, como comprovação do atendimento.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "_comment_permissoes": "Os três textos abaixo são obrigatórios: no iOS, chamar a API sem a chave correspondente no Info.plist derruba o app na hora — não é aviso, é crash — e a App Review recusa o binário. O app usa câmera e galeria em OsDetailScreen (ImagePicker.launchCameraAsync e launchImageLibraryAsync) e localização no check-in/check-out.",
+      "buildNumber": "1"
     },
     "android": {
       "package": "br.com.ecomax.operador",
