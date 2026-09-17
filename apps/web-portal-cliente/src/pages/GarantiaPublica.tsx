@@ -89,7 +89,7 @@ export function GarantiaPublica() {
           <>
             <div className="flex items-center gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-forest-100">
-                <ShieldCheck className="h-6 w-6 text-forest-700" />
+                <ShieldCheck className="h-6 w-6 text-forest-500" />
               </span>
               <div>
                 <h1 className="text-[19px] font-bold text-ink-900">Renovação de garantia</h1>

@@ -424,7 +424,7 @@ function Stepper({ step }: { step: number }) {
               </span>
               <span className={cn('text-[13px] font-semibold', active ? 'text-ink-900' : 'text-ink-400')}>{label}</span>
             </div>
-            {n < STEPS.length && <span className={cn('h-[2px] w-10 rounded', done ? 'bg-forest-300' : 'bg-ink-100')} />}
+            {n < STEPS.length && <span className={cn('h-[2px] w-10 rounded', done ? 'bg-forest-500' : 'bg-ink-100')} />}
           </div>
         );
       })}

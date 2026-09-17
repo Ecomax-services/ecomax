@@ -23,12 +23,19 @@ export default {
         },
         primary50: '#edfced',
         // Neutros
+        // Escala igual à do Backoffice. Os tons 100, 600 e 700 faltavam aqui,
+        // embora o código já os usasse: `divide-ink-100` não desenhava a linha
+        // e `text-ink-700` caía na cor herdada. Tom que não existe na paleta não
+        // vira classe — o Tailwind não avisa, só não gera a regra.
         ink: {
           50: '#f7f7f8',
+          100: '#eeeff1', // hairlines
           200: '#d8dadf',
           300: '#b7bbc3',
           400: '#959ba7', // placeholder / breadcrumb (Portal)
           500: '#686f7d',
+          600: '#515761',
+          700: '#3a3e45',
           800: '#25282c', // labels (Portal)
           900: '#151619',
         },
