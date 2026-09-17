@@ -10,7 +10,8 @@
         "run",
         "dev"
       ],
-      "port": 5173
+      "port": 5173,
+      "autoPort": true
     },
     {
       "name": "web-portal-cliente",
@@ -21,7 +22,8 @@
         "run",
         "dev"
       ],
-      "port": 5174
+      "port": 5174,
+      "autoPort": true
     },
     {
       "name": "mobile-operador-web",
@@ -34,20 +36,6 @@
       ],
       "port": 8082,
       "autoPort": true
-    },
-    {
-      "name": "web-backoffice-5175",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "--prefix",
-        "apps/web-backoffice",
-        "run",
-        "dev",
-        "--",
-        "--port",
-        "5175"
-      ],
-      "port": 5175
     }
   ]
 }
