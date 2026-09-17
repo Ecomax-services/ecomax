@@ -109,7 +109,7 @@ export function ResetPassword() {
           {erroDoLink.pedirOutro && (
             <Link
               to="/recuperar-senha"
-              className="mt-3 inline-flex items-center justify-center rounded-[10px] bg-forest-700 px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-forest-800"
+              className="mt-3 inline-flex items-center justify-center rounded-[10px] bg-forest-500 px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-forest-600"
             >
               Solicitar um novo link
             </Link>
