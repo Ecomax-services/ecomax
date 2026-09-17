@@ -6,6 +6,7 @@ import { AuthLayout } from '@/layouts/AuthLayout';
 import { PasswordInput } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
+import { lerErroDoLink, type ErroDoLink } from '@/lib/erroDoLink';
 import { cn } from '@/lib/cn';
 
 /** Política de senha do Discovery (RF-004): 8–16 chars, 1 número, 1 letra, 1 especial. */
@@ -34,6 +35,7 @@ export function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string>();
+  const [erroDoLink, setErroDoLink] = useState<ErroDoLink | null>(null);
   const [ready, setReady] = useState(false); // sessão de recuperação estabelecida pelo link
   const [submitting, setSubmitting] = useState(false);
 
@@ -42,6 +44,11 @@ export function ResetPassword() {
 
   // O link do e-mail traz tokens na URL; o client cria a sessão de recovery.
   useEffect(() => {
+    // Antes de esperar a sessão: se o Supabase já disse que o link não vale,
+    // esperar por uma sessão que nunca vem só produz um formulário inerte.
+    const falha = lerErroDoLink();
+    if (falha) { setErroDoLink(falha); return; }
+
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) setReady(true);
     });
@@ -94,7 +101,25 @@ export function ResetPassword() {
       <h2 className="text-2xl font-semibold text-ink-900">Criar nova senha</h2>
       <p className="mt-1.5 text-sm text-ink-500">Sua nova senha deve ter entre 8 e 16 caracteres.</p>
 
-      {!ready && (
+      {/* Link inválido não é um aviso no topo de um formulário que funciona:
+          é o fim do caminho. Mostrar os campos junto convida a pessoa a
+          preencher tudo para descobrir no clique que nada acontece. */}
+      {erroDoLink && (
+        <div className="mt-5 rounded-xl border border-[#f6ddb0] bg-warnTag-bg px-4 py-4">
+          <p className="text-sm font-semibold text-warnTag-fg">{erroDoLink.titulo}</p>
+          <p className="mt-1 text-[13px] text-warnTag-fg/80">{erroDoLink.mensagem}</p>
+          {erroDoLink.pedirOutro && (
+            <Link
+              to="/recuperar-senha"
+              className="mt-3 inline-flex items-center justify-center rounded-[10px] bg-forest-700 px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-forest-800"
+            >
+              Solicitar um novo link
+            </Link>
+          )}
+        </div>
+      )}
+
+      {!erroDoLink && !ready && (
         <div className="mt-4 rounded-lg bg-warnTag-bg px-3 py-2.5 text-[13px] text-warnTag-fg">
           Abra esta página pelo link enviado ao seu e-mail. Se ele expirou,{' '}
           <Link to="/recuperar-senha" className="font-semibold underline">
@@ -103,6 +128,8 @@ export function ResetPassword() {
           .
         </div>
       )}
+
+      {!erroDoLink && (
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
         <div>
@@ -145,6 +172,7 @@ export function ResetPassword() {
           {submitting ? 'Salvando…' : 'Salvar nova senha'}
         </Button>
       </form>
+      )}
     </AuthLayout>
   );
 }
