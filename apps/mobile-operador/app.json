@@ -35,9 +35,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a2d0a"
       },
+      "_comment_permissions": "Esta lista é allowlist: o que não está aqui não entra no AndroidManifest, mesmo que a biblioteca peça. Só a localização estava declarada, e o app chama launchCameraAsync — sem CAMERA o Android nega de forma permanente e o operador não consegue fotografar, que é a função central do app. READ_MEDIA_IMAGES é o par de READ_EXTERNAL_STORAGE a partir do Android 13 (API 33): com targetSdk 34 o antigo é ignorado e a galeria não abre sem o novo.",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
       ]
     },
     "web": {
