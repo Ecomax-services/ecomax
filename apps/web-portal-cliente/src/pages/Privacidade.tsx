@@ -36,13 +36,17 @@ import { Logo } from '@/components/ui/Logo';
 const CONTROLADOR = {
   nome: 'Ecomax',
   email: 'contato@ecomax.com.br',
-  /** Preencher antes de submeter às lojas. */
-  razaoSocial: '',
-  cnpj: '',
+  razaoSocial: 'Ecomax Serviços Ambientais Ltda.',
+  cnpj: '04.009.610/0001-07',
+  /**
+   * Endereço da sede. Ainda não informado — a página omite a frase em vez de
+   * exibir vírgula solta, e o controlador segue identificado por razão social e
+   * CNPJ, que é o que a LGPD pede. Vale preencher quando houver.
+   */
   endereco: '',
 };
 
-const ATUALIZADO_EM = '17 de setembro de 2026';
+const ATUALIZADO_EM = '18 de setembro de 2026';
 
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
