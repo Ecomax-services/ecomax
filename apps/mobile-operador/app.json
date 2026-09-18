@@ -27,7 +27,10 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "_comment_permissoes": "Os três textos abaixo são obrigatórios: no iOS, chamar a API sem a chave correspondente no Info.plist derruba o app na hora — não é aviso, é crash — e a App Review recusa o binário. O app usa câmera e galeria em OsDetailScreen (ImagePicker.launchCameraAsync e launchImageLibraryAsync) e localização no check-in/check-out.",
-      "buildNumber": "1"
+      "_comment_buildNumber": "A Apple recusa buildNumber repetido: o 1 já foi carregado no App Store Connect em 17/09/2026. Todo novo envio da mesma version exige incrementar isto.",
+      "buildNumber": "2",
+      "_comment_appleTeamId": "Time que assinou o build 1 e foi aceito pelo App Store Connect. Registrado aqui porque o valor só existia no project.pbxproj, que é gerado: um `prebuild --clean` apaga, e sem referência alguém teria de adivinhar qual time escolher. Atenção: este campo NÃO alimenta o DEVELOPMENT_TEAM do projeto Xcode — verificado, depois do prebuild o pbxproj sai sem ele. Serve ao EAS Build e como documentação. No caminho do Xcode, continua sendo preciso escolher o Team em Signing & Capabilities depois de cada regeneração; é para isso que o número está aqui.",
+      "appleTeamId": "X4VDFKS2SF"
     },
     "android": {
       "package": "br.com.ecomax.operador",
@@ -55,6 +58,17 @@
       }
     },
     "owner": "ecomax.com.br",
-    "_comment_slug": "O slug segue o projeto no EAS (expo.dev/accounts/ecomax.com.br/projects/ecomax). O nome de exibição é \"Ecomax Operador\"; o slug é só o identificador do projeto na conta. Se um segundo app entrar na mesma conta, vale renomear os dois lados para ecomax-operador — o que identifica de verdade é o projectId."
+    "_comment_slug": "O slug segue o projeto no EAS (expo.dev/accounts/ecomax.com.br/projects/ecomax). O nome de exibição é \"Ecomax Operador\"; o slug é só o identificador do projeto na conta. Se um segundo app entrar na mesma conta, vale renomear os dois lados para ecomax-operador — o que identifica de verdade é o projectId.",
+    "_comment_plugins": "O alvo mínimo do iOS é 13.4 por padrão no SDK 51, herdado do Podfile. A Apple avisa em todo upload (90068) que a partir da primavera de 2027 recusa binários abaixo de 15.0. Subir agora custa um build e encerra o aviso. iOS 15 roda de iPhone 6s (2015) em diante: ficam de fora iPhone 6, 5s e SE 1, que não recebem atualização desde 2021 — nenhum aparelho em uso de campo.",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
+    ]
   }
 }
