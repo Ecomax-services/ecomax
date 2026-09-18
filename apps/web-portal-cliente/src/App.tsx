@@ -6,6 +6,7 @@ import { EmailSent } from '@/pages/auth/EmailSent';
 import { ResetPassword } from '@/pages/auth/ResetPassword';
 import { Notifications } from '@/pages/Notifications';
 import { GarantiaPublica } from '@/pages/GarantiaPublica';
+import { Privacidade } from '@/pages/Privacidade';
 import { Inicio } from '@/pages/Inicio';
 import { OrdensServico } from '@/pages/OrdensServico';
 import { Documentos } from '@/pages/Documentos';
@@ -19,6 +20,9 @@ export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
   // Sem login: o token do endereço é a credencial, e quem valida é a Edge Function.
   { path: '/garantia/:token', element: <GarantiaPublica /> },
+  // Sem login por exigência das lojas: Apple e Google recusam o app se o
+  // revisor não conseguir abrir a política sem credencial.
+  { path: '/privacidade', element: <Privacidade /> },
   { path: '/login', element: <Login /> },
   { path: '/recuperar-senha', element: <ForgotPassword /> },
   { path: '/recuperar-senha/enviado', element: <EmailSent /> },

@@ -26,20 +26,30 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 /** Alterna entre pilha de auth, recuperação de senha e app principal. */
 function RootNavigator() {
-  const { session, profile, loading, recovering } = useAuth();
+  const { session, profile, loading, recovering, iniciarRecuperacao } = useAuth();
 
   // O link do e-mail precisa virar sessão antes de qualquer decisão de rota. São
   // dois caminhos: o app estava fechado (getInitialURL) ou estava aberto em
   // segundo plano (evento 'url').
+  //
+  // `iniciarRecuperacao` é obrigatório aqui, e não decoração: dos dois formatos
+  // de link que o Supabase manda, só o `?token_hash=` avisa sozinho que é
+  // recuperação (via evento PASSWORD_RECOVERY, emitido dentro do `verifyOtp`).
+  // O `#access_token=` vira sessão por `setSession`, que emite `SIGNED_IN` — e
+  // sem esta marcação o operador cairia direto na lista de OS, com a senha
+  // antiga ainda valendo e sem nunca ver a tela de criar senha.
   useEffect(() => {
+    const tratar = async (url: string) => {
+      if (await consumirLinkDeRecuperacao(url)) iniciarRecuperacao();
+    };
     Linking.getInitialURL().then((url) => {
-      if (url) consumirLinkDeRecuperacao(url);
+      if (url) void tratar(url);
     });
     const sub = Linking.addEventListener('url', ({ url }) => {
-      consumirLinkDeRecuperacao(url);
+      void tratar(url);
     });
     return () => sub.remove();
-  }, []);
+  }, [iniciarRecuperacao]);
 
   if (loading) {
     return (

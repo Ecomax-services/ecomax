@@ -19,6 +19,21 @@ interface AuthContextValue {
    * avaliado ANTES de `authed` na navegação.
    */
   recovering: boolean;
+  /**
+   * Marca que a sessão recém-criada veio de um link de recuperação.
+   *
+   * Existe porque o evento `PASSWORD_RECOVERY` não cobre os dois formatos de
+   * link. No supabase-js ele é emitido em três pontos: dois dentro do fluxo de
+   * navegador (`detectSessionInUrl`, desligado no React Native por não haver
+   * `window.location`) e um dentro do `verifyOtp`. O `setSession` — que é como
+   * tratamos o link no formato `#access_token=…&refresh_token=…` — emite
+   * `SIGNED_IN`.
+   *
+   * Sem esta chamada, esse formato de link produz uma sessão válida sem marcar
+   * recuperação: `authed` vira true e o operador cai na lista de OS com a senha
+   * antiga ainda valendo, sem nunca ver a tela de criar senha.
+   */
+  iniciarRecuperacao: () => void;
   encerrarRecuperacao: () => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -80,9 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, next) => {
       if (!active) return;
-      // O supabase-js emite PASSWORD_RECOVERY quando a sessão nasce de um link
-      // de recuperação. É o único sinal que distingue "entrou" de "clicou no
-      // link do e-mail" — os dois produzem uma sessão igualmente válida.
+      // PASSWORD_RECOVERY distingue "entrou" de "clicou no link do e-mail" —
+      // os dois produzem uma sessão igualmente válida. Mas ele NÃO cobre os dois
+      // formatos de link: o supabase-js só o emite no fluxo de navegador e
+      // dentro do `verifyOtp`. Para o formato `#access_token=…`, tratado com
+      // `setSession`, chega `SIGNED_IN` — e quem marca a recuperação é o
+      // `iniciarRecuperacao`, chamado por quem consumiu o link.
       if (event === 'PASSWORD_RECOVERY') setRecovering(true);
       if (event === 'SIGNED_OUT') setRecovering(false);
       setSession(next);
@@ -96,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const iniciarRecuperacao = useCallback(() => setRecovering(true), []);
   const encerrarRecuperacao = useCallback(() => setRecovering(false), []);
 
   const signIn = useCallback<AuthContextValue['signIn']>(async (email, password) => {
@@ -137,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, profile, loading, recovering, encerrarRecuperacao, signIn, signOut }}
+      value={{ session, profile, loading, recovering, iniciarRecuperacao, encerrarRecuperacao, signIn, signOut }}
     >
       {children}
     </AuthContext.Provider>

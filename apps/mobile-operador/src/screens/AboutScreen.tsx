@@ -20,7 +20,7 @@ type Props = NativeStackScreenProps<ConfigStackParamList, 'Sobre'>;
  */
 const LEGAL = {
   termos: '',
-  privacidade: '',
+  privacidade: 'https://cliente.ecomax.com.br/privacidade',
 };
 
 /** Tela 3.3 - Sobre o aplicativo. */
