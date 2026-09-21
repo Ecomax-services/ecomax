@@ -632,10 +632,25 @@ export async function removerRelatorio(osId: string, relatorioId: string): Promi
 // ============================================================
 // Aba Anexos (4.1.e)
 // ============================================================
-export type AnexoTipo = 'foto' | 'comprovante' | 'autorizacao' | 'extra' | 'outro';
+/**
+ * Tipos de anexo da OS.
+ *
+ * `certificado` e `comprovante` são os dois que o Portal do Cliente enxerga —
+ * a policy `osanexos_cliente_select` recorta por aqui. Foto, autorização e
+ * extra são material de trabalho da equipe e não aparecem para o cliente,
+ * mesmo sendo da OS dele.
+ *
+ * O certificado ainda é anexado à mão: a geração assinada no servidor não
+ * existe (ver o cabeçalho de `lib/impressao.ts`). Quando existir, grava com
+ * este mesmo tipo e nada na tela muda.
+ */
+export type AnexoTipo = 'foto' | 'comprovante' | 'autorizacao' | 'certificado' | 'extra' | 'outro';
 export const anexoTipoLabel: Record<AnexoTipo, string> = {
-  foto: 'Foto', comprovante: 'Comprovante', autorizacao: 'Autorização', extra: 'Extra', outro: 'Outro',
+  foto: 'Foto', comprovante: 'Comprovante', autorizacao: 'Autorização',
+  certificado: 'Certificado de execução', extra: 'Extra', outro: 'Outro',
 };
+/** Os que chegam ao Portal do Cliente — usado para avisar na tela de anexos. */
+export const ANEXOS_VISIVEIS_AO_CLIENTE: AnexoTipo[] = ['certificado', 'comprovante'];
 /**
  * URL temporária para abrir um documento do bucket `operacional-docs`.
  *

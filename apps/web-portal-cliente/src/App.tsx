@@ -9,6 +9,7 @@ import { GarantiaPublica } from '@/pages/GarantiaPublica';
 import { Privacidade } from '@/pages/Privacidade';
 import { Inicio } from '@/pages/Inicio';
 import { OrdensServico } from '@/pages/OrdensServico';
+import { OrdemServicoDetalhe } from '@/pages/OrdemServicoDetalhe';
 import { Documentos } from '@/pages/Documentos';
 import { Produtos } from '@/pages/Produtos';
 import { Colaboradores } from '@/pages/Colaboradores';
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
     children: [
       { path: '/inicio', element: <Inicio /> },
       { path: '/ordens', element: <OrdensServico /> },
+      { path: '/ordens/:id', element: <OrdemServicoDetalhe /> },
       { path: '/documentos', element: <Documentos /> },
       { path: '/produtos', element: <Produtos /> },
       { path: '/colaboradores', element: <Colaboradores /> },
