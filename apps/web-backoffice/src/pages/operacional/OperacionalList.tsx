@@ -240,7 +240,7 @@ export function OperacionalList() {
                     <td className="px-4 py-3.5">
                       <Badge tone={r.kind === 'orcamento' ? 'softWarn' : r.origem === 'avulsa' ? 'muted' : 'info'}>{r.origemLabel}</Badge>
                     </td>
-                    <td className="px-4 py-3.5"><Badge tone={r.statusTone}>{r.statusLabel}</Badge></td>
+                    <td className="px-4 py-3.5"><Badge tone={r.statusTone} cores={r.statusCores}>{r.statusLabel}</Badge></td>
                     <td className="px-4 py-3.5 text-sm font-semibold text-ink-900">{r.valor}</td>
                     <td className="px-4 py-3.5 pr-6 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="relative inline-block">

@@ -13,7 +13,7 @@ import { cn } from '@/lib/cn';
 import { imprimirFicha } from '@/lib/impressao';
 import {
   getOrdemServico, updateDadosGerais, duplicarOs,
-  rotuloStatus, tomStatus, isReadOnly, fmtDateTime,
+  rotuloStatus, corDoStatus, isReadOnly, fmtDateTime,
   type OrdemServicoDetail,
 } from '@/lib/operacional';
 import {
@@ -128,7 +128,7 @@ export function EmitirOs() {
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-[19px] font-bold text-ink-900">{os.codigo}</h2>
-                <Badge tone={tomStatus(os.status)}>{rotuloStatus(os.status)}</Badge>
+                <Badge cores={corDoStatus(os.status)}>{rotuloStatus(os.status)}</Badge>
               </div>
               <p className="mt-1 text-[13px] text-ink-500">
                 Cliente: <Link to={`/clientes/${os.clienteId}`} className="font-semibold text-forest-700 hover:underline">{os.cliente}</Link>

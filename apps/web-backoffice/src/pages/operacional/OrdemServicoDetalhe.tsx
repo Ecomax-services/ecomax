@@ -26,7 +26,7 @@ import {
   listOsAnexos, addAnexo, removerAnexo, anexoTipoLabel,
   listOsHistorico, listHistoricoAutores,
   listFuncionarioOptions, listProdutoOptions, listEquipamentoOptions, listTiposServico, listPragas, bloqueioLabel,
-  tomStatus, rotuloStatus, recorrenciaLabel, isReadOnly, fmtDateTime, urlAssinadaOperacional, enviarAnexoOs,
+  corDoStatus, rotuloStatus, recorrenciaLabel, isReadOnly, fmtDateTime, urlAssinadaOperacional, enviarAnexoOs,
   type OrdemServicoDetail, type OsStatus, type Recorrencia,
   type OsFuncionarioRow, type OsProdutoRow, type OsEquipamentoRow, type OsRelatorioRow, type OsAnexoRow,
   type HistoricoRow, type AnexoTipo, type FuncionarioOption,
@@ -165,7 +165,7 @@ export function OrdemServicoDetalhe() {
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-[19px] font-bold text-ink-900">{os.codigo}</h2>
-                <Badge tone={tomStatus(os.status)}>{rotuloStatus(os.status)}</Badge>
+                <Badge cores={corDoStatus(os.status)}>{rotuloStatus(os.status)}</Badge>
                 <Badge tone={os.origem === 'avulsa' ? 'muted' : 'info'}>{os.origem === 'avulsa' ? 'Avulsa' : `De ${os.orcamentoCodigo ?? 'orçamento'}`}</Badge>
                 {os.rascunho && <Badge tone="softWarn">Rascunho</Badge>}
               </div>
