@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
-import {
+import { Eye,
   ArrowLeft, Plus, Trash2, FileText, Printer, CheckCircle2, Copy, AlertTriangle,
   MapPin, PenLine, Camera, Lock, Upload, Share2, Send,
 } from 'lucide-react';
@@ -23,7 +23,7 @@ import {
   listOsProdutos, addOsProduto, ajustarQtdUtilizada, removeOsProduto,
   listOsEquipamentos, addOsEquipamento, removeOsEquipamento,
   listOsRelatorios, emitirRelatorio, publicarRelatorio, removerRelatorio,
-  listOsAnexos, addAnexo, removerAnexo, anexoTipoLabel,
+  listOsAnexos, addAnexo, removerAnexo, anexoTipoLabel, ANEXOS_VISIVEIS_AO_CLIENTE,
   listOsHistorico, listHistoricoAutores,
   listFuncionarioOptions, listProdutoOptions, listEquipamentoOptions, listTiposServico, listPragas, bloqueioLabel,
   corDoStatus, rotuloStatus, recorrenciaLabel, isReadOnly, fmtDateTime, urlAssinadaOperacional, enviarAnexoOs,
@@ -695,7 +695,15 @@ function AnexosTab({ osId, editable }: { osId: string; editable: boolean }) {
           <div className="flex flex-col gap-3.5 px-7 py-6">
             <TextField label="Nome do arquivo" required value={form.nome} onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))} placeholder="Ex.: comprovante-visita.pdf" />
             <SelectField label="Tipo" value={form.tipo} onChange={(e) => setForm((s) => ({ ...s, tipo: e.target.value as AnexoTipo }))}
-              options={(['foto', 'comprovante', 'autorizacao', 'extra', 'outro'] as AnexoTipo[]).map((t) => ({ value: t, label: anexoTipoLabel[t] }))} />
+              options={(['foto', 'comprovante', 'autorizacao', 'certificado', 'extra', 'outro'] as AnexoTipo[]).map((t) => ({ value: t, label: anexoTipoLabel[t] }))} />
+              {/* Quem anexa precisa saber que o arquivo sai da empresa. Sem
+                  este aviso, "Comprovante" parecia uma gaveta interna. */}
+              {ANEXOS_VISIVEIS_AO_CLIENTE.includes(form.tipo) && (
+                <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-tag-infoBg px-3 py-2 text-[12px] text-tag-infoFg">
+                  <Eye className="mt-[1px] h-3.5 w-3.5 shrink-0" />
+                  Este tipo aparece para o cliente no Portal.
+                </p>
+              )}
             <div>
               <button
                 type="button"
