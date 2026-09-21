@@ -1,0 +1,26 @@
+-- ============================================================================
+-- Remoção das contas de teste, preservando o administrador
+-- ============================================================================
+-- Segunda metade da limpeza de 17/09/2026. As contas criadas durante a
+-- demonstração saíram; ficou apenas `admin@ecomax.com.br`, por decisão explícita
+-- do cliente.
+--
+-- `profiles` cai junto, por cascata a partir de `auth.users`.
+--
+-- O filtro por e-mail é explícito de propósito. A condição invertida aqui
+-- apagaria justamente a conta que precisa sobreviver, e o `is distinct from`
+-- (em vez de `<>`) garante que uma linha com e-mail nulo também seja removida —
+-- `<>` devolveria nulo e a linha escaparia.
+--
+-- NUM BANCO RECRIADO DO ZERO ISTO NÃO FAZ NADA: nenhuma migration insere em
+-- `auth.users`. As contas nascem pelo painel do Supabase ou pela API, fora das
+-- migrations, então num banco novo não há o que apagar. Verifiquei antes de
+-- trazer o arquivo para cá — uma migration que apaga usuário a cada banco novo
+-- seria uma armadilha silenciosa na CI.
+--
+-- O arquivo existe porque a operação foi registrada no histórico de migrations
+-- do projeto. Sem ele aqui, `supabase db push` recusa qualquer migration nova,
+-- alegando versão remota sem correspondente local.
+-- ============================================================================
+
+delete from auth.users where email is distinct from 'admin@ecomax.com.br';
