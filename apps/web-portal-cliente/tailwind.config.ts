@@ -12,12 +12,19 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
-        // Verde institucional (secondary/* e primary/700 do design system)
+        // Verde institucional.
+        //
+        // O handoff do design system (set/2026) define a ação primária web como
+        // `--eco-green-600: #1a5c1a`, com hover `--eco-green-700: #155015`. Os
+        // dois valores abaixo batem; é o resto da escala que ainda diverge do
+        // handoff (50, 100, 500, 800 e 900), e alinhá-los muda sidebar, avatares
+        // e superfícies — mudança visual ampla que espera aprovação do cliente.
         forest: {
           50: '#f0fdf0',
           100: '#dcf7dc',
-          500: '#347a34', // ação primária
-          600: '#1a5c1a',
+          500: '#347a34',
+          600: '#1a5c1a', // ação primária (design system)
+          700: '#155015', // hover da primária (design system)
           800: '#0a2d0a', // sidebar / painel de auth do Portal do Cliente
           900: '#0f3f0f',
         },

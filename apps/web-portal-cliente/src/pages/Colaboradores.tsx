@@ -170,7 +170,7 @@ function BuscaSemResultado({
       <div className="flex flex-wrap items-center justify-center gap-2">
         <a
           href={`mailto:${rh}?subject=${assunto}&body=${corpo}`}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-forest-500 px-4 py-2 text-[13px] font-semibold text-white hover:bg-forest-600"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-forest-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-forest-700"
         >
           <Mail className="h-4 w-4" />Solicitar ao RH por e-mail
         </a>

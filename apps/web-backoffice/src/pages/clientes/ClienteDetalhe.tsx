@@ -321,7 +321,7 @@ function OrcamentosTab({ clienteId, canCreate, canEdit }: { clienteId: string; c
                           navigate(`/operacional/${osId}/emitir`);
                         } catch (e) { showToast((e as Error).message); }
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-forest-500 px-2.5 py-1.5 text-[12px] font-semibold text-white"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-forest-600 px-2.5 py-1.5 text-[12px] font-semibold text-white hover:bg-forest-700"
                     >
                       <Repeat className="h-3.5 w-3.5" />Criar OS recorrente
                     </button>
