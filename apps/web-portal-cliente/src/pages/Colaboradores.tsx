@@ -6,9 +6,10 @@ import {
   CountHeadline, ErrorBanner, Loading, SearchInput, TH,
 } from '@/components/ui/DataSection';
 import {
-  listColaboradores, listTiposDocumentoColaborador, abrirDocumento, validadeMeta,
+  listColaboradores, listTiposDocumentoColaborador, validadeMeta,
   type Colaborador,
 } from '@/lib/portal';
+import { VisualizadorDocumento, type DocumentoParaVer } from '@/components/VisualizadorDocumento';
 
 /**
  * Tela 6 - Colaboradores.
@@ -23,6 +24,7 @@ export function Colaboradores() {
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [vendo, setVendo] = useState<DocumentoParaVer | null>(null);
 
   useEffect(() => {
     Promise.all([listColaboradores(), listTiposDocumentoColaborador()])
@@ -106,9 +108,15 @@ export function Colaboradores() {
                             <td key={t} className="px-4 py-3 text-center">
                               {doc?.arquivoUrl ? (
                                 <button
-                                  onClick={() => abrirDocumento(doc.arquivoUrl)}
+                                  onClick={() =>
+                                    setVendo({ caminho: doc.arquivoUrl!, titulo: `${t}: ${c.nome}`, sub: c.cargo })
+                                  }
                                   aria-label={`Abrir ${t} de ${c.nome}`}
-                                  title={`Abrir ${t}`}
+                                  title={
+                                    doc.estado === 'vence_em_breve'
+                                      ? 'Vence em breve · clique para abrir'
+                                      : 'Clique para abrir'
+                                  }
                                   className="transition hover:opacity-75"
                                 >
                                   {conteudo}
@@ -133,6 +141,8 @@ export function Colaboradores() {
           </div>
         )}
       </div>
+
+      {vendo && <VisualizadorDocumento doc={vendo} onClose={() => setVendo(null)} />}
     </>
   );
 }

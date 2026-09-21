@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, ExternalLink } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { cn } from '@/lib/cn';
 import {
   CountHeadline, Empty, ErrorBanner, Loading, SearchInput, TH,
 } from '@/components/ui/DataSection';
 import {
-  listDocumentos, listCategoriasDocumento, abrirDocumento, validadeMeta,
+  listDocumentos, listCategoriasDocumento, validadeMeta,
   type DocumentoCliente,
 } from '@/lib/portal';
+import { VisualizadorDocumento, type DocumentoParaVer } from '@/components/VisualizadorDocumento';
 
 /** Tela 4 - Documentos. Categorias vêm do catálogo; o conteúdo, do RLS. */
 export function Documentos() {
@@ -18,6 +19,9 @@ export function Documentos() {
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  // O protótipo abre o documento num modal, não em aba nova — e o modal é quem
+  // sabe avisar quando o arquivo não existe no armazenamento.
+  const [vendo, setVendo] = useState<DocumentoParaVer | null>(null);
 
   useEffect(() => {
     Promise.all([listDocumentos(), listCategoriasDocumento()])
@@ -123,12 +127,14 @@ export function Documentos() {
                           <td className="px-4 py-3 text-right">
                             {d.arquivoUrl ? (
                               <button
-                                onClick={() => abrirDocumento(d.arquivoUrl)}
+                                onClick={() =>
+                                  setVendo({ caminho: d.arquivoUrl!, titulo: d.titulo, sub: d.categoria })
+                                }
+                                title="Clique para abrir"
                                 className="inline-flex items-center gap-1.5 text-[13px] font-medium text-forest-600 hover:underline"
                               >
                                 <FileText className="h-4 w-4" />
                                 Abrir
-                                <ExternalLink className="h-3.5 w-3.5" />
                               </button>
                             ) : (
                               <span className="text-[13px] text-ink-400">Sem arquivo</span>
@@ -144,6 +150,8 @@ export function Documentos() {
           </div>
         )}
       </div>
+
+      {vendo && <VisualizadorDocumento doc={vendo} onClose={() => setVendo(null)} />}
     </>
   );
 }
