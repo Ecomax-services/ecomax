@@ -73,65 +73,20 @@ export const isPastDate = (iso: string) => !!iso && iso < hojeISO();
  * do operador e no portal, e renomeá-las quebraria os dois de uma vez. As
  * quatro novas vêm do fluxo de dez ações da tela de emissão.
  */
-export type OsStatus =
-  | 'em_aberto' | 'emitida' | 'confirmada' | 'em_andamento'
-  | 'executada' | 'concluida' | 'remarcada' | 'nao_executada' | 'cancelada';
+// O mapa de status vive em `shared/statusOs.ts` e é copiado para os três apps
+// por `scripts/sync-shared.sh` — o handoff do design system pede um módulo
+// único ("cada valor de status tem um par fixo de cores"). Antes eram três
+// definições independentes que concordavam por manutenção manual.
+import { osStatusLabel, OS_STATUSES, rotuloStatus, corDoStatus, isReadOnly } from '@/lib/statusOs';
+import type { OsStatus, CorDeStatus } from '@/lib/statusOs';
 
-/** Tons fiéis ao catálogo `status_os` (cores do seed de Configurações). */
-export const osStatusTone: Record<OsStatus, BadgeTone> = {
-  em_aberto: 'info',
-  emitida: 'info',
-  confirmada: 'info',
-  em_andamento: 'warn',
-  executada: 'success',
-  concluida: 'successStrong',
-  remarcada: 'softWarn',
-  nao_executada: 'muted',
-  cancelada: 'danger',
-};
-export const osStatusLabel: Record<OsStatus, string> = {
-  em_aberto: 'Em aberto',
-  emitida: 'Emitida',
-  confirmada: 'Confirmada',
-  em_andamento: 'Em andamento',
-  executada: 'Executada',
-  concluida: 'Concluída',
-  remarcada: 'Remarcada',
-  nao_executada: 'Não executada',
-  cancelada: 'Cancelada',
-};
+export type { OsStatus, CorDeStatus };
+export { osStatusLabel, OS_STATUSES, rotuloStatus, corDoStatus, isReadOnly };
+
 /** O que a coluna Data mostra quando a OS ainda não foi programada. */
 export const SEM_DATA_PROGRAMADA = 'A programar';
 
-export const OS_STATUSES: OsStatus[] = [
-  'em_aberto', 'emitida', 'confirmada', 'em_andamento',
-  'executada', 'concluida', 'remarcada', 'nao_executada', 'cancelada',
-];
 
-/**
- * Rótulo e tom de um status que pode não estar nos nove canônicos.
- *
- * Desde que Cadastros Auxiliares passou a permitir criar status, `os.status`
- * deixou de ser um valor do union `OsStatus` em tempo de execução — pode ser
- * qualquer slug cadastrado. Indexar o Record direto devolvia `undefined`, e o
- * `.toLowerCase()` que vem logo depois em duas telas estourava em branco.
- *
- * Os nove continuam no mapa porque o tom deles é decisão de design, não do
- * cadastro; o que vier de fora cai no rótulo derivado do próprio slug.
- */
-export function rotuloStatus(status: string): string {
-  const conhecido = osStatusLabel[status as OsStatus];
-  if (conhecido) return conhecido;
-  const texto = status.replace(/_/g, ' ').trim();
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
-}
-export function tomStatus(status: string): BadgeTone {
-  return osStatusTone[status as OsStatus] ?? 'muted';
-}
-
-/** Situação final: a OS não aceita mais edição nem ação de fluxo. */
-export const isReadOnly = (status: OsStatus) =>
-  status === 'concluida' || status === 'cancelada' || status === 'nao_executada';
 
 export type Recorrencia = 'nenhuma' | 'semanal' | 'mensal' | 'trimestral';
 export const recorrenciaLabel: Record<Recorrencia, string> = {
@@ -156,7 +111,16 @@ export interface OperacionalRow {
   funcionarios: string;
   status: string;
   statusLabel: string;
+  /** Tom nomeado — usado pelas linhas de orçamento, que seguem a família `tag.*`. */
   statusTone: BadgeTone;
+  /**
+   * Par de cores do mapa compartilhado — usado pelas linhas de OS.
+   *
+   * Tem precedência sobre `statusTone` no `Badge`. As duas formas convivem
+   * porque só o status de OS migrou para o módulo único; orçamento continua
+   * nos tokens `tag.*`, compartilhados com estoque e garantias.
+   */
+  statusCores?: CorDeStatus;
   valor: string;
   origem: OrigemOs | null;
   origemLabel: string;
@@ -243,7 +207,7 @@ export async function listOperacional(opts: ListOpts = {}): Promise<{ rows: Oper
       data: o.data_programada ? brDate(o.data_programada) : SEM_DATA_PROGRAMADA,
       dataSort: o.data_programada ?? o.created_at,
       funcionarios: funcs.length ? funcs.join(', ') : '—',
-      status: st, statusLabel: rotuloStatus(st), statusTone: tomStatus(st),
+      status: st, statusLabel: rotuloStatus(st), statusTone: 'muted', statusCores: corDoStatus(st),
       valor: '—', origem, origemLabel: origem === 'avulsa' ? 'Avulsa' : 'A partir de orçamento',
       rascunho: !!o.rascunho,
     };

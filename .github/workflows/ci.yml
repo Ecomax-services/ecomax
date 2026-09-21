@@ -164,6 +164,31 @@ jobs:
           done
           echo "Tipos em dia ✓"
 
+      - name: Conferir que os módulos compartilhados não divergiram
+        # O handoff do design system pede que o mapa de status seja "um único
+        # módulo compartilhado entre os três ambientes". Sem workspace na raiz,
+        # o único jeito é copiar e conferir — mesma mecânica dos tipos acima.
+        # Sem esta checagem, alguém edita a cópia de um app, os outros dois
+        # seguem com o mapa antigo, e a divergência só aparece quando um cliente
+        # vê uma cor diferente da que o operador viu.
+        run: |
+          for f in shared/*.ts; do
+            nome="$(basename "$f")"
+            for app in web-backoffice web-portal-cliente mobile-operador; do
+              copia="apps/$app/src/lib/$nome"
+              if [ ! -f "$copia" ]; then
+                echo "::error::$copia não existe. Rode ./scripts/sync-shared.sh."
+                exit 1
+              fi
+              if ! diff -q "$f" "$copia" > /dev/null; then
+                echo "::error::$copia divergiu de $f. Edite shared/ e rode ./scripts/sync-shared.sh."
+                diff "$f" "$copia" | head -30
+                exit 1
+              fi
+            done
+          done
+          echo "Módulos compartilhados em dia ✓"
+
       - name: Suíte de RLS
         # Único lugar onde dá para provar RLS de verdade: aqui somos superusuário
         # e podemos `set local role authenticated`. O conector de produção roda

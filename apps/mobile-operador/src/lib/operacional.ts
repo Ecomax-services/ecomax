@@ -7,38 +7,39 @@ import { msgErro } from '@/lib/erros';
 // ============================================================
 // Status
 // ============================================================
-// Espelha as situações do Backoffice; sem as novas, o app mostraria o valor cru.
-export type OsStatus =
-  | 'em_aberto' | 'emitida' | 'confirmada' | 'em_andamento'
-  | 'executada' | 'concluida' | 'remarcada' | 'nao_executada' | 'cancelada';
+// O mapa vive em `shared/statusOs.ts` e é copiado para os três apps por
+// `scripts/sync-shared.sh` — o handoff do design system pede um módulo único.
+// Aqui ficam só os re-exports, para as telas continuarem importando de
+// `@/lib/operacional` como sempre fizeram.
+//
+// `osTag` é derivado do mapa compartilhado em vez de repetido: era a terceira
+// cópia das mesmas cores, e a que mais divergia (usava `#5b6470`, um cinza que
+// não existe em paleta nenhuma).
+import {
+  OS_STATUSES, osStatusLabel, osStatusCor, corDoStatus, rotuloStatus, isReadOnly,
+} from '@/lib/statusOs';
+import type { OsStatus } from '@/lib/statusOs';
 
-/** Etiqueta + cores (fiéis ao catálogo status_os do back office). */
-export const osTag: Record<OsStatus, { label: string; bg: string; fg: string }> = {
-  em_aberto: { label: 'Em aberto', bg: '#e8eefc', fg: '#3056b5' },
-  emitida: { label: 'Emitida', bg: '#e8eefc', fg: '#3056b5' },
-  confirmada: { label: 'Confirmada', bg: '#e8eefc', fg: '#3056b5' },
-  remarcada: { label: 'Remarcada', bg: '#fdebd0', fg: '#b45309' },
-  nao_executada: { label: 'Não executada', bg: '#eeeff1', fg: '#5b6470' },
-  em_andamento: { label: 'Em andamento', bg: '#fdebd0', fg: '#b45309' },
-  executada: { label: 'Executada', bg: '#d3f7d3', fg: '#155015' },
-  concluida: { label: 'Concluída', bg: '#a3eba3', fg: '#0f3f0f' },
-  cancelada: { label: 'Cancelada', bg: '#ffddd5', fg: '#a81400' },
-};
+export type { OsStatus };
+export { isReadOnly };
+
+/** Etiqueta pronta para a pílula: rótulo mais o par de cores. */
+export type TagDeStatus = { label: string; bg: string; fg: string };
+
+export const osTag: Record<OsStatus, TagDeStatus> = Object.fromEntries(
+  OS_STATUSES.map((s) => [s, { label: osStatusLabel[s], ...osStatusCor[s] }]),
+) as Record<OsStatus, TagDeStatus>;
+
 /**
- * Etiqueta de um status que pode não estar nos nove canônicos.
+ * Etiqueta de um status que pode não estar entre os nove canônicos.
  *
- * Cadastros Auxiliares passou a permitir criar status de OS. `osTag[status]`
- * devolvia `undefined` para um status novo, e a tela de detalhe quebrava ao ler
- * `t.label` logo em seguida — em campo, sem rede para diagnosticar.
+ * Cadastros Auxiliares permite criar status de OS, então o valor pode ser
+ * qualquer slug. A tela de detalhe lia `t.label` direto e quebrava em campo,
+ * sem rede para diagnosticar.
  */
-export function tagDoStatus(status: string): { label: string; bg: string; fg: string } {
-  const conhecida = osTag[status as OsStatus];
-  if (conhecida) return conhecida;
-  const texto = status.replace(/_/g, ' ').trim();
-  return { label: texto.charAt(0).toUpperCase() + texto.slice(1), bg: '#eeeff1', fg: '#5b6470' };
+export function tagDoStatus(status: string): TagDeStatus {
+  return { label: rotuloStatus(status), ...corDoStatus(status) };
 }
-
-export const isReadOnly = (s: OsStatus) => s === 'concluida' || s === 'cancelada' || s === 'nao_executada';
 
 // ============================================================
 // Helpers

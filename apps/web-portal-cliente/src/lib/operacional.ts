@@ -1,45 +1,27 @@
 import { supabase } from '@/lib/supabase';
 
-// Espelha as situações do Backoffice. Sem as quatro novas, o portal mostraria o
-// valor cru do banco ("nao_executada") na tela do cliente.
-export type OsStatus =
-  | 'em_aberto' | 'emitida' | 'confirmada' | 'em_andamento'
-  | 'executada' | 'concluida' | 'remarcada' | 'nao_executada' | 'cancelada';
+// O mapa de status vive em `shared/statusOs.ts`, copiado para os três apps por
+// `scripts/sync-shared.sh`. Antes havia uma definição por app: os rótulos
+// concordavam por manutenção manual, mas as cores não — aqui `executada` e
+// `concluida` caíam na mesma pílula, e o cliente não distinguia uma da outra.
+export type { OsStatus } from '@/lib/statusOs';
+export { osStatusLabel, rotuloStatus, corDoStatus } from '@/lib/statusOs';
 
-export const osStatusLabel: Record<OsStatus, string> = {
-  em_aberto: 'Em aberto', emitida: 'Emitida', confirmada: 'Confirmada',
-  em_andamento: 'Em andamento', executada: 'Executada', concluida: 'Concluída',
-  remarcada: 'Remarcada', nao_executada: 'Não executada', cancelada: 'Cancelada',
-};
+import type { OsStatus } from '@/lib/statusOs';
+import { corDoStatus, rotuloStatus } from '@/lib/statusOs';
+
 /**
- * Rótulo de um status que pode não estar nos nove canônicos.
+ * Estilo inline da pílula de status.
  *
- * Cadastros Auxiliares passou a permitir criar status de OS, então `o.status`
- * é qualquer slug cadastrado. Sem isto o portal mostraria o valor cru do banco
- * — 'inspecao_tecnica' — na tela do cliente.
+ * Inline, e não classe do Tailwind, porque as cores agora vêm do módulo
+ * compartilhado em hexadecimal — é o único formato que o App Operador, que não
+ * tem Tailwind, também lê. Gerar classe a partir de hex exigiria uma safelist,
+ * que é justamente o tipo de tradução onde a divergência nasce.
  */
-export function rotuloStatus(status: string): string {
-  const conhecido = osStatusLabel[status as OsStatus];
-  if (conhecido) return conhecido;
-  const texto = status.replace(/_/g, ' ').trim();
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
+export function estiloStatus(status: string): { backgroundColor: string; color: string } {
+  const { bg, fg } = corDoStatus(status);
+  return { backgroundColor: bg, color: fg };
 }
-export function classeStatus(status: string): string {
-  return osStatusClass[status as OsStatus] ?? 'bg-ink-50 text-ink-500';
-}
-
-/** Classes Tailwind disponíveis no portal (tokens enxutos). */
-export const osStatusClass: Record<OsStatus, string> = {
-  em_aberto: 'bg-infoTag-bg text-infoTag-fg',
-  emitida: 'bg-infoTag-bg text-infoTag-fg',
-  confirmada: 'bg-infoTag-bg text-infoTag-fg',
-  remarcada: 'bg-warnTag-bg text-warnTag-fg',
-  nao_executada: 'bg-ink-50 text-ink-500',
-  em_andamento: 'bg-warnTag-bg text-warnTag-fg',
-  executada: 'bg-forest-100 text-forest-900',
-  concluida: 'bg-forest-100 text-forest-900',
-  cancelada: 'bg-expiredTag-bg text-expiredTag-fg',
-};
 
 const brDate = (iso: string | null) => (iso ? iso.split('T')[0].split('-').reverse().join('/') : '—');
 const brDateTime = (iso: string | null) =>

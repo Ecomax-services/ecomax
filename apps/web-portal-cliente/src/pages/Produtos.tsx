@@ -5,7 +5,17 @@ import { cn } from '@/lib/cn';
 import {
   CountHeadline, Empty, ErrorBanner, Loading, SearchInput, TH,
 } from '@/components/ui/DataSection';
-import { listProdutos, abrirDocumento, type ProdutoCliente } from '@/lib/portal';
+import { listProdutos, type ProdutoCliente } from '@/lib/portal';
+import { VisualizadorDocumento, type DocumentoParaVer } from '@/components/VisualizadorDocumento';
+
+/**
+ * Consulta pública da ANVISA.
+ *
+ * A coluna "ANVISA / Rótulo" é a única que não abre o visualizador: o protótipo
+ * manda para a consulta oficial em aba nova, porque o que interessa ali é o
+ * registro vigente no órgão, não uma cópia guardada por nós.
+ */
+const CONSULTA_ANVISA = 'https://consultas.anvisa.gov.br/';
 
 type Filtro = 'todos' | 'disponivel' | 'indisponivel';
 
@@ -22,6 +32,7 @@ export function Produtos() {
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [vendo, setVendo] = useState<DocumentoParaVer | null>(null);
 
   useEffect(() => {
     listProdutos()
@@ -112,10 +123,10 @@ export function Produtos() {
                             {p.registroAnvisa && ` · Registro ${p.registroAnvisa}`}
                           </p>
                         </td>
-                        <Doc url={p.fichaTecnicaUrl} icon={FileText} rotulo="ficha técnica" nome={p.nome} />
-                        <Doc url={p.fichaEmergenciaUrl} icon={Siren} rotulo="ficha de emergência" nome={p.nome} />
-                        <Doc url={p.fdsUrl} icon={FlaskConical} rotulo="FDS" nome={p.nome} />
-                        <Doc url={p.anvisaUrl} icon={ExternalLink} rotulo="registro na ANVISA" nome={p.nome} />
+                        <Doc url={p.fichaTecnicaUrl} icon={FileText} rotulo="ficha técnica" nome={p.nome} onVer={setVendo} />
+                        <Doc url={p.fichaEmergenciaUrl} icon={Siren} rotulo="ficha de emergência" nome={p.nome} onVer={setVendo} />
+                        <Doc url={p.fdsUrl} icon={FlaskConical} rotulo="FDS" nome={p.nome} onVer={setVendo} />
+                        <Doc url={p.anvisaUrl} icon={ExternalLink} rotulo="registro na ANVISA" nome={p.nome} externo={CONSULTA_ANVISA} />
                       </tr>
                     ))}
                   </tbody>
@@ -125,6 +136,8 @@ export function Produtos() {
           </div>
         )}
       </div>
+
+      {vendo && <VisualizadorDocumento doc={vendo} onClose={() => setVendo(null)} />}
     </>
   );
 }
@@ -140,25 +153,51 @@ function Doc({
   icon: Icon,
   rotulo,
   nome,
+  onVer,
+  externo,
 }: {
   url: string | null;
   icon: React.ComponentType<{ className?: string }>;
   rotulo: string;
   nome: string;
+  /** Abre o documento no visualizador. */
+  onVer?: (d: DocumentoParaVer) => void;
+  /** Endereço fixo em aba nova, no lugar do visualizador (consulta da ANVISA). */
+  externo?: string;
 }) {
+  if (!url) {
+    return (
+      <td className="px-4 py-3 text-center">
+        <span className="text-[13px] text-ink-300" title="Indisponível">—</span>
+      </td>
+    );
+  }
+
+  const comum =
+    'inline-flex h-8 w-8 items-center justify-center rounded-lg text-forest-600 transition hover:bg-forest-100';
+
   return (
     <td className="px-4 py-3 text-center">
-      {url ? (
+      {externo ? (
+        <a
+          href={externo}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Consultar ${rotulo} de ${nome} na ANVISA`}
+          title="Consulta ANVISA · abre em nova aba"
+          className={comum}
+        >
+          <Icon className="h-[18px] w-[18px]" />
+        </a>
+      ) : (
         <button
-          onClick={() => abrirDocumento(url)}
+          onClick={() => onVer?.({ caminho: url, titulo: `${rotulo}: ${nome}` })}
           aria-label={`Abrir ${rotulo} de ${nome}`}
-          title={`Abrir ${rotulo}`}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-forest-600 transition hover:bg-forest-100"
+          title="Clique para abrir"
+          className={comum}
         >
           <Icon className="h-[18px] w-[18px]" />
         </button>
-      ) : (
-        <span className="text-[13px] text-ink-300">—</span>
       )}
     </td>
   );

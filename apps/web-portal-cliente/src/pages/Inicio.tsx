@@ -8,7 +8,8 @@ import { Topbar } from '@/components/Topbar';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { Empty, ErrorBanner, Loading, Section } from '@/components/ui/DataSection';
-import { getResumoInicio, abrirDocumento, validadeMeta, type ResumoInicio } from '@/lib/portal';
+import { getResumoInicio, validadeMeta, type ResumoInicio } from '@/lib/portal';
+import { VisualizadorDocumento, type DocumentoParaVer } from '@/components/VisualizadorDocumento';
 
 const hojePorExtenso = () =>
   new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -21,6 +22,7 @@ export function Inicio() {
   const { profile } = useAuth();
   const [r, setR] = useState<ResumoInicio | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [vendo, setVendo] = useState<DocumentoParaVer | null>(null);
 
   useEffect(() => {
     getResumoInicio()
@@ -108,7 +110,7 @@ export function Inicio() {
                     {r.ultimosDocumentos.map((d) => (
                       <button
                         key={d.id}
-                        onClick={() => abrirDocumento(d.arquivoUrl)}
+                        onClick={() => setVendo({ caminho: d.arquivoUrl!, titulo: d.titulo, sub: d.categoria })}
                         disabled={!d.arquivoUrl}
                         className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-ink-50 disabled:cursor-default disabled:hover:bg-transparent"
                       >
@@ -163,6 +165,8 @@ export function Inicio() {
           </div>
         )}
       </div>
+
+      {vendo && <VisualizadorDocumento doc={vendo} onClose={() => setVendo(null)} />}
     </>
   );
 }

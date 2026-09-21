@@ -3,7 +3,11 @@ export const colors = {
   // Verde institucional
   heroGreen: '#1c441c', // secondary/800 (hero do login)
   splashGreen: '#0a2d0a', // primary/800
-  primary: '#347a34', // secondary/500 — ação primária
+  // Ação primária do App Operador. O handoff do design system dá ao mobile uma
+  // primária própria — `#2e7d32`, diferente da web (`#1a5c1a`) —, e o valor
+  // antigo (`#347a34`) não existe na paleta dele: era o verde da web copiado
+  // para cá, com um desvio de matiz por cima.
+  primary: '#2e7d32',
   primarySoft: '#dcf7dc', // secondary/100
   primaryTint: '#f0fdf0', // secondary/50 — card de notificação não lida
   // Neutros

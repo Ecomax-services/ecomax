@@ -18,7 +18,7 @@ const FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/garantia-publica`;
 const brDate = (iso: string | null) => (iso ? iso.split('T')[0].split('-').reverse().join('/') : '—');
 
 const OPCOES = [
-  { key: 'renovar', label: 'Quero renovar', icon: CheckCircle2, tom: 'bg-forest-500 text-white' },
+  { key: 'renovar', label: 'Quero renovar', icon: CheckCircle2, tom: 'bg-forest-600 text-white hover:bg-forest-700' },
   { key: 'contato', label: 'Quero falar com um consultor', icon: MessageSquare, tom: 'border border-ink-200 bg-white text-ink-800' },
   { key: 'recusar', label: 'Não vou renovar', icon: XCircle, tom: 'border border-ink-200 bg-white text-ink-800' },
 ] as const;

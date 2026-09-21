@@ -21,11 +21,10 @@ export async function urlAssinada(caminho: string | null, segundos = 60 * 60): P
   return data?.signedUrl ?? null;
 }
 
-/** Abre um documento numa aba nova, pedindo a URL assinada na hora do clique. */
-export async function abrirDocumento(caminho: string | null): Promise<void> {
-  const url = await urlAssinada(caminho);
-  if (url) window.open(url, '_blank', 'noopener,noreferrer');
-}
+// `abrirDocumento` foi removida. Ela fazia `window.open` da URL assinada e, se
+// a URL não saísse, não fazia nada — o cliente clicava e a tela ficava igual.
+// Quem abre documento agora é `components/VisualizadorDocumento`, que confere o
+// arquivo no storage antes de mostrar e diz o que houve quando não dá.
 
 const brDate = (iso: string | null) => (iso ? iso.split('T')[0].split('-').reverse().join('/') : '—');
 
