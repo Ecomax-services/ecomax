@@ -61,7 +61,7 @@ export function OrdensServico() {
               <SearchInput
                 value={busca}
                 onChange={setBusca}
-                placeholder="Buscar por nº, serviço ou local"
+                placeholder="Buscar por número ou identificação"
                 label="Buscar ordens de serviço"
               />
             </div>
@@ -73,7 +73,7 @@ export function OrdensServico() {
                 <div className="overflow-hidden rounded-xl border border-ink-200 bg-white">
                   <table className="w-full border-collapse">
                     <thead><tr className="bg-ink-50">
-                      <th className={TH}>Nº</th><th className={TH}>Identificação</th><th className={TH}>Serviço</th><th className={TH}>Data</th><th className={TH}>Status</th>
+                      <th className={TH}>Número</th><th className={TH}>Identificação</th><th className={TH}>Data de abertura</th><th className={TH}>Status</th>
                     </tr></thead>
                     <tbody>
                       {osFiltradas.map((o) => (
@@ -94,7 +94,6 @@ export function OrdensServico() {
                         >
                           <td className="px-4 py-3 text-sm font-semibold text-forest-900">{o.codigo}</td>
                           <td className="px-4 py-3 text-sm text-ink-800">{o.identificacao}</td>
-                          <td className="px-4 py-3 text-sm text-ink-800">{o.tipos}</td>
                           <td className="px-4 py-3 text-sm text-ink-500">{o.data}</td>
                           <td className="px-4 py-3"><span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={estiloStatus(o.status)}>{o.statusLabel}</span></td>
                         </tr>

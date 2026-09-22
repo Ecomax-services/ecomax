@@ -17,18 +17,24 @@ import { VisualizadorDocumento, type DocumentoParaVer } from '@/components/Visua
  */
 const CONSULTA_ANVISA = 'https://consultas.anvisa.gov.br/';
 
-type Filtro = 'todos' | 'disponivel' | 'indisponivel';
+/**
+ * Aparência da etiqueta de disponibilidade.
+ *
+ * Fica aqui, e não solta no JSX, porque a legenda precisa mostrar exatamente a
+ * mesma etiqueta que aparece na linha. Legenda com bolinha ao lado de uma
+ * tabela com etiqueta escrita obriga a pessoa a traduzir uma coisa na outra.
+ */
+const ETIQUETA = {
+  disponivel: 'bg-forest-100 text-forest-900',
+  indisponivel: 'bg-ink-50 text-ink-400',
+} as const;
 
-const filtros: { key: Filtro; label: string }[] = [
-  { key: 'todos', label: 'Todos' },
-  { key: 'disponivel', label: 'Disponível' },
-  { key: 'indisponivel', label: 'Indisponível' },
-];
+const classeEtiqueta = (disponivel: boolean) =>
+  `rounded-full px-2 py-0.5 text-[10px] font-semibold ${disponivel ? ETIQUETA.disponivel : ETIQUETA.indisponivel}`;
 
 /** Tela 5 - Produtos, com o bloco regulatório de cada um. */
 export function Produtos() {
   const [rows, setRows] = useState<ProdutoCliente[]>([]);
-  const [filtro, setFiltro] = useState<Filtro>('todos');
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -43,12 +49,9 @@ export function Produtos() {
 
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return rows.filter((p) => {
-      if (filtro === 'disponivel' && !p.disponivel) return false;
-      if (filtro === 'indisponivel' && p.disponivel) return false;
-      return !q || `${p.nome} ${p.codigo} ${p.categoria}`.toLowerCase().includes(q);
-    });
-  }, [rows, filtro, busca]);
+    if (!q) return rows;
+    return rows.filter((p) => `${p.nome} ${p.codigo} ${p.categoria}`.toLowerCase().includes(q));
+  }, [rows, busca]);
 
   return (
     <>
@@ -60,26 +63,20 @@ export function Produtos() {
         ) : (
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <CountHeadline n={visiveis.length} singular="produto" plural="produtos" />
+              <CountHeadline n={visiveis.length} singular="produto cadastrado" plural="produtos cadastrados" />
               <div className="flex items-center gap-3">
-                <div className="flex rounded-lg border border-ink-200 bg-white p-px">
-                  {filtros.map((f) => (
-                    <button
-                      key={f.key}
-                      onClick={() => setFiltro(f.key)}
-                      className={cn(
-                        'h-8 px-3.5 rounded-md text-[13px] transition-colors',
-                        filtro === f.key ? 'bg-forest-100 font-medium text-forest-500' : 'text-ink-500 hover:text-ink-900',
-                      )}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
+                {/* Faixa informativa, não filtro — é o que o protótipo desenha.
+                    A lista de produtos homologados de um cliente cabe na tela, e
+                    filtrar esconderia justamente o indisponível, que é o que ele
+                    precisa notar. */}
+                <div className="flex items-center gap-3 rounded-lg bg-forest-50 px-4 py-2">
+                  <span className={classeEtiqueta(true)}>Disponível</span>
+                  <span className={classeEtiqueta(false)}>Indisponível</span>
                 </div>
                 <SearchInput
                   value={busca}
                   onChange={setBusca}
-                  placeholder="Buscar produto"
+                  placeholder="Buscar por nome do produto"
                   label="Buscar produto"
                 />
               </div>
@@ -89,7 +86,7 @@ export function Produtos() {
               <Empty>
                 {rows.length === 0
                   ? 'Nenhum produto associado ao seu contrato ainda.'
-                  : 'Nenhum produto para este filtro.'}
+                  : 'Nenhum produto para esta busca.'}
               </Empty>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
@@ -109,12 +106,7 @@ export function Produtos() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-medium text-ink-900">{p.nome}</p>
-                            <span
-                              className={cn(
-                                'rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                                p.disponivel ? 'bg-forest-100 text-forest-900' : 'bg-ink-50 text-ink-400',
-                              )}
-                            >
+                            <span className={classeEtiqueta(p.disponivel)}>
                               {p.disponivel ? 'Disponível' : 'Indisponível'}
                             </span>
                           </div>

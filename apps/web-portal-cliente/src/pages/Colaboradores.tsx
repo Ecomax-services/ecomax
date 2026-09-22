@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Info, Mail, X } from 'lucide-react';
+import { Clock, Info, Mail, X } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { cn } from '@/lib/cn';
 import {
@@ -49,11 +49,11 @@ export function Colaboradores() {
         ) : (
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <CountHeadline n={visiveis.length} singular="colaborador" plural="colaboradores" />
+              <CountHeadline n={visiveis.length} singular="colaborador ativo" plural="colaboradores ativos" />
               <SearchInput
                 value={busca}
                 onChange={setBusca}
-                placeholder="Buscar colaborador"
+                placeholder="Buscar por nome"
                 label="Buscar colaborador"
               />
             </div>
@@ -99,9 +99,13 @@ export function Colaboradores() {
                         {tipos.map((t) => {
                           const doc = c.documentos[t];
                           const meta = validadeMeta[doc?.estado ?? 'indisponivel'];
+                          // MM/AA, como no protótipo. O relógio marca o que
+                          // vence em breve sem depender só da cor — a matriz tem
+                          // nove colunas e a pílula é pequena.
                           const conteudo = (
-                            <span className={cn('inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold', meta.classe)}>
-                              {doc?.validade ? doc.validadeBr : meta.label}
+                            <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums', meta.classe)}>
+                              {doc?.estado === 'vence_em_breve' && <Clock className="h-3 w-3" />}
+                              {doc?.validade ? doc.validadeCurta : meta.label}
                             </span>
                           );
                           return (
@@ -112,10 +116,15 @@ export function Colaboradores() {
                                     setVendo({ caminho: doc.arquivoUrl!, titulo: `${t}: ${c.nome}`, sub: c.cargo })
                                   }
                                   aria-label={`Abrir ${t} de ${c.nome}`}
+
+                                  // A data completa vive aqui: a célula mostra MM/AA, e
+                                  // quem precisa do dia passa o mouse.
                                   title={
                                     doc.estado === 'vence_em_breve'
-                                      ? 'Vence em breve · clique para abrir'
-                                      : 'Clique para abrir'
+                                      ? `Vence em ${doc.validadeBr} · clique para abrir`
+                                      : doc.validade
+                                        ? `Válido até ${doc.validadeBr} · clique para abrir`
+                                        : 'Clique para abrir'
                                   }
                                   className="transition hover:opacity-75"
                                 >

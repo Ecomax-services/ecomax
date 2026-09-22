@@ -6,7 +6,7 @@ import {
   CountHeadline, Empty, ErrorBanner, Loading, SearchInput, TH,
 } from '@/components/ui/DataSection';
 import {
-  listDocumentos, listCategoriasDocumento, validadeMeta,
+  listDocumentos, listCategoriasDocumento,
   type DocumentoCliente,
 } from '@/lib/portal';
 import { VisualizadorDocumento, type DocumentoParaVer } from '@/components/VisualizadorDocumento';
@@ -102,27 +102,16 @@ export function Documentos() {
                   <thead>
                     <tr className="bg-ink-50">
                       <th className={TH}>Documento</th>
-                      <th className={TH}>Validade</th>
                       <th className={cn(TH, 'text-right')}>Arquivo</th>
                     </tr>
                   </thead>
                   <tbody>
                     {visiveis.map((d) => {
-                      const meta = validadeMeta[d.estado];
                       return (
                         <tr key={d.id} className="border-t border-ink-200">
                           <td className="px-4 py-3">
                             <p className="text-sm font-medium text-ink-900">{d.titulo}</p>
                             {d.descricao && <p className="text-[13px] text-ink-500">{d.descricao}</p>}
-                          </td>
-                          <td className="px-4 py-3">
-                            {d.validade ? (
-                              <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', meta.classe)}>
-                                {d.validadeBr}
-                              </span>
-                            ) : (
-                              <span className="text-[13px] text-ink-400">Não vence</span>
-                            )}
                           </td>
                           <td className="px-4 py-3 text-right">
                             {d.arquivoUrl ? (

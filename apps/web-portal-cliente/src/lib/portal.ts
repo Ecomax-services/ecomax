@@ -174,10 +174,26 @@ export async function listProdutos(): Promise<ProdutoCliente[]> {
 export interface DocumentoColaborador {
   tipo: string;
   validade: string | null;
+  /** Data completa, dd/mm/aaaa — vai no tooltip da célula. */
   validadeBr: string;
+  /**
+   * Mês e ano, MM/AA.
+   *
+   * É o formato do protótipo, e a matriz de colaboradores tem uma coluna por
+   * tipo de documento: com nove colunas, a data completa espreme tudo. O dia
+   * não se perde — fica no `title` do botão, que já existia.
+   */
+  validadeCurta: string;
   estado: EstadoValidade;
   arquivoUrl: string | null;
 }
+
+/** MM/AA a partir de uma data ISO. */
+const mesAno = (iso: string | null) => {
+  if (!iso) return '—';
+  const [ano, mes] = iso.split('T')[0].split('-');
+  return `${mes}/${ano.slice(2)}`;
+};
 
 export interface Colaborador {
   id: string;
@@ -210,6 +226,7 @@ export async function listColaboradores(): Promise<Colaborador[]> {
       tipo: d.tipo,
       validade: d.validade,
       validadeBr: brDate(d.validade),
+      validadeCurta: mesAno(d.validade),
       estado: estadoValidade(d.validade),
       arquivoUrl: d.arquivo_url,
     };
