@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, UsersRound, PackageCheck, AlertTriangle, Repeat } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, UsersRound, PackageCheck, AlertTriangle, Repeat, FileText, Upload, Eye, EyeOff } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -23,11 +23,14 @@ import {
   listPortalUsuarios, convidarPortalUsuario, setPortalUsuarioStatus, portalStatusTone, portalStatusLabel,
   listHomologados, listProdutosParaHomologar, addHomologado, removeHomologado,
   docTone,
+  listDocumentosDoCliente, criarDocumentoCliente, definirAtivoDocumentoCliente,
+  urlDocumentoCliente, listCategoriasDocumentoCliente,
   type ClienteDetail, type ContatoRow, type OrcamentoRow, type OrcStatus,
   type FuncIntegradoRow, type PortalUsuarioRow, type HomologadoRow,
+  type DocumentoDoCliente,
 } from '@/lib/clientes';
 
-type Tab = 'orcamentos' | 'funcionarios';
+type Tab = 'orcamentos' | 'funcionarios' | 'documentos';
 
 export function ClienteDetalhe() {
   const { id = '' } = useParams();
@@ -96,13 +99,18 @@ export function ClienteDetalhe() {
         {/* Abas */}
         <div className="mt-6">
           <Tabs
-            tabs={[{ key: 'orcamentos', label: 'Orçamentos' }, { key: 'funcionarios', label: 'Funcionários integrados' }]}
+            tabs={[
+              { key: 'orcamentos', label: 'Orçamentos' },
+              { key: 'funcionarios', label: 'Funcionários integrados' },
+              { key: 'documentos', label: 'Documentos' },
+            ]}
             value={tab}
             onChange={setTab}
           />
           <div className="mt-4">
             {tab === 'orcamentos' && <OrcamentosTab clienteId={id} canCreate={canCreate} canEdit={canEdit} />}
             {tab === 'funcionarios' && <FuncionariosTab clienteId={id} canCreate={canCreate} canEdit={canEdit} onNovo={() => navigate('/usuarios/novo')} />}
+            {tab === 'documentos' && <DocumentosTab clienteId={id} canEdit={canEdit} />}
           </div>
         </div>
       </div>
@@ -111,6 +119,210 @@ export function ClienteDetalhe() {
       {portalOpen && <PortalModal clienteId={id} canEdit={canEdit} onClose={() => setPortalOpen(false)} />}
       {homologOpen && <HomologadosDrawer clienteId={id} canEdit={canEdit} onClose={() => setHomologOpen(false)} />}
     </>
+  );
+}
+
+// ---------------- Documentos do cliente ----------------
+/**
+ * Documentos que o cliente vê no Portal.
+ *
+ * Esta aba existia no protótipo do Backoffice e nunca tinha sido construída.
+ * A consequência aparecia do outro lado: `cliente_documentos` era lida pelo
+ * Portal e escrita por ninguém, então a aba Documentos de lá ficava vazia para
+ * sempre — as policies de escrita estavam prontas desde o começo, faltava a
+ * tela.
+ */
+function DocumentosTab({ clienteId, canEdit }: { clienteId: string; canEdit: boolean }) {
+  const { showToast } = useToast();
+  const [rows, setRows] = useState<DocumentoDoCliente[]>([]);
+  const [novo, setNovo] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+
+  const load = useCallback(() => {
+    setCarregando(true);
+    listDocumentosDoCliente(clienteId)
+      .then(setRows)
+      .catch((e) => showToast((e as Error).message))
+      .finally(() => setCarregando(false));
+  }, [clienteId, showToast]);
+  useEffect(() => { load(); }, [load]);
+
+  const abrir = async (d: DocumentoDoCliente) => {
+    try {
+      const url = await urlDocumentoCliente(d.arquivoUrl);
+      if (!url) return showToast('Este documento não tem arquivo.');
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (e) { showToast((e as Error).message); }
+  };
+
+  const alternar = async (d: DocumentoDoCliente) => {
+    try {
+      await definirAtivoDocumentoCliente(d.id, !d.ativo);
+      showToast(d.ativo ? 'Documento oculto do Portal' : 'Documento visível no Portal');
+      load();
+    } catch (e) { showToast((e as Error).message); }
+  };
+
+  const th = 'px-4 py-2.5 text-left text-xs font-bold uppercase text-ink-400';
+  return (
+    <div className="rounded-2xl border border-ink-100 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-3">
+        <p className="text-[13px] text-ink-500">
+          O que estiver visível aqui aparece na aba Documentos do Portal do Cliente.
+        </p>
+        {canEdit && <Button size="sm" onClick={() => setNovo(true)}><Plus className="h-4 w-4" />Adicionar documento</Button>}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[820px] border-collapse">
+          <thead>
+            <tr className="bg-ink-50">
+              <th className={cn(th, 'pl-6')}>Documento</th>
+              <th className={th}>Categoria</th>
+              <th className={th}>Validade</th>
+              <th className={cn(th, 'text-center')}>No Portal</th>
+              <th className={cn(th, 'pr-6 text-right')}>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {carregando && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-ink-400">Carregando…</td></tr>}
+            {!carregando && rows.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-ink-400">Nenhum documento para este cliente.</td></tr>
+            )}
+            {rows.map((d) => (
+              <tr key={d.id} className="border-t border-ink-100">
+                <td className="px-4 py-3 pl-6">
+                  <p className="text-sm font-medium text-ink-800">{d.titulo}</p>
+                  {d.descricao && <p className="text-[13px] text-ink-500">{d.descricao}</p>}
+                </td>
+                <td className="px-4 py-3 text-sm text-ink-600">
+                  {d.categoria}
+                  {/* Documento institucional vale para todos os clientes. Sem
+                      dizer isso, alguém o ocultaria daqui achando que mexe só
+                      neste cliente — e sumiria do Portal de todos. */}
+                  {d.institucional && (
+                    <span className="ml-2 rounded-full bg-tag-infoBg px-2 py-0.5 text-[10px] font-semibold text-tag-infoFg">
+                      Institucional
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-sm text-ink-600">{d.validade ? d.validadeBr : 'Não vence'}</td>
+                <td className="px-4 py-3 text-center">
+                  <Badge tone={d.ativo ? 'success' : 'muted'}>{d.ativo ? 'Visível' : 'Oculto'}</Badge>
+                </td>
+                <td className="px-4 py-3 pr-6 text-right">
+                  <span className="inline-flex items-center gap-1">
+                    {d.arquivoUrl ? (
+                      <button onClick={() => abrir(d)} title="Abrir arquivo"
+                        className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-50 hover:text-forest-600">
+                        <FileText className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <span className="px-1.5 text-[12px] text-ink-300" title="Registro sem arquivo">sem arquivo</span>
+                    )}
+                    {canEdit && (
+                      <button onClick={() => alternar(d)}
+                        title={d.ativo ? 'Ocultar do Portal do Cliente' : 'Mostrar no Portal do Cliente'}
+                        className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-50 hover:text-forest-600">
+                        {d.ativo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    )}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {novo && (
+        <NovoDocumentoModal
+          clienteId={clienteId}
+          onClose={() => setNovo(false)}
+          onDone={() => { setNovo(false); load(); }}
+          showToast={showToast}
+        />
+      )}
+    </div>
+  );
+}
+
+function NovoDocumentoModal({
+  clienteId, onClose, onDone, showToast,
+}: { clienteId: string; onClose: () => void; onDone: () => void; showToast: (m: string) => void }) {
+  const [categorias, setCategorias] = useState<string[]>([]);
+  const [form, setForm] = useState({ categoria: '', titulo: '', descricao: '', validade: '' });
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const arquivoRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    listCategoriasDocumentoCliente()
+      .then((c) => { setCategorias(c); setForm((f) => ({ ...f, categoria: f.categoria || c[0] || '' })); })
+      .catch((e) => showToast((e as Error).message));
+  }, [showToast]);
+
+  const salvar = async () => {
+    if (!form.titulo.trim()) return showToast('Informe o título do documento.');
+    if (!form.categoria) return showToast('Escolha a categoria.');
+    setEnviando(true);
+    try {
+      // A data chega mascarada como dd/mm/aaaa e o banco espera ISO.
+      const validade = form.validade.length === 10
+        ? form.validade.split('/').reverse().join('-')
+        : null;
+      await criarDocumentoCliente(clienteId, {
+        categoria: form.categoria,
+        titulo: form.titulo,
+        descricao: form.descricao,
+        validade,
+      }, arquivo);
+      showToast('Documento adicionado');
+      onDone();
+    } catch (e) {
+      showToast((e as Error).message);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} labelledBy="titulo-novo-doc">
+      <div className="px-7 pb-2 pt-6">
+        <h2 id="titulo-novo-doc" className="text-lg font-semibold text-ink-900">Adicionar documento</h2>
+        <p className="mt-1 text-[13px] text-ink-500">Ele passa a aparecer na aba Documentos do Portal deste cliente.</p>
+      </div>
+      <div className="space-y-4 px-7 py-4">
+        <SelectField label="Categoria" value={form.categoria}
+          onChange={(e) => setForm((s) => ({ ...s, categoria: e.target.value }))}
+          options={categorias.map((c) => ({ value: c, label: c }))} />
+        <TextField label="Título" value={form.titulo}
+          onChange={(e) => setForm((s) => ({ ...s, titulo: e.target.value }))}
+          placeholder="Ex.: Contrato de prestação de serviços" />
+        <TextField label="Descrição (opcional)" value={form.descricao}
+          onChange={(e) => setForm((s) => ({ ...s, descricao: e.target.value }))} />
+        <TextField label="Validade (opcional)" value={form.validade}
+          onChange={(e) => setForm((s) => ({ ...s, validade: maskDate(e.target.value) }))}
+          placeholder="dd/mm/aaaa" />
+        <div>
+          <button type="button" onClick={() => arquivoRef.current?.click()}
+            className="flex w-full items-center gap-2 rounded-lg border border-dashed border-ink-200 bg-ink-50 px-3.5 py-3 text-left text-[13px] text-ink-600 hover:border-forest-600">
+            <Upload className="h-4 w-4 shrink-0" />
+            {arquivo ? arquivo.name : 'Escolher arquivo (PDF ou imagem)'}
+          </button>
+          <input ref={arquivoRef} type="file" className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              e.target.value = '';
+              setArquivo(f);
+              if (f && !form.titulo.trim()) setForm((s) => ({ ...s, titulo: f.name.replace(/\.[^.]+$/, '') }));
+            }} />
+        </div>
+      </div>
+      <div className="flex gap-3 px-7 pb-6">
+        <Button variant="secondary" fullWidth onClick={onClose}>Cancelar</Button>
+        <Button fullWidth onClick={salvar} disabled={enviando}>{enviando ? 'Enviando…' : 'Adicionar'}</Button>
+      </div>
+    </Modal>
   );
 }
 

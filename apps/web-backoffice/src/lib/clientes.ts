@@ -452,3 +452,164 @@ export async function removeHomologado(id: string): Promise<void> {
   const { error } = await supabase.from('cliente_produtos_homologados').delete().eq('id', id);
   if (error) throw new Error(msgErro(error));
 }
+
+// ===========================================================================
+// Documentos do cliente (o que o Portal mostra na aba Documentos)
+// ===========================================================================
+// `cliente_documentos` era lida pelo Portal e escrita por ninguém: as policies
+// de insert, update e delete existiam desde o começo, mas nenhuma tela do
+// Backoffice as usava. A aba Documentos do Portal não tinha como sair do vazio.
+
+const BUCKET_PORTAL = 'portal-docs';
+
+export interface DocumentoDoCliente {
+  id: string;
+  categoria: string;
+  titulo: string;
+  descricao: string | null;
+  arquivoUrl: string | null;
+  validade: string | null;
+  validadeBr: string;
+  ativo: boolean;
+  /** Vale para todos os clientes, e não só para este. */
+  institucional: boolean;
+  criadoEm: string;
+}
+
+/**
+ * Documentos deste cliente, mais os institucionais.
+ *
+ * Os institucionais (`cliente_id is null`) aparecem no Portal de todo cliente —
+ * contrato-modelo, manual, política. Vêm junto aqui para quem administra ver a
+ * mesma lista que o cliente vê, em vez de descobrir depois por que um documento
+ * "apareceu sozinho".
+ */
+export async function listDocumentosDoCliente(clienteId: string): Promise<DocumentoDoCliente[]> {
+  const { data, error } = await supabase
+    .from('cliente_documentos')
+    .select('id, cliente_id, categoria, titulo, descricao, arquivo_url, validade, ativo, created_at')
+    .or(`cliente_id.eq.${clienteId},cliente_id.is.null`)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(msgErro(error));
+  return (data as any[]).map((d) => ({
+    id: d.id,
+    categoria: d.categoria,
+    titulo: d.titulo,
+    descricao: d.descricao,
+    arquivoUrl: d.arquivo_url,
+    validade: d.validade,
+    validadeBr: brDate(d.validade),
+    ativo: d.ativo,
+    institucional: d.cliente_id === null,
+    criadoEm: brDate(d.created_at?.slice(0, 10) ?? null),
+  }));
+}
+
+export interface NovoDocumentoCliente {
+  categoria: string;
+  titulo: string;
+  descricao?: string | null;
+  validade?: string | null;
+}
+
+/**
+ * Cria o documento e, se houver arquivo, envia e amarra os dois.
+ *
+ * A ordem não é escolha de estilo. A policy de leitura do bucket decodifica o
+ * caminho — `portal_doc_escopo` e `portal_doc_id` exigem
+ * `documento/<uuid-do-registro>/<arquivo>` —, e o uuid só existe depois do
+ * insert. Enviar antes obrigaria a adivinhar o id, e um caminho fora do padrão
+ * sobe sem erro e depois não abre para o cliente: a policy simplesmente não
+ * casa, e o arquivo vira um 404 silencioso.
+ *
+ * Se o upload falhar, o registro é removido. Um documento sem arquivo aparece
+ * no Portal como "Sem arquivo", e ninguém pediu isso — é melhor não existir do
+ * que existir quebrado.
+ */
+export async function criarDocumentoCliente(
+  clienteId: string,
+  dados: NovoDocumentoCliente,
+  arquivo: File | null,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('cliente_documentos')
+    .insert({
+      cliente_id: clienteId,
+      categoria: dados.categoria,
+      titulo: dados.titulo.trim(),
+      descricao: dados.descricao?.trim() || null,
+      validade: dados.validade || null,
+      created_by: (await supabase.auth.getUser()).data.user?.id ?? null,
+    })
+    .select('id')
+    .single();
+  if (error) throw new Error(msgErro(error));
+
+  if (!arquivo) return;
+
+  const id = (data as { id: string }).id;
+  try {
+    const caminho = `documento/${id}/${nomeSeguro(arquivo.name)}`;
+    const up = await supabase.storage
+      .from(BUCKET_PORTAL)
+      .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type || undefined });
+    if (up.error) throw new Error(msgErro(up.error));
+
+    const { error: e2 } = await supabase
+      .from('cliente_documentos')
+      .update({ arquivo_url: caminho })
+      .eq('id', id);
+    if (e2) throw new Error(msgErro(e2));
+  } catch (e) {
+    await supabase.from('cliente_documentos').delete().eq('id', id);
+    throw e;
+  }
+}
+
+/**
+ * Nome de arquivo sem acento, espaço ou barra.
+ *
+ * Barra no nome criaria um nível a mais no caminho, e aí
+ * `documento/<id>/sub/arquivo.pdf` deixa de casar com a policy — que espera o
+ * id no segundo segmento. Acento e espaço não quebram, mas produzem URL
+ * ilegível no navegador.
+ */
+function nomeSeguro(nome: string): string {
+  return nome
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(-80);
+}
+
+/**
+ * Tira o documento do ar sem apagar o histórico.
+ *
+ * A policy do Portal filtra por `ativo = true`, então inativar já basta para o
+ * cliente parar de ver. Apagar levaria junto o registro de que o documento
+ * existiu, e documento de cliente costuma ter valor probatório.
+ */
+export async function definirAtivoDocumentoCliente(id: string, ativo: boolean): Promise<void> {
+  const { error } = await supabase.from('cliente_documentos').update({ ativo }).eq('id', id);
+  if (error) throw new Error(msgErro(error));
+}
+
+/** URL temporária para conferir o arquivo antes de o cliente ver. */
+export async function urlDocumentoCliente(caminho: string | null, segundos = 3600): Promise<string | null> {
+  if (!caminho) return null;
+  const { data } = await supabase.storage.from(BUCKET_PORTAL).createSignedUrl(caminho, segundos);
+  return data?.signedUrl ?? null;
+}
+
+/** Categorias do catálogo — as mesmas abas que o Portal mostra. */
+export async function listCategoriasDocumentoCliente(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('catalogo_itens')
+    .select('nome')
+    .eq('catalogo', 'categorias_documento_cliente')
+    .eq('ativo', true)
+    .order('ordem');
+  if (error) throw new Error(msgErro(error));
+  return (data as { nome: string }[]).map((c) => c.nome);
+}
