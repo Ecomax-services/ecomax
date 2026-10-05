@@ -1851,7 +1851,7 @@ export type Database = {
           link: string | null
           os_id: string | null
           para_cliente_id: string | null
-          para_profile_id: string | null
+          para_profile_id: string
           para_role: string | null
           tipo: string
           titulo: string
@@ -1865,7 +1865,7 @@ export type Database = {
           link?: string | null
           os_id?: string | null
           para_cliente_id?: string | null
-          para_profile_id?: string | null
+          para_profile_id: string
           para_role?: string | null
           tipo?: string
           titulo: string
@@ -3755,6 +3755,42 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       my_portal_cliente_ids: { Args: never; Returns: string[] }
+      notificar_cliente: {
+        Args: {
+          _cliente_id: string
+          _descricao: string
+          _link: string
+          _os_id: string
+          _tipo: string
+          _titulo: string
+        }
+        Returns: number
+      }
+      notificar_papel: {
+        Args: {
+          _descricao: string
+          _link: string
+          _os_id: string
+          _role: Database["public"]["Enums"]["user_role"]
+          _tipo: string
+          _titulo: string
+        }
+        Returns: number
+      }
+      notificar_perfis: {
+        Args: {
+          _descricao: string
+          _link: string
+          _os_id: string
+          _para_cliente_id?: string
+          _para_role?: string
+          _perfis: string[]
+          _tipo: string
+          _titulo: string
+        }
+        Returns: number
+      }
+      notificar_visitas_agendadas: { Args: { _os_id: string }; Returns: number }
       os_is_mine: { Args: { _os_id: string }; Returns: boolean }
       os_is_my_cliente: { Args: { _os_id: string }; Returns: boolean }
       os_relatorio_publicado: { Args: { _os_id: string }; Returns: boolean }
