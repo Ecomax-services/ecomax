@@ -2534,6 +2534,7 @@ export type Database = {
         Row: {
           base_id: string | null
           created_at: string
+          estoque_lote_id: string | null
           id: string
           lote: string | null
           observacao: string | null
@@ -2543,10 +2544,12 @@ export type Database = {
           qtd_recomendada: number
           qtd_utilizada: number | null
           unidade: string | null
+          unidade_utilizada: string | null
         }
         Insert: {
           base_id?: string | null
           created_at?: string
+          estoque_lote_id?: string | null
           id?: string
           lote?: string | null
           observacao?: string | null
@@ -2556,10 +2559,12 @@ export type Database = {
           qtd_recomendada?: number
           qtd_utilizada?: number | null
           unidade?: string | null
+          unidade_utilizada?: string | null
         }
         Update: {
           base_id?: string | null
           created_at?: string
+          estoque_lote_id?: string | null
           id?: string
           lote?: string | null
           observacao?: string | null
@@ -2569,6 +2574,7 @@ export type Database = {
           qtd_recomendada?: number
           qtd_utilizada?: number | null
           unidade?: string | null
+          unidade_utilizada?: string | null
         }
         Relationships: [
           {
@@ -2583,6 +2589,13 @@ export type Database = {
             columns: ["base_id"]
             isOneToOne: false
             referencedRelation: "vw_bases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_produtos_estoque_lote_id_fkey"
+            columns: ["estoque_lote_id"]
+            isOneToOne: false
+            referencedRelation: "estoque_lotes"
             referencedColumns: ["id"]
           },
           {
@@ -2851,6 +2864,7 @@ export type Database = {
           created_at: string
           estoque_max: number | null
           estoque_min: number
+          fator_aplicacao: number | null
           fds_url: string | null
           ficha_emergencia_url: string | null
           ficha_tecnica_url: string | null
@@ -2860,6 +2874,7 @@ export type Database = {
           observacao: string | null
           registro_anvisa: string | null
           unidade: string
+          unidade_aplicacao: string | null
           updated_at: string
         }
         Insert: {
@@ -2870,6 +2885,7 @@ export type Database = {
           created_at?: string
           estoque_max?: number | null
           estoque_min?: number
+          fator_aplicacao?: number | null
           fds_url?: string | null
           ficha_emergencia_url?: string | null
           ficha_tecnica_url?: string | null
@@ -2879,6 +2895,7 @@ export type Database = {
           observacao?: string | null
           registro_anvisa?: string | null
           unidade: string
+          unidade_aplicacao?: string | null
           updated_at?: string
         }
         Update: {
@@ -2889,6 +2906,7 @@ export type Database = {
           created_at?: string
           estoque_max?: number | null
           estoque_min?: number
+          fator_aplicacao?: number | null
           fds_url?: string | null
           ficha_emergencia_url?: string | null
           ficha_tecnica_url?: string | null
@@ -2898,6 +2916,7 @@ export type Database = {
           observacao?: string | null
           registro_anvisa?: string | null
           unidade?: string
+          unidade_aplicacao?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3435,6 +3454,10 @@ export type Database = {
         Returns: boolean
       }
       produto_in_my_os: { Args: { _produto_id: string }; Returns: boolean }
+      qtd_em_unidade_de_estoque: {
+        Args: { _produto_id: string; _qtd: number; _unidade: string }
+        Returns: number
+      }
       receber_requisicao: {
         Args: {
           p_base_id: string
