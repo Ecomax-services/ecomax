@@ -153,8 +153,11 @@ Sem workspace na raiz, `shared/` é copiado para `apps/*/src/lib/` e a CI
 compara byte a byte. Editar a cópia dentro de um app faz a CI barrar — edite o
 original e rode `./scripts/sync-shared.sh`.
 
-Hoje isso cobre os tipos do banco e o **mapa de status da OS**, que o design
-system exige ser único entre os três ambientes. Antes eram três definições
+Hoje isso cobre os tipos do banco, o **mapa de status da OS**, que o design
+system exige ser único entre os três ambientes, e as **regras do
+monitoramento** (`shared/monitoramento.ts`), que o App calcula offline e o
+banco recalcula no envio. As regras têm testes em `shared/tests/`, rodados na
+CI com `node --test "shared/tests/*.test.ts"`. Antes eram três definições
 independentes: os rótulos concordavam por manutenção manual, mas as cores já
 tinham divergido — o Portal pintava "Executada" e "Concluída" iguais, e o
 cliente não distinguia uma da outra.
