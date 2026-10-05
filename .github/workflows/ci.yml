@@ -81,6 +81,25 @@ jobs:
         run: npm run lint --if-present
 
   # ---------------------------------------------------------------------------
+  # Regras de domínio em shared/, testadas sem banco e sem app.
+  #
+  # O App calcula o monitoramento offline e o banco recalcula no envio; os
+  # testes de shared/tests/ fixam os mesmos casos que a suíte de RLS prova no
+  # banco, para as duas contas não divergirem. Node 24 roda TypeScript direto
+  # (strip-types), sem instalar nada.
+  # ---------------------------------------------------------------------------
+  regras:
+    name: regras compartilhadas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Testes de shared/
+        run: node --test "shared/tests/*.test.ts"
+
+  # ---------------------------------------------------------------------------
   # Prova que o repositório recria o banco do zero.
   #
   # Existe porque o repo já esteve incapaz disso: o núcleo de auth (profiles,
