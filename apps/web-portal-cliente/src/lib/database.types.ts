@@ -1919,6 +1919,9 @@ export type Database = {
       }
       ordens_servico: {
         Row: {
+          assinante_cargo: string | null
+          assinante_cpf: string | null
+          assinante_nome: string | null
           assinatura_url: string | null
           cancelamento_motivo: string | null
           check_in_at: string | null
@@ -1941,6 +1944,7 @@ export type Database = {
           endereco_execucao: string | null
           epis: string[]
           etapa: string | null
+          execucao_uuid: string | null
           funcionario_integrado_id: string | null
           hora_comprometida: string | null
           hora_prevista: string | null
@@ -1956,11 +1960,16 @@ export type Database = {
           recorrencia: string
           responsavel_admin_id: string | null
           status: string
+          tecnico_assinatura_url: string | null
+          tecnico_executor_id: string | null
           termino_execucao: string | null
           tipos_servico: string[]
           updated_at: string
         }
         Insert: {
+          assinante_cargo?: string | null
+          assinante_cpf?: string | null
+          assinante_nome?: string | null
           assinatura_url?: string | null
           cancelamento_motivo?: string | null
           check_in_at?: string | null
@@ -1983,6 +1992,7 @@ export type Database = {
           endereco_execucao?: string | null
           epis?: string[]
           etapa?: string | null
+          execucao_uuid?: string | null
           funcionario_integrado_id?: string | null
           hora_comprometida?: string | null
           hora_prevista?: string | null
@@ -1998,11 +2008,16 @@ export type Database = {
           recorrencia?: string
           responsavel_admin_id?: string | null
           status?: string
+          tecnico_assinatura_url?: string | null
+          tecnico_executor_id?: string | null
           termino_execucao?: string | null
           tipos_servico?: string[]
           updated_at?: string
         }
         Update: {
+          assinante_cargo?: string | null
+          assinante_cpf?: string | null
+          assinante_nome?: string | null
           assinatura_url?: string | null
           cancelamento_motivo?: string | null
           check_in_at?: string | null
@@ -2025,6 +2040,7 @@ export type Database = {
           endereco_execucao?: string | null
           epis?: string[]
           etapa?: string | null
+          execucao_uuid?: string | null
           funcionario_integrado_id?: string | null
           hora_comprometida?: string | null
           hora_prevista?: string | null
@@ -2040,6 +2056,8 @@ export type Database = {
           recorrencia?: string
           responsavel_admin_id?: string | null
           status?: string
+          tecnico_assinatura_url?: string | null
+          tecnico_executor_id?: string | null
           termino_execucao?: string | null
           tipos_servico?: string[]
           updated_at?: string
@@ -2073,6 +2091,13 @@ export type Database = {
             referencedRelation: "funcionarios"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ordens_servico_tecnico_executor_id_fkey"
+            columns: ["tecnico_executor_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
         ]
       }
       os_anexos: {
@@ -2083,6 +2108,7 @@ export type Database = {
           id: string
           nome: string
           os_id: string
+          ponto_id: string | null
           tipo: string
         }
         Insert: {
@@ -2092,6 +2118,7 @@ export type Database = {
           id?: string
           nome: string
           os_id: string
+          ponto_id?: string | null
           tipo?: string
         }
         Update: {
@@ -2101,6 +2128,7 @@ export type Database = {
           id?: string
           nome?: string
           os_id?: string
+          ponto_id?: string | null
           tipo?: string
         }
         Relationships: [
@@ -2109,6 +2137,77 @@ export type Database = {
             columns: ["os_id"]
             isOneToOne: false
             referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_anexos_ponto_id_fkey"
+            columns: ["ponto_id"]
+            isOneToOne: false
+            referencedRelation: "os_plano_pontos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      os_aplicacoes: {
+        Row: {
+          areas: string[]
+          created_at: string
+          created_by: string | null
+          id: string
+          lote: string | null
+          os_id: string
+          plano_id: string
+          produto_id: string
+          quantidade: number
+          tecnica: string
+          unidade: string
+        }
+        Insert: {
+          areas: string[]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lote?: string | null
+          os_id: string
+          plano_id: string
+          produto_id: string
+          quantidade: number
+          tecnica: string
+          unidade: string
+        }
+        Update: {
+          areas?: string[]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lote?: string | null
+          os_id?: string
+          plano_id?: string
+          produto_id?: string
+          quantidade?: number
+          tecnica?: string
+          unidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_aplicacoes_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_aplicacoes_plano_id_fkey"
+            columns: ["plano_id"]
+            isOneToOne: false
+            referencedRelation: "os_planos_controle"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_aplicacoes_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
             referencedColumns: ["id"]
           },
         ]
@@ -2280,6 +2379,11 @@ export type Database = {
       }
       os_plano_pontos: {
         Row: {
+          acao_corretiva: string | null
+          area: string | null
+          cliente_ponto_id: string | null
+          contagens: Json | null
+          fase: number | null
           id: string
           identificacao: string | null
           numero: number
@@ -2287,9 +2391,17 @@ export type Database = {
           plano_id: string
           preenchido_em: string | null
           preenchido_por: string | null
+          sem_ocorrencia: boolean
           situacao: string
+          status_codigo: number | null
+          status_rotulo: string | null
         }
         Insert: {
+          acao_corretiva?: string | null
+          area?: string | null
+          cliente_ponto_id?: string | null
+          contagens?: Json | null
+          fase?: number | null
           id?: string
           identificacao?: string | null
           numero: number
@@ -2297,9 +2409,17 @@ export type Database = {
           plano_id: string
           preenchido_em?: string | null
           preenchido_por?: string | null
+          sem_ocorrencia?: boolean
           situacao?: string
+          status_codigo?: number | null
+          status_rotulo?: string | null
         }
         Update: {
+          acao_corretiva?: string | null
+          area?: string | null
+          cliente_ponto_id?: string | null
+          contagens?: Json | null
+          fase?: number | null
           id?: string
           identificacao?: string | null
           numero?: number
@@ -2307,9 +2427,19 @@ export type Database = {
           plano_id?: string
           preenchido_em?: string | null
           preenchido_por?: string | null
+          sem_ocorrencia?: boolean
           situacao?: string
+          status_codigo?: number | null
+          status_rotulo?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "os_plano_pontos_cliente_ponto_id_fkey"
+            columns: ["cliente_ponto_id"]
+            isOneToOne: false
+            referencedRelation: "cliente_pontos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "os_plano_pontos_plano_id_fkey"
             columns: ["plano_id"]
@@ -2324,24 +2454,36 @@ export type Database = {
           created_at: string
           frequencia: string | null
           id: string
+          lampada_instalacao: string | null
+          lampada_validade: string | null
+          observacao: string | null
           os_id: string
           pontos_previstos: number
+          servico_codigo: string | null
           tipo_controle: string
         }
         Insert: {
           created_at?: string
           frequencia?: string | null
           id?: string
+          lampada_instalacao?: string | null
+          lampada_validade?: string | null
+          observacao?: string | null
           os_id: string
           pontos_previstos?: number
+          servico_codigo?: string | null
           tipo_controle: string
         }
         Update: {
           created_at?: string
           frequencia?: string | null
           id?: string
+          lampada_instalacao?: string | null
+          lampada_validade?: string | null
+          observacao?: string | null
           os_id?: string
           pontos_previstos?: number
+          servico_codigo?: string | null
           tipo_controle?: string
         }
         Relationships: [
@@ -2351,6 +2493,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_planos_controle_servico_codigo_fkey"
+            columns: ["servico_codigo"]
+            isOneToOne: false
+            referencedRelation: "monitoramento_servicos"
+            referencedColumns: ["codigo"]
           },
         ]
       }
@@ -2468,6 +2617,74 @@ export type Database = {
             foreignKeyName: "os_relatorios_os_id_fkey"
             columns: ["os_id"]
             isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      os_reposicao_itens: {
+        Row: {
+          id: string
+          produto_id: string
+          quantidade: number
+          reposicao_id: string
+        }
+        Insert: {
+          id?: string
+          produto_id: string
+          quantidade: number
+          reposicao_id: string
+        }
+        Update: {
+          id?: string
+          produto_id?: string
+          quantidade?: number
+          reposicao_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_reposicao_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_reposicao_itens_reposicao_id_fkey"
+            columns: ["reposicao_id"]
+            isOneToOne: false
+            referencedRelation: "os_reposicoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      os_reposicoes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          observacao: string | null
+          os_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          observacao?: string | null
+          os_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          observacao?: string | null
+          os_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_reposicoes_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: true
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
           },
@@ -3177,6 +3394,7 @@ export type Database = {
       os_relatorio_publicado: { Args: { _os_id: string }; Returns: boolean }
       portal_doc_escopo: { Args: { _name: string }; Returns: string }
       portal_doc_id: { Args: { _name: string }; Returns: string }
+      preparar_monitoramento_os: { Args: { _os_id: string }; Returns: number }
       produto_do_meu_cliente: {
         Args: { _produto_id: string }
         Returns: boolean
