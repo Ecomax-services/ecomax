@@ -124,6 +124,16 @@ export async function aplicarAcao(
     return { novoStatus: null, mensagem: `Estoque baixado para ${baixados} produto(s).` };
   }
 
+  // Emitir a OS recorrente gera uma OS para cada data do cronograma: cada
+  // visita tem a sua execução, os seus pontos e o seu certificado. A função é
+  // idempotente — emitir de novo não duplica visitas.
+  let visitas = 0;
+  if (chave === 'emitir') {
+    const { data, error } = await supabase.rpc('gerar_visitas_da_os', { _os_id: osId });
+    if (error) throw new Error(msgErro(error));
+    visitas = Number(data ?? 0);
+  }
+
   if (acao.para) {
     await registrar(osId, 'Situação', statusAtual, acao.para);
   } else if (acao.efeito === 'nova_data') {
@@ -136,6 +146,12 @@ export async function aplicarAcao(
     await registrar(osId, `Motivo · ${acao.label}`, null, extras.motivo.trim());
   }
 
+  if (visitas > 0) {
+    return {
+      novoStatus: acao.para,
+      mensagem: `OS emitida. ${visitas} ${visitas === 1 ? 'visita gerada como OS própria' : 'visitas geradas como OS próprias'}.`,
+    };
+  }
   return { novoStatus: acao.para, mensagem: `${acao.label} registrado.` };
 }
 
