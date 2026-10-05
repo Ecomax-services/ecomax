@@ -3481,6 +3481,44 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_monitoramento_historico: {
+        Row: {
+          acao_corretiva: string | null
+          area: string | null
+          cliente_id: string | null
+          cliente_ponto_id: string | null
+          contagens: Json | null
+          data_visita: string | null
+          fase: number | null
+          local: string | null
+          numero: number | null
+          observacao: string | null
+          os_codigo: string | null
+          os_id: string | null
+          preenchido_em: string | null
+          sem_ocorrencia: boolean | null
+          servico_codigo: string | null
+          situacao: string | null
+          status_codigo: number | null
+          status_rotulo: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_pontos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_pontos_servico_codigo_fkey"
+            columns: ["servico_codigo"]
+            isOneToOne: false
+            referencedRelation: "monitoramento_servicos"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
       vw_produtos: {
         Row: {
           ativo: boolean | null
@@ -3638,6 +3676,10 @@ export type Database = {
           p_quantidade_recebida: number
         }
         Returns: undefined
+      }
+      registrar_execucao: {
+        Args: { _dados: Json; _os_id: string }
+        Returns: Json
       }
       storage_doc_liberado_ao_cliente: {
         Args: { _name: string }
