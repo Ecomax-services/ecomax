@@ -912,6 +912,13 @@ export type Database = {
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "comercial_garantias_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: true
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
+          },
         ]
       }
       cotacao_respostas: {
@@ -1886,6 +1893,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "notificacoes_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
+          },
+          {
             foreignKeyName: "notificacoes_para_cliente_id_fkey"
             columns: ["para_cliente_id"]
             isOneToOne: false
@@ -2164,6 +2178,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ordens_servico_recorrencia_origem_id_fkey"
+            columns: ["recorrencia_origem_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
+          },
+          {
             foreignKeyName: "ordens_servico_responsavel_admin_id_fkey"
             columns: ["responsavel_admin_id"]
             isOneToOne: false
@@ -2217,6 +2238,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_anexos_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
           },
           {
             foreignKeyName: "os_anexos_ponto_id_fkey"
@@ -2274,6 +2302,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_aplicacoes_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
           },
           {
             foreignKeyName: "os_aplicacoes_plano_id_fkey"
@@ -2344,6 +2379,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "os_certificados_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: true
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
+          },
+          {
             foreignKeyName: "os_certificados_responsavel_tecnico_id_fkey"
             columns: ["responsavel_tecnico_id"]
             isOneToOne: false
@@ -2389,11 +2431,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "os_cronograma_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
+          },
+          {
             foreignKeyName: "os_cronograma_visita_os_id_fkey"
             columns: ["visita_os_id"]
             isOneToOne: true
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_cronograma_visita_os_id_fkey"
+            columns: ["visita_os_id"]
+            isOneToOne: true
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
           },
         ]
       }
@@ -2429,6 +2485,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_equipamentos_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
           },
           {
             foreignKeyName: "os_equipamentos_produto_id_fkey"
@@ -2487,6 +2550,13 @@ export type Database = {
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "os_funcionarios_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
+          },
         ]
       }
       os_historico: {
@@ -2524,6 +2594,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_historico_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
           },
         ]
       }
@@ -2591,6 +2668,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "os_plano_pontos_cliente_ponto_id_fkey"
+            columns: ["cliente_ponto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["cliente_ponto_id"]
+          },
+          {
             foreignKeyName: "os_plano_pontos_plano_id_fkey"
             columns: ["plano_id"]
             isOneToOne: false
@@ -2643,6 +2727,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_planos_controle_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
           },
           {
             foreignKeyName: "os_planos_controle_servico_codigo_fkey"
@@ -2729,6 +2820,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "os_produtos_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
+          },
+          {
             foreignKeyName: "os_produtos_produto_id_fkey"
             columns: ["produto_id"]
             isOneToOne: false
@@ -2782,6 +2880,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_relatorios_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
           },
         ]
       }
@@ -2857,6 +2962,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_reposicoes_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: true
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
           },
         ]
       }
