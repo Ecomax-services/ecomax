@@ -168,6 +168,47 @@ export type Database = {
         }
         Relationships: []
       }
+      cliente_areas: {
+        Row: {
+          ativo: boolean
+          cliente_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          ordem: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cliente_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cliente_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_areas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cliente_contatos: {
         Row: {
           ativo: boolean
@@ -304,6 +345,70 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "funcionarios"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      cliente_pontos: {
+        Row: {
+          area_id: string
+          ativo: boolean
+          cliente_id: string
+          created_at: string
+          created_by: string | null
+          fase: number | null
+          id: string
+          local: string
+          numero: number
+          servico_codigo: string
+          updated_at: string
+        }
+        Insert: {
+          area_id: string
+          ativo?: boolean
+          cliente_id: string
+          created_at?: string
+          created_by?: string | null
+          fase?: number | null
+          id?: string
+          local: string
+          numero: number
+          servico_codigo: string
+          updated_at?: string
+        }
+        Update: {
+          area_id?: string
+          ativo?: boolean
+          cliente_id?: string
+          created_at?: string
+          created_by?: string | null
+          fase?: number | null
+          id?: string
+          local?: string
+          numero?: number
+          servico_codigo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_pontos_area_id_cliente_id_fkey"
+            columns: ["area_id", "cliente_id"]
+            isOneToOne: false
+            referencedRelation: "cliente_areas"
+            referencedColumns: ["id", "cliente_id"]
+          },
+          {
+            foreignKeyName: "cliente_pontos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_pontos_servico_codigo_fkey"
+            columns: ["servico_codigo"]
+            isOneToOne: false
+            referencedRelation: "monitoramento_servicos"
+            referencedColumns: ["codigo"]
           },
         ]
       }
