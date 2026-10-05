@@ -1518,6 +1518,66 @@ export type Database = {
           },
         ]
       }
+      monitoramento_mapeamento: {
+        Row: {
+          catalogo: string
+          catalogo_item_id: string
+          created_at: string
+          servico_codigo: string
+        }
+        Insert: {
+          catalogo: string
+          catalogo_item_id: string
+          created_at?: string
+          servico_codigo: string
+        }
+        Update: {
+          catalogo?: string
+          catalogo_item_id?: string
+          created_at?: string
+          servico_codigo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitoramento_mapeamento_catalogo_item_id_catalogo_fkey"
+            columns: ["catalogo_item_id", "catalogo"]
+            isOneToOne: false
+            referencedRelation: "catalogo_itens"
+            referencedColumns: ["id", "catalogo"]
+          },
+          {
+            foreignKeyName: "monitoramento_mapeamento_servico_codigo_fkey"
+            columns: ["servico_codigo"]
+            isOneToOne: false
+            referencedRelation: "monitoramento_servicos"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      monitoramento_servicos: {
+        Row: {
+          codigo: string
+          comportamento: string
+          nome: string
+          nome_longo: string
+          ordem: number
+        }
+        Insert: {
+          codigo: string
+          comportamento: string
+          nome: string
+          nome_longo: string
+          ordem: number
+        }
+        Update: {
+          codigo?: string
+          comportamento?: string
+          nome?: string
+          nome_longo?: string
+          ordem?: number
+        }
+        Relationships: []
+      }
       movimentacoes: {
         Row: {
           ator_id: string | null
@@ -2373,6 +2433,7 @@ export type Database = {
       planilha_itens: {
         Row: {
           ativo: boolean
+          codigo: number | null
           cor_bg: string | null
           cor_fg: string | null
           created_at: string
@@ -2381,11 +2442,13 @@ export type Database = {
           nome: string
           observacao: string | null
           ordem: number
+          servico_codigo: string | null
           tipo_servico: string
           updated_at: string
         }
         Insert: {
           ativo?: boolean
+          codigo?: number | null
           cor_bg?: string | null
           cor_fg?: string | null
           created_at?: string
@@ -2394,11 +2457,13 @@ export type Database = {
           nome: string
           observacao?: string | null
           ordem?: number
+          servico_codigo?: string | null
           tipo_servico: string
           updated_at?: string
         }
         Update: {
           ativo?: boolean
+          codigo?: number | null
           cor_bg?: string | null
           cor_fg?: string | null
           created_at?: string
@@ -2407,10 +2472,19 @@ export type Database = {
           nome?: string
           observacao?: string | null
           ordem?: number
+          servico_codigo?: string | null
           tipo_servico?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "planilha_itens_servico_codigo_fkey"
+            columns: ["servico_codigo"]
+            isOneToOne: false
+            referencedRelation: "monitoramento_servicos"
+            referencedColumns: ["codigo"]
+          },
+        ]
       }
       produtos: {
         Row: {
