@@ -63,6 +63,12 @@ alter table public.monitoramento_servicos enable row level security;
 create policy monitoramento_servicos_select on public.monitoramento_servicos
   for select to authenticated using (true);
 
+-- Grants explícitos: o banco recriado do zero não dá privilégio padrão a
+-- tabela nova, e o projeto remoto dá mais do que deve. Os dois terminam iguais.
+revoke all on public.monitoramento_servicos from anon, authenticated;
+grant select on public.monitoramento_servicos to authenticated;
+grant all on public.monitoramento_servicos to service_role;
+
 
 -- ----------------------------------------------------------------------------
 -- 2. Mapeamento: catálogo editável → código fixo
@@ -98,6 +104,10 @@ create policy monitoramento_mapeamento_insert on public.monitoramento_mapeamento
   for insert to authenticated with check (public.has_module_perm('configuracoes', 'editar'));
 create policy monitoramento_mapeamento_delete on public.monitoramento_mapeamento
   for delete to authenticated using (public.has_module_perm('configuracoes', 'editar'));
+
+revoke all on public.monitoramento_mapeamento from anon, authenticated;
+grant select, insert, delete on public.monitoramento_mapeamento to authenticated;
+grant all on public.monitoramento_mapeamento to service_role;
 
 -- Só os casos sem dúvida. Os outros estão no cabeçalho, aguardando o cliente.
 insert into public.monitoramento_mapeamento (catalogo_item_id, catalogo, servico_codigo)
