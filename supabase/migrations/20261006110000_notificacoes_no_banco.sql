@@ -19,7 +19,8 @@
 --   - uma linha por DESTINATÁRIO, sempre com `para_profile_id`. Papel e
 --     cliente continuam registrados como origem, mas a linha é de uma pessoa;
 --   - só o banco cria notificação, por `notificar_perfis` (e os dois atalhos
---     por papel e por cliente), que nenhuma sessão pode chamar direto;
+--     por papel e por cliente), que nenhuma sessão pode chamar direto. O que
+--     a API tentar inserir é descartado (seção 3 explica por que sem erro);
 --   - os avisos que a tela criava viram gatilhos no próprio dado: vincular
 --     técnico, desvincular, publicar relatório;
 --   - o destinatário só muda `lida` e só apaga a própria.
@@ -144,6 +145,36 @@ revoke all on public.notificacoes from anon, authenticated;
 grant select, delete on public.notificacoes to authenticated;
 grant update (lida) on public.notificacoes to authenticated;
 grant all on public.notificacoes to service_role;
+
+-- INSERT pela API: aceito e DESCARTADO, sem erro e sem linha.
+--
+-- O Backoffice publicado antes desta mudança ainda cria notificação pela API
+-- depois de criar a OS, vincular técnico ou publicar relatório. Recusar com
+-- erro faria a tela mostrar falha numa ação que já tinha acontecido — e quem
+-- tenta de novo cria a OS duas vezes. Descartando, a tela antiga segue
+-- funcionando e o aviso sai igual, pelo gatilho do banco (seção 4).
+--
+-- A falha de segurança continua fechada: nada que venha da API vira linha.
+-- O gatilho roda antes da RLS; `current_user` é `authenticated` ou `anon` na
+-- chamada pela API e o dono da função quando é `notificar_perfis` que insere.
+grant insert on public.notificacoes to authenticated;
+
+create or replace function public.notificacao_descarta_insert_da_api()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    return null;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger notificacao_descarta_insert_da_api
+  before insert on public.notificacoes
+  for each row execute function public.notificacao_descarta_insert_da_api();
 
 
 -- ----------------------------------------------------------------------------

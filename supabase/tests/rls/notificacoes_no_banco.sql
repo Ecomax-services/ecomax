@@ -100,16 +100,22 @@ end $$;
 do $$
 declare bloqueou boolean;
 begin
-  bloqueou := false;
+  -- Sem erro, de propósito (a migration explica): a linha simplesmente não existe.
   perform pg_temp.como((select v from t where k = 'b'));
-  begin
-    set local role authenticated;
-    insert into public.notificacoes (para_profile_id, titulo, link, created_by)
-    values ((select v from t where k = 'admin'), 'Sua senha expirou', 'https://golpe.example', auth.uid());
-  exception when others then bloqueou := true;
-  end;
+  set local role authenticated;
+  insert into public.notificacoes (para_profile_id, titulo, link, created_by)
+  values ((select v from t where k = 'admin'), 'Sua senha expirou', 'https://golpe.example', auth.uid());
   reset role;
-  perform pg_temp.esperar('cliente NÃO cria notificação para o admin', bloqueou, true);
+  perform pg_temp.esperar('cliente NÃO cria notificação para o admin', pg_temp.minhas('admin') = 0, true);
+
+  -- O Backoffice antigo, criando a notificação dele pela API: descartada, e
+  -- sem erro para a tela.
+  perform pg_temp.como((select v from t where k = 'admin'));
+  set local role authenticated;
+  insert into public.notificacoes (para_profile_id, tipo, titulo, created_by)
+  values ((select v from t where k = 'op'), 'os', 'Nova OS atribuída', auth.uid());
+  reset role;
+  perform pg_temp.esperar('a tela antiga NÃO cria linha pela API, e não quebra', pg_temp.minhas('op') = 0, true);
 
   bloqueou := false;
   perform pg_temp.como((select v from t where k = 'admin'));
