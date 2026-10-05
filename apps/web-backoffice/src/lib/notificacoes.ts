@@ -47,28 +47,6 @@ export async function removeNotificacao(id: string): Promise<void> {
 }
 
 // ---------- Produção ----------
-export interface NovaNotificacao {
-  paraProfileId?: string | null;
-  paraRole?: string | null;
-  paraClienteId?: string | null;
-  tipo?: NotificationKind;
-  titulo: string;
-  descricao?: string | null;
-  osId?: string | null;
-  link?: string | null;
-}
-export async function criarNotificacao(n: NovaNotificacao): Promise<void> {
-  const { data: u } = await supabase.auth.getUser();
-  const { error } = await supabase.from('notificacoes').insert({
-    para_profile_id: n.paraProfileId ?? null,
-    para_role: n.paraRole ?? null,
-    para_cliente_id: n.paraClienteId ?? null,
-    tipo: n.tipo ?? 'info',
-    titulo: n.titulo,
-    descricao: n.descricao ?? null,
-    os_id: n.osId ?? null,
-    link: n.link ?? null,
-    created_by: u.user?.id ?? null,
-  });
-  if (error) throw new Error(msgErro(error));
-}
+// Não há. Notificação é criada só pelo banco (gatilhos e `notificar_perfis`),
+// uma linha por destinatário. A API não aceita INSERT: antes aceitava, e
+// qualquer sessão podia notificar qualquer pessoa com o link que quisesse.

@@ -3,7 +3,6 @@ import type { Json } from '@/lib/database.types';
 import type { BadgeTone } from '@/components/ui/Badge';
 import { listProdutos, listBases, type Produto } from '@/lib/estoque';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
-import { criarNotificacao } from '@/lib/notificacoes';
 import { avaliarDocumentos, type MotivoBloqueio } from '@/lib/documentos';
 import { hojeISO, diaISO } from '@/lib/datas';
 import { msgErro } from '@/lib/erros';
@@ -32,20 +31,11 @@ async function audit(acao: string, detalhes?: Json): Promise<void> {
  *
  * O nome antigo era `notify`, e induziu ao erro: dois chamadores confiaram que
  * ela entregava a notificação e ficaram sem entregar nada. Quem cria
- * notificação de verdade é `criarNotificacao` / `notificarFuncionarios`, e essa
- * chamada precisa estar à vista, não escondida atrás de um nome.
+ * notificação de verdade é o banco, por gatilho no próprio dado (vínculo de
+ * técnico, publicação de relatório) — ver a migration `notificacoes_no_banco`.
  */
 export async function auditarEvento(evento: string, detalhe?: Json): Promise<void> {
   await audit(`notificacao:${evento}`, detalhe);
-}
-
-/** Cria notificações "OS" para os funcionários vinculados que possuem login (app do operador). */
-async function notificarFuncionarios(funcionarioIds: string[], osId: string, titulo: string, descricao: string): Promise<void> {
-  if (!funcionarioIds.length) return;
-  const { data } = await supabase.from('funcionarios').select('id, profile_id').in('id', funcionarioIds);
-  for (const f of ((data as any[] | null) ?? [])) {
-    if (f.profile_id) await criarNotificacao({ paraProfileId: f.profile_id, tipo: 'os', titulo, descricao, osId });
-  }
 }
 
 /** Grava uma linha de histórico por-campo (4.1.f). Toda alteração de OS passa por aqui. */
@@ -475,46 +465,16 @@ export async function addOsFuncionario(osId: string, funcionarioId: string): Pro
   );
   await hist(osId, 'Funcionário vinculado', null, funcionarioId);
   await auditarEvento('os_funcionario_vinculado', { os_id: osId, funcionario_id: funcionarioId });
-  // Nomeia a OS como a criação já fazia: sem o código, quatro notificações
-  // iguais não dizem a qual OS cada uma se refere.
-  const { data: os } = await supabase.from('ordens_servico').select('codigo').eq('id', osId).single();
-  await notificarFuncionarios(
-    [funcionarioId], osId, 'Nova OS atribuída',
-    `Você foi vinculado à ordem de serviço ${(os as any)?.codigo ?? ''}.`.replace(' .', '.'),
-  );
+  // O aviso "Nova OS atribuída" sai do banco, no gatilho do vínculo.
   await audit('os_func_add', { os_id: osId, funcionario_id: funcionarioId });
 }
 export async function removeOsFuncionario(osId: string, vinculoId: string, nome: string): Promise<void> {
-  // Quem era, antes de o vínculo sumir: depois do delete não há a quem avisar.
-  const { data: vinculo } = await supabase
-    .from('os_funcionarios')
-    .select('funcionario:funcionario_id(profile_id)')
-    .eq('id', vinculoId)
-    .maybeSingle();
-  const f = (vinculo as any)?.funcionario;
-  const profileId = (Array.isArray(f) ? f[0]?.profile_id : f?.profile_id) ?? null;
-
   const { error } = await supabase.from('os_funcionarios').delete().eq('id', vinculoId);
   if (error) throw new Error(msgErro(error));
   await hist(osId, 'Funcionário removido', nome, null);
   await auditarEvento('os_funcionario_removido', { os_id: osId });
-
-  // Sem este aviso a OS simplesmente desaparecia da lista do operador: o escopo
-  // do app é "as minhas OS", e ele deixou de ser dono desta. Sumir sem
-  // explicação é o pior desfecho para quem está em campo se organizando pelo
-  // aplicativo.
-  if (profileId) {
-    const { data: os } = await supabase.from('ordens_servico').select('codigo').eq('id', osId).single();
-    // Sem `osId` de propósito: a notificação sobrevive, mas a OS já não está ao
-    // alcance dele, e um link que dá erro é pior que link nenhum.
-    await criarNotificacao({
-      paraProfileId: profileId,
-      tipo: 'info',
-      titulo: 'Você saiu de uma OS',
-      descricao: `A ordem de serviço ${(os as any)?.codigo ?? ''} não está mais atribuída a você.`,
-    });
-  }
-
+  // O aviso "Você saiu de uma OS" sai do banco, no gatilho do desvínculo: sem
+  // ele a OS sumia da lista do técnico sem explicação.
   await audit('os_func_remove', { os_id: osId, vinculo: vinculoId });
 }
 
@@ -617,10 +577,7 @@ export async function publicarRelatorio(osId: string, relatorioId: string, osSta
   if (error) throw new Error(msgErro(error));
   await hist(osId, 'Relatório disponibilizado ao cliente', null, relatorioId);
   await auditarEvento('relatorio_publicado_portal', { os_id: osId, relatorio_id: relatorioId });
-  const { data: osrow } = await supabase.from('ordens_servico').select('cliente_id, codigo').eq('id', osId).single();
-  if ((osrow as any)?.cliente_id) {
-    await criarNotificacao({ paraClienteId: (osrow as any).cliente_id, tipo: 'os', titulo: 'Relatório técnico disponível', descricao: `Um novo relatório técnico da ${(osrow as any).codigo} foi disponibilizado no seu portal.`, osId });
-  }
+  // O aviso ao cliente sai do banco, no gatilho da publicação.
   await audit('os_relatorio_publicado', { os_id: osId, relatorio_id: relatorioId });
 }
 export async function removerRelatorio(osId: string, relatorioId: string): Promise<void> {
@@ -789,7 +746,6 @@ export async function createOrdemServico(input: NovaOsInput): Promise<string> {
   await audit('os_criada', { os_id: osId, cliente_id: input.cliente_id, rascunho: input.rascunho });
   if (!input.rascunho && input.funcionario_ids.length) {
     await auditarEvento('os_criada', { os_id: osId, funcionarios: input.funcionario_ids });
-    await notificarFuncionarios(input.funcionario_ids, osId, 'Nova OS atribuída', `Você foi vinculado à ordem de serviço ${codigo}.`);
   }
   return osId;
 }
