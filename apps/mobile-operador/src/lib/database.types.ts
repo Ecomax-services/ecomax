@@ -3639,7 +3639,10 @@ export type Database = {
         }
         Returns: undefined
       }
-      storage_doc_liberado_ao_cliente: { Args: { _name: string }; Returns: boolean }
+      storage_doc_liberado_ao_cliente: {
+        Args: { _name: string }
+        Returns: boolean
+      }
       storage_os_id: { Args: { _name: string }; Returns: string }
       storage_os_tipo: { Args: { _name: string }; Returns: string }
       ultimo_acesso: {
