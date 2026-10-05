@@ -1879,7 +1879,7 @@ export type Database = {
           link?: string | null
           os_id?: string | null
           para_cliente_id?: string | null
-          para_profile_id?: string | null
+          para_profile_id?: string
           para_role?: string | null
           tipo?: string
           titulo?: string
