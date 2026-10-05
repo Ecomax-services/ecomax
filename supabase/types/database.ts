@@ -1958,6 +1958,7 @@ export type Database = {
           pragas: string[]
           rascunho: boolean
           recorrencia: string
+          recorrencia_origem_id: string | null
           responsavel_admin_id: string | null
           status: string
           tecnico_assinatura_url: string | null
@@ -2006,6 +2007,7 @@ export type Database = {
           pragas?: string[]
           rascunho?: boolean
           recorrencia?: string
+          recorrencia_origem_id?: string | null
           responsavel_admin_id?: string | null
           status?: string
           tecnico_assinatura_url?: string | null
@@ -2054,6 +2056,7 @@ export type Database = {
           pragas?: string[]
           rascunho?: boolean
           recorrencia?: string
+          recorrencia_origem_id?: string | null
           responsavel_admin_id?: string | null
           status?: string
           tecnico_assinatura_url?: string | null
@@ -2082,6 +2085,13 @@ export type Database = {
             columns: ["orcamento_id"]
             isOneToOne: false
             referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_servico_recorrencia_origem_id_fkey"
+            columns: ["recorrencia_origem_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
           },
           {
@@ -2227,6 +2237,7 @@ export type Database = {
           ordem: number
           os_id: string
           status: string
+          visita_os_id: string | null
         }
         Insert: {
           created_at?: string
@@ -2235,6 +2246,7 @@ export type Database = {
           ordem?: number
           os_id: string
           status?: string
+          visita_os_id?: string | null
         }
         Update: {
           created_at?: string
@@ -2243,12 +2255,20 @@ export type Database = {
           ordem?: number
           os_id?: string
           status?: string
+          visita_os_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "os_cronograma_os_id_fkey"
             columns: ["os_id"]
             isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_cronograma_visita_os_id_fkey"
+            columns: ["visita_os_id"]
+            isOneToOne: true
             referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
           },
@@ -3390,6 +3410,7 @@ export type Database = {
         Returns: boolean
       }
       garantias_marcar_a_renovar: { Args: never; Returns: number }
+      gerar_visitas_da_os: { Args: { _os_id: string }; Returns: number }
       has_app_access: {
         Args: { app: Database["public"]["Enums"]["app_key"] }
         Returns: boolean

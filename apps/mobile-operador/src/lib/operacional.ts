@@ -241,7 +241,7 @@ export interface AgendaItem { key: string; osId: string; codigo: string; cliente
 export async function listAgenda(): Promise<AgendaItem[]> {
   const { data, error } = await supabase
     .from('ordens_servico')
-    .select('id, codigo, data_programada, tipos_servico, status, cliente:cliente_id(nome), crono:os_cronograma(id, data_prevista, status)')
+    .select('id, codigo, data_programada, tipos_servico, status, cliente:cliente_id(nome), crono:os_cronograma!os_cronograma_os_id_fkey(id, data_prevista, status, visita_os_id)')
     .neq('status', 'cancelada');
   if (error) throw new Error(msgErro(error));
   const out: AgendaItem[] = [];
@@ -250,6 +250,9 @@ export async function listAgenda(): Promise<AgendaItem[]> {
     const tipo = (o.tipos_servico as string[] | null ?? []).join(', ') || '—';
     if (o.data_programada) out.push({ key: `${o.id}-base`, osId: o.id, codigo: o.codigo, cliente, data: brDate(o.data_programada), dataSort: o.data_programada, tipo, recorrente: false });
     for (const c of (o.crono as any[] | null ?? [])) {
+      // Data que já virou OS própria aparece pela própria OS, logo acima.
+      // Listar a linha do cronograma também mostraria a mesma visita duas vezes.
+      if (c.visita_os_id) continue;
       if (c.status !== 'cancelada') out.push({ key: `${o.id}-${c.id}`, osId: o.id, codigo: o.codigo, cliente, data: brDate(c.data_prevista), dataSort: c.data_prevista, tipo, recorrente: true });
     }
   }
