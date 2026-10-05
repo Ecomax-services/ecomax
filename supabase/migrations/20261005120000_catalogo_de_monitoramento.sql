@@ -130,6 +130,13 @@ on conflict do nothing;
 -- Desratização, onde o cliente já as procura; `servico_codigo` separa as do
 -- porta-isca das da placa.
 
+-- Lacuna antiga: `planilha_itens` e `tipo_servico_produtos` nasceram em
+-- 16/09 sem grant. O projeto remoto as libera por privilégio padrão, mas um
+-- banco recriado do zero não — e a Planilha quebraria nele. A RLS de cada
+-- uma continua sendo quem decide; o grant só iguala os dois ambientes.
+grant select, insert, update, delete on public.planilha_itens        to authenticated;
+grant select, insert, update, delete on public.tipo_servico_produtos to authenticated;
+
 alter table public.planilha_itens
   add column servico_codigo text references public.monitoramento_servicos (codigo),
   add column codigo smallint;
