@@ -2210,6 +2210,13 @@ export type Database = {
             referencedRelation: "produtos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "os_aplicacoes_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_produtos"
+            referencedColumns: ["id"]
+          },
         ]
       }
       os_cronograma: {
@@ -2647,6 +2654,13 @@ export type Database = {
             columns: ["produto_id"]
             isOneToOne: false
             referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_reposicao_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_produtos"
             referencedColumns: ["id"]
           },
           {
