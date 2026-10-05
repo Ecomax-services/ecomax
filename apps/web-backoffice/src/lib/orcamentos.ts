@@ -331,6 +331,12 @@ export async function criarOsDeOrcamento(orcamentoId: string): Promise<string> {
   );
   if (e) throw new Error(msgErro(e));
 
+  // Cliente com mapa de pontos cadastrado: os planos viram um por serviço de
+  // monitoramento e os pontos saem do mapa. Sem mapa, não faz nada e a OS
+  // segue no preenchimento manual de sempre.
+  const { error: ep } = await supabase.rpc('preparar_monitoramento_os', { _os_id: os.id });
+  if (ep) throw new Error(msgErro(ep));
+
   return os.id;
 }
 
