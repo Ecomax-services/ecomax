@@ -130,6 +130,7 @@ export type Database = {
           prazo_padrao: number | null
           template_mensagem: string | null
           updated_at: string
+          validade_certificado_dias: number | null
           valor: string | null
         }
         Insert: {
@@ -147,6 +148,7 @@ export type Database = {
           prazo_padrao?: number | null
           template_mensagem?: string | null
           updated_at?: string
+          validade_certificado_dias?: number | null
           valor?: string | null
         }
         Update: {
@@ -164,6 +166,7 @@ export type Database = {
           prazo_padrao?: number | null
           template_mensagem?: string | null
           updated_at?: string
+          validade_certificado_dias?: number | null
           valor?: string | null
         }
         Relationships: []
@@ -1007,6 +1010,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      empresa_config: {
+        Row: {
+          ceatox: string | null
+          cnpj: string
+          contato: string | null
+          endereco: string | null
+          id: boolean
+          logo_path: string | null
+          razao_social: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ceatox?: string | null
+          cnpj: string
+          contato?: string | null
+          endereco?: string | null
+          id?: boolean
+          logo_path?: string | null
+          razao_social: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ceatox?: string | null
+          cnpj?: string
+          contato?: string | null
+          endereco?: string | null
+          id?: boolean
+          logo_path?: string | null
+          razao_social?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      empresa_licencas: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string
+          id: string
+          ordem: number
+          rotulo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao: string
+          id?: string
+          ordem?: number
+          rotulo: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string
+          id?: string
+          ordem?: number
+          rotulo?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       estoque_lotes: {
         Row: {
@@ -2229,6 +2298,60 @@ export type Database = {
           },
         ]
       }
+      os_certificados: {
+        Row: {
+          emitido_em: string
+          emitido_por: string | null
+          id: string
+          numero: string
+          os_id: string
+          pdf_path: string | null
+          pdf_sha256: string | null
+          responsavel_tecnico_id: string
+          snapshot: Json
+          validade: string
+        }
+        Insert: {
+          emitido_em?: string
+          emitido_por?: string | null
+          id?: string
+          numero: string
+          os_id: string
+          pdf_path?: string | null
+          pdf_sha256?: string | null
+          responsavel_tecnico_id: string
+          snapshot: Json
+          validade: string
+        }
+        Update: {
+          emitido_em?: string
+          emitido_por?: string | null
+          id?: string
+          numero?: string
+          os_id?: string
+          pdf_path?: string | null
+          pdf_sha256?: string | null
+          responsavel_tecnico_id?: string
+          snapshot?: Json
+          validade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_certificados_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: true
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_certificados_responsavel_tecnico_id_fkey"
+            columns: ["responsavel_tecnico_id"]
+            isOneToOne: false
+            referencedRelation: "responsaveis_tecnicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       os_cronograma: {
         Row: {
           created_at: string
@@ -3090,6 +3213,45 @@ export type Database = {
           },
         ]
       }
+      responsaveis_tecnicos: {
+        Row: {
+          assinatura_path: string | null
+          conselho: string
+          created_at: string
+          created_by: string | null
+          formacao: string | null
+          id: string
+          nome: string
+          registro: string
+          vigente_ate: string | null
+          vigente_desde: string
+        }
+        Insert: {
+          assinatura_path?: string | null
+          conselho: string
+          created_at?: string
+          created_by?: string | null
+          formacao?: string | null
+          id?: string
+          nome: string
+          registro: string
+          vigente_ate?: string | null
+          vigente_desde?: string
+        }
+        Update: {
+          assinatura_path?: string | null
+          conselho?: string
+          created_at?: string
+          created_by?: string | null
+          formacao?: string | null
+          id?: string
+          nome?: string
+          registro?: string
+          vigente_ate?: string | null
+          vigente_desde?: string
+        }
+        Relationships: []
+      }
       tipo_servico_produtos: {
         Row: {
           created_at: string
@@ -3476,6 +3638,10 @@ export type Database = {
           p_quantidade_recebida: number
         }
         Returns: undefined
+      }
+      storage_doc_liberado_ao_cliente: {
+        Args: { _name: string }
+        Returns: boolean
       }
       storage_os_id: { Args: { _name: string }; Returns: string }
       storage_os_tipo: { Args: { _name: string }; Returns: string }
