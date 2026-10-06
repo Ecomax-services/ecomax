@@ -24,10 +24,10 @@ import { cn } from '@/lib/cn';
 import { alertMeta } from '@/data/estoque';
 import {
   listProdutos, getProdutoKpis, createProduto, updateProduto, setProdutoAtivo, codigoExists,
-  listFornecedorOptions, type Produto, type ProdutoKpis,
+  listFornecedorOptions, getAplicacaoDoProduto, type Produto, type ProdutoKpis,
 } from '@/lib/estoque';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
-import { maskInt } from '@/lib/masks';
+import { maskInt, maskDecimal } from '@/lib/masks';
 import { useFiltroUrl } from '@/lib/useFiltroUrl';
 
 type SortKey = 'name' | 'cat' | 'stock' | 'status';
@@ -35,7 +35,10 @@ type SortKey = 'name' | 'cat' | 'stock' | 'status';
 const UNIDADES_FALLBACK = ['L', 'mL', 'kg', 'g', 'un', 'par'];
 const CATEGORIAS_FALLBACK = ['Inseticida', 'Raticida', 'Larvicida', 'Desinfetante', 'Equipamento', 'EPI'];
 
-const emptyForm = { nome: '', codigo: '', categoria: 'Inseticida', unidade: 'un', min: '', max: '', fornecedor_id: '', observacao: '' };
+const emptyForm = {
+  nome: '', codigo: '', categoria: 'Inseticida', unidade: 'un', min: '', max: '', fornecedor_id: '', observacao: '',
+  unidadeAplicacao: '', fator: '',
+};
 
 export function Produtos() {
   const navigate = useNavigate();
@@ -84,10 +87,21 @@ export function Produtos() {
     setCodeErr('');
     setForm(
       d.product
-        ? { nome: d.product.name, codigo: d.product.cod, categoria: d.product.cat, unidade: d.product.un, min: String(d.product.min), max: String(d.product.max || ''), fornecedor_id: d.product.fornecedor_id ?? '', observacao: d.product.obs }
+        ? { nome: d.product.name, codigo: d.product.cod, categoria: d.product.cat, unidade: d.product.un, min: String(d.product.min), max: String(d.product.max || ''), fornecedor_id: d.product.fornecedor_id ?? '', observacao: d.product.obs, unidadeAplicacao: '', fator: '' }
         : emptyForm,
     );
     setDrawer(d);
+    // A lista vem de uma view sem estas colunas; busca à parte ao abrir.
+    if (d.product) {
+      const id = d.product.id;
+      getAplicacaoDoProduto(id)
+        .then((a) => setForm((f) => ({
+          ...f,
+          unidadeAplicacao: a.unidade ?? '',
+          fator: a.fator == null ? '' : String(a.fator).replace('.', ','),
+        })))
+        .catch((e) => showToast((e as Error).message));
+    }
   };
 
   const rows = useMemo(() => {
@@ -142,7 +156,14 @@ export function Produtos() {
         codigo: form.codigo.trim(), nome: form.nome.trim(), categoria: form.categoria, unidade: form.unidade,
         estoque_min: Number(form.min) || 0, estoque_max: form.max ? Number(form.max) : null, fornecedor_id: form.fornecedor_id || null,
         observacao: form.observacao.trim() || null,
+        // "Mesma do estoque" grava os dois nulos: a baixa usa a quantidade como veio.
+        unidade_aplicacao: form.unidadeAplicacao || null,
+        fator_aplicacao: form.unidadeAplicacao ? Number(form.fator.replace(',', '.')) || null : null,
       };
+      if (payload.unidade_aplicacao && !payload.fator_aplicacao) {
+        setSaving(false);
+        return showToast(`Informe quantos ${payload.unidade_aplicacao} cabem em 1 ${payload.unidade}.`);
+      }
       if (drawer?.isNew) {
         if (await codigoExists(payload.codigo)) { setSaving(false); return setCodeErr('Código já cadastrado.'); }
         await createProduto(payload);
@@ -269,6 +290,18 @@ export function Produtos() {
               <TextField label="Estoque mínimo" inputMode="numeric" value={form.min} onChange={(e) => up('min', maskInt(e.target.value))} placeholder="0" />
               <TextField label="Estoque máximo" inputMode="numeric" value={form.max} onChange={(e) => up('max', maskInt(e.target.value))} placeholder="0" />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <SelectField label="Unidade de aplicação" value={form.unidadeAplicacao}
+                onChange={(e) => up('unidadeAplicacao', e.target.value)}
+                options={[{ value: '', label: 'Mesma do estoque' }, ...unidades.filter((u) => u.toLowerCase() !== form.unidade.toLowerCase()).map((u) => ({ value: u, label: u }))]} />
+              <TextField label={form.unidadeAplicacao ? `${form.unidadeAplicacao} em 1 ${form.unidade}` : 'Fator de conversão'}
+                inputMode="decimal" value={form.fator} disabled={!form.unidadeAplicacao}
+                onChange={(e) => up('fator', maskDecimal(e.target.value))}
+                placeholder={form.unidadeAplicacao ? 'Ex.: 1000' : '—'} />
+            </div>
+            <p className="-mt-2 text-[12px] text-ink-500">
+              Em campo o técnico registra na unidade de aplicação; a baixa converte para a unidade de estoque.
+            </p>
             <SelectField label="Fornecedor principal" value={form.fornecedor_id} onChange={(e) => up('fornecedor_id', e.target.value)} options={[{ value: '', label: 'Sem fornecedor' }, ...fornOpts.map((f) => ({ value: f.id, label: f.nome }))]} />
             <TextareaField label="Observações" placeholder="Notas internas" value={form.observacao} onChange={(e) => up('observacao', e.target.value)} />
           </div>

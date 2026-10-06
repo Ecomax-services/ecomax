@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Printer, Copy, Lock, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Printer, Copy, Lock, ChevronRight, Smartphone } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -17,9 +17,9 @@ import {
   type OrdemServicoDetail,
 } from '@/lib/operacional';
 import {
-  listPlanos, listPontos, salvarPonto, definirPontosPrevistos,
+  listPlanos, listPontos, salvarPonto, definirPontosPrevistos, listAplicacoes, tituloPlano,
   situacaoPontoLabel, situacaoPontoTone,
-  type PlanoControle, type PontoPlano,
+  type PlanoControle, type PontoPlano, type AplicacaoPlano,
 } from '@/lib/orcamentos';
 import { acoesDisponiveis, aplicarAcao, FLUXO, type AcaoFluxo } from '@/lib/emitirOs';
 
@@ -38,6 +38,7 @@ export function EmitirOs() {
   const [planos, setPlanos] = useState<PlanoControle[]>([]);
   const [plano, setPlano] = useState<PlanoControle | null>(null);
   const [pontos, setPontos] = useState<PontoPlano[]>([]);
+  const [aplicacoes, setAplicacoes] = useState<AplicacaoPlano[]>([]);
   const [acao, setAcao] = useState<AcaoFluxo | null>(null);
   const [motivo, setMotivo] = useState('');
   const [novaData, setNovaData] = useState('');
@@ -70,7 +71,12 @@ export function EmitirOs() {
 
   const abrirPlano = async (p: PlanoControle) => {
     setPlano(p);
-    try { setPontos(await listPontos(p.id)); } catch (e) { showToast((e as Error).message); }
+    setPontos([]);
+    setAplicacoes([]);
+    try {
+      if (p.servicoCodigo === 'DI') setAplicacoes(await listAplicacoes(p.id));
+      else setPontos(await listPontos(p.id));
+    } catch (e) { showToast((e as Error).message); }
   };
 
   const executar = async () => {
@@ -230,9 +236,13 @@ export function EmitirOs() {
                     )}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-ink-900">{p.tipoControle}</span>
-                      <span className="block text-[12px] text-ink-500">
-                        {p.frequencia} · {p.pontosPreenchidos}/{p.pontosPrevistos} pontos
+                      <span className="block truncate text-sm font-semibold text-ink-900">{tituloPlano(p)}</span>
+                      <span className="flex items-center gap-1 text-[12px] text-ink-500">
+                        {p.servicoCodigo === 'DI'
+                          ? `${p.frequencia} · aplicações`
+                          : `${p.frequencia} · ${p.pontosPreenchidos}/${p.pontosPrevistos} pontos`}
+                        {/* Plano do mapa: quem registra é o técnico, no App. */}
+                        {p.servicoCodigo && <Smartphone className="h-3 w-3 text-ink-400" aria-label="Registrado pelo App" />}
                       </span>
                     </span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-ink-400" />
@@ -317,10 +327,16 @@ export function EmitirOs() {
         <Drawer
           open
           onClose={() => setPlano(null)}
-          title={plano.tipoControle}
-          subtitle={`${plano.frequencia} · ${pontos.filter((p) => p.situacao !== 'pendente').length} de ${pontos.length} preenchidos`}
+          title={tituloPlano(plano)}
+          subtitle={plano.servicoCodigo === 'DI'
+            ? `${plano.frequencia} · ${aplicacoes.length} ${aplicacoes.length === 1 ? 'aplicação' : 'aplicações'}`
+            : `${plano.frequencia} · ${pontos.filter((p) => p.situacao !== 'pendente').length} de ${pontos.length} preenchidos`}
           width={560}
         >
+          {plano.servicoCodigo ? (
+            <PlanoDoMapa plano={plano} pontos={pontos} aplicacoes={aplicacoes} />
+          ) : (
+          <>
           <div className="mb-4 flex items-end gap-2">
             <TextField
               label="Quantidade de pontos" type="number" min={0} max={200}
@@ -380,7 +396,92 @@ export function EmitirOs() {
               ))}
             </div>
           )}
+          </>
+          )}
         </Drawer>
+      )}
+    </>
+  );
+}
+
+/** Resumo legível de uma leitura: "Mosca Doméstica 6 · Libélula 1". */
+function resumoContagens(c: Record<string, number> | null): string {
+  if (!c) return '';
+  const itens = Object.entries(c);
+  return itens.length ? itens.map(([nome, n]) => `${nome} ${n}`).join(' · ') : 'Nenhuma captura';
+}
+
+/**
+ * O plano montado a partir do mapa do cliente, em leitura.
+ *
+ * Os pontos vêm do mapa e quem os registra é o técnico, no App — de uma vez,
+ * no envio da execução. Editar aqui criaria uma segunda versão do registro de
+ * campo, e o dado de campo é imutável: correção vai no relatório.
+ */
+function PlanoDoMapa({ plano, pontos, aplicacoes }: { plano: PlanoControle; pontos: PontoPlano[]; aplicacoes: AplicacaoPlano[] }) {
+  const aviso = (
+    <p className="mb-4 flex items-start gap-2 rounded-xl bg-ink-50 px-3.5 py-3 text-[13px] text-ink-600">
+      <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-ink-400" />
+      Pontos do mapa do cliente, registrados pelo técnico no App. Aqui é só consulta.
+    </p>
+  );
+
+  if (plano.servicoCodigo === 'DI') {
+    return (
+      <>
+        {aviso}
+        {aplicacoes.length === 0 ? (
+          <p className="py-8 text-center text-[13px] text-ink-400">Nenhuma aplicação registrada ainda.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {aplicacoes.map((a) => (
+              <div key={a.id} className="rounded-xl border border-ink-100 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-ink-900">{a.produto}</span>
+                  <span className="text-sm tabular-nums text-ink-700">{a.quantidade}</span>
+                </div>
+                <p className="mt-0.5 text-[12px] text-ink-500">{a.tecnica} · {a.areas}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {aviso}
+      {pontos.length === 0 ? (
+        <p className="py-8 text-center text-[13px] text-ink-400">
+          O mapa do cliente não tinha pontos ativos deste serviço quando a OS foi emitida.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {pontos.map((p) => {
+            const leitura = p.statusRotulo
+              ?? (p.semOcorrencia ? 'Sem ocorrência' : resumoContagens(p.contagens));
+            return (
+              <div key={p.id} className="rounded-xl border border-ink-100 p-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-ink-100 px-1.5 text-[11px] font-bold text-ink-600">
+                    {p.numero}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-ink-800">{p.identificacao || '—'}</span>
+                    <span className="block text-[12px] text-ink-500">
+                      {[p.area, p.fase ? `Fase ${p.fase}` : null].filter(Boolean).join(' · ')}
+                    </span>
+                  </span>
+                  <Badge tone={situacaoPontoTone[p.situacao]}>{situacaoPontoLabel[p.situacao]}</Badge>
+                </div>
+                {leitura && <p className="mt-2 text-[13px] text-ink-700">{leitura}</p>}
+                {p.observacao && <p className="mt-1 text-[12px] text-ink-500">{p.observacao}</p>}
+                {p.acaoCorretiva && <p className="mt-1 text-[12px] text-ink-500">Ação corretiva: {p.acaoCorretiva}</p>}
+              </div>
+            );
+          })}
+        </div>
       )}
     </>
   );

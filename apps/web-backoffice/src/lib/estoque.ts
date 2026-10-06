@@ -183,6 +183,13 @@ export interface ProdutoInput {
   codigo: string; nome: string; categoria: string; unidade: string;
   estoque_min: number; estoque_max: number | null; fornecedor_id: string | null;
   observacao: string | null;
+  /**
+   * Unidade em que o técnico registra a aplicação (ex.: mL) e quantas dela
+   * cabem em uma unidade de estoque (ex.: 1000). Os dois juntos ou nenhum —
+   * a baixa de estoque converte por aqui.
+   */
+  unidade_aplicacao?: string | null;
+  fator_aplicacao?: number | null;
 }
 export async function createProduto(p: ProdutoInput) {
   const { error } = await supabase.from('produtos').insert(p);
@@ -191,6 +198,15 @@ export async function createProduto(p: ProdutoInput) {
 export async function updateProduto(id: string, p: Partial<ProdutoInput>) {
   const { error } = await supabase.from('produtos').update(p).eq('id', id);
   if (error) throw new Error(msgErro(error));
+}
+/**
+ * Unidade de aplicação e fator do produto. A lista vem de `vw_produtos`, que
+ * não traz essas colunas; o formulário busca aqui ao abrir, sem mudar a view.
+ */
+export async function getAplicacaoDoProduto(id: string): Promise<{ unidade: string | null; fator: number | null }> {
+  const { data, error } = await supabase.from('produtos').select('unidade_aplicacao, fator_aplicacao').eq('id', id).single();
+  if (error) throw new Error(msgErro(error));
+  return { unidade: data.unidade_aplicacao, fator: data.fator_aplicacao == null ? null : Number(data.fator_aplicacao) };
 }
 export async function setProdutoAtivo(id: string, ativo: boolean) {
   const { error } = await supabase.from('produtos').update({ ativo }).eq('id', id);
