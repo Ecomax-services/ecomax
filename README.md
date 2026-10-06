@@ -156,8 +156,14 @@ original e rode `./scripts/sync-shared.sh`.
 Hoje isso cobre os tipos do banco, o **mapa de status da OS**, que o design
 system exige ser único entre os três ambientes, e as **regras do
 monitoramento** (`shared/monitoramento.ts`), que o App calcula offline e o
-banco recalcula no envio. As regras têm testes em `shared/tests/`, rodados na
-CI com `node --test "shared/tests/*.test.ts"`. Antes eram três definições
+banco recalcula no envio. As regras têm testes em `shared/tests/`, e as
+regras puras dos apps (como a montagem do envio offline, em
+`apps/mobile-operador/src/lib/execucao/regras.ts`) em `*.test.ts` ao lado do
+módulo. A CI roda todos:
+
+```bash
+node --import ./scripts/testes/registrar.mjs --test "shared/tests/*.test.ts" "apps/*/src/**/*.test.ts"
+``` Antes eram três definições
 independentes: os rótulos concordavam por manutenção manual, mas as cores já
 tinham divergido — o Portal pintava "Executada" e "Concluída" iguais, e o
 cliente não distinguia uma da outra.

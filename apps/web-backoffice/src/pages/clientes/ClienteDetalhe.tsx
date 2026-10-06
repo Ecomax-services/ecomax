@@ -16,6 +16,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { maskPhone, maskDate } from '@/lib/masks';
 import { ClienteFormDrawer } from '@/pages/clientes/ClienteFormDrawer';
+import { MapaPontosTab } from '@/pages/clientes/MapaPontosTab';
 import {
   getCliente, listContatos, addContato, setContatoAtivo, deleteContato,
   listOrcamentos, setOrcamentoStatus, orcStatusTone, orcStatusLabel,
@@ -30,7 +31,7 @@ import {
   type DocumentoDoCliente,
 } from '@/lib/clientes';
 
-type Tab = 'orcamentos' | 'funcionarios' | 'documentos';
+type Tab = 'orcamentos' | 'funcionarios' | 'documentos' | 'mapa';
 
 export function ClienteDetalhe() {
   const { id = '' } = useParams();
@@ -103,6 +104,7 @@ export function ClienteDetalhe() {
               { key: 'orcamentos', label: 'Orçamentos' },
               { key: 'funcionarios', label: 'Funcionários integrados' },
               { key: 'documentos', label: 'Documentos' },
+              { key: 'mapa', label: 'Mapa de pontos' },
             ]}
             value={tab}
             onChange={setTab}
@@ -111,6 +113,7 @@ export function ClienteDetalhe() {
             {tab === 'orcamentos' && <OrcamentosTab clienteId={id} canCreate={canCreate} canEdit={canEdit} />}
             {tab === 'funcionarios' && <FuncionariosTab clienteId={id} canCreate={canCreate} canEdit={canEdit} onNovo={() => navigate('/usuarios/novo')} />}
             {tab === 'documentos' && <DocumentosTab clienteId={id} canEdit={canEdit} />}
+            {tab === 'mapa' && <MapaPontosTab clienteId={id} canEdit={canEdit} />}
           </div>
         </div>
       </div>

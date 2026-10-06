@@ -1476,6 +1476,7 @@ export type Database = {
           ativo: boolean
           avatar_url: string | null
           bairro: string | null
+          base_id: string | null
           carga_horaria: string | null
           cargo: string
           cep: string | null
@@ -1512,6 +1513,7 @@ export type Database = {
           ativo?: boolean
           avatar_url?: string | null
           bairro?: string | null
+          base_id?: string | null
           carga_horaria?: string | null
           cargo: string
           cep?: string | null
@@ -1548,6 +1550,7 @@ export type Database = {
           ativo?: boolean
           avatar_url?: string | null
           bairro?: string | null
+          base_id?: string | null
           carga_horaria?: string | null
           cargo?: string
           cep?: string | null
@@ -1579,6 +1582,20 @@ export type Database = {
           utiliza_caixa?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "funcionarios_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funcionarios_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "vw_bases"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "funcionarios_gestor_id_fkey"
             columns: ["gestor_id"]
@@ -3754,6 +3771,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      minha_base_id: { Args: never; Returns: string }
       my_portal_cliente_ids: { Args: never; Returns: string[] }
       notificar_cliente: {
         Args: {

@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { BadgeTone } from '@/components/ui/Badge';
 import { hojeISO } from '@/lib/datas';
 import { msgErro } from '@/lib/erros';
+import { NOME_SERVICO, isServicoCodigo, type ServicoCodigo } from '@/lib/monitoramento';
 
 // ============================================================
 // 3.1.1 Elaborar orçamento
@@ -184,6 +185,12 @@ export interface PlanoControle {
   frequencia: string;
   pontosPrevistos: number;
   pontosPreenchidos: number;
+  /**
+   * Serviço de monitoramento do plano. Nulo no plano preenchido à mão pelo
+   * Backoffice; preenchido no plano montado a partir do mapa do cliente, cujos
+   * pontos o técnico registra no App — e que aqui é só leitura.
+   */
+  servicoCodigo: ServicoCodigo | null;
 }
 
 export interface PontoPlano {
@@ -192,6 +199,21 @@ export interface PontoPlano {
   identificacao: string;
   situacao: 'pendente' | 'conforme' | 'nao_conforme' | 'inacessivel';
   observacao: string;
+  // Só no plano do mapa:
+  area: string | null;
+  fase: number | null;
+  statusRotulo: string | null;
+  contagens: Record<string, number> | null;
+  semOcorrencia: boolean;
+  acaoCorretiva: string;
+}
+
+export interface AplicacaoPlano {
+  id: string;
+  produto: string;
+  tecnica: string;
+  quantidade: string;
+  areas: string;
 }
 
 export const situacaoPontoLabel: Record<PontoPlano['situacao'], string> = {
@@ -211,9 +233,10 @@ export const situacaoPontoTone: Record<PontoPlano['situacao'], BadgeTone> = {
 export async function listPlanos(osId: string): Promise<PlanoControle[]> {
   const { data, error } = await supabase
     .from('os_planos_controle')
-    .select('id, tipo_controle, frequencia, pontos_previstos, pontos:os_plano_pontos(situacao)')
+    .select('id, tipo_controle, frequencia, pontos_previstos, servico_codigo, pontos:os_plano_pontos(situacao)')
     .eq('os_id', osId)
-    .order('tipo_controle');
+    .order('tipo_controle')
+    .order('servico_codigo');
   if (error) throw new Error(msgErro(error));
   return (data as any[]).map((p) => ({
     id: p.id,
@@ -223,14 +246,17 @@ export async function listPlanos(osId: string): Promise<PlanoControle[]> {
     // Conta aqui em vez de pedir ao banco por plano: a tela já traz os pontos
     // no mesmo select, e uma consulta por plano seria N+1 por nada.
     pontosPreenchidos: ((p.pontos as any[]) ?? []).filter((x) => x.situacao !== 'pendente').length,
+    servicoCodigo: p.servico_codigo && isServicoCodigo(p.servico_codigo) ? p.servico_codigo : null,
   }));
 }
 
 export async function listPontos(planoId: string): Promise<PontoPlano[]> {
   const { data, error } = await supabase
     .from('os_plano_pontos')
-    .select('id, numero, identificacao, situacao, observacao')
+    .select('id, numero, identificacao, situacao, observacao, area, fase, status_rotulo, contagens, sem_ocorrencia, acao_corretiva')
     .eq('plano_id', planoId)
+    .order('area')
+    .order('fase')
     .order('numero');
   if (error) throw new Error(msgErro(error));
   return (data as any[]).map((p) => ({
@@ -239,7 +265,35 @@ export async function listPontos(planoId: string): Promise<PontoPlano[]> {
     identificacao: p.identificacao ?? '',
     situacao: p.situacao,
     observacao: p.observacao ?? '',
+    area: p.area,
+    fase: p.fase,
+    statusRotulo: p.status_rotulo,
+    contagens: p.contagens,
+    semOcorrencia: !!p.sem_ocorrencia,
+    acaoCorretiva: p.acao_corretiva ?? '',
   }));
+}
+
+/** Aplicações registradas no App para o plano de Desinsetização. */
+export async function listAplicacoes(planoId: string): Promise<AplicacaoPlano[]> {
+  const { data, error } = await supabase
+    .from('os_aplicacoes')
+    .select('id, tecnica, quantidade, unidade, areas, produto:produtos(nome)')
+    .eq('plano_id', planoId)
+    .order('created_at');
+  if (error) throw new Error(msgErro(error));
+  return (data ?? []).map((a) => ({
+    id: a.id,
+    produto: (a.produto as unknown as { nome: string } | null)?.nome ?? '—',
+    tecnica: a.tecnica,
+    quantidade: `${Number(a.quantidade).toLocaleString('pt-BR')} ${a.unidade}`,
+    areas: a.areas.join(', '),
+  }));
+}
+
+/** Título do plano: o tipo de controle e, no plano do mapa, o serviço. */
+export function tituloPlano(p: PlanoControle): string {
+  return p.servicoCodigo ? `${p.tipoControle} · ${NOME_SERVICO[p.servicoCodigo]}` : p.tipoControle;
 }
 
 export async function salvarPonto(

@@ -35,6 +35,8 @@ const UNICOS: Record<string, string> = {
   os_plano_pontos_plano_id_numero_key: 'Já existe um ponto com esse número neste plano.',
   os_planos_controle_os_id_tipo_controle_key: 'Este tipo de controle já está na OS.',
   os_produtos_os_id_produto_id_key: 'Produto já previsto nesta OS.',
+  cliente_areas_cliente_id_nome_key: 'Este cliente já tem uma área com esse nome.',
+  cliente_pontos_numero_key: 'Já existe um ponto com esse número neste serviço, área e fase.',
   permissoes_modulo_perfil_acesso_id_modulo_key: 'Este perfil já tem permissão definida para o módulo.',
 };
 
@@ -51,12 +53,37 @@ const CHECKS: Record<string, string> = {
   clientes_tipo_pessoa_check: 'Tipo de pessoa deve ser física ou jurídica.',
   clientes_classificacao_abc_check: 'A classificação ABC aceita apenas A, B ou C.',
   cliente_portal_usuarios_status_check: 'Situação de acesso ao portal desconhecida.',
+  cliente_pontos_servico_com_ponto: 'A Desinsetização registra aplicações por área, não pontos.',
+  produtos_fator_aplicacao_positivo: 'O fator de conversão precisa ser maior que zero.',
+  produtos_unidade_aplicacao_par: 'Informe a unidade de aplicação e o fator juntos, ou deixe os dois em branco.',
 };
 
-/** O nome da constraint citada entre aspas na mensagem do Postgres. */
+/** Chaves estrangeiras com uma explicação melhor que a genérica. */
+const FKS: Record<string, string> = {
+  cliente_pontos_area_id_cliente_id_fkey: 'Esta área tem pontos cadastrados. Inative a área em vez de excluí-la.',
+  os_plano_pontos_cliente_ponto_id_fkey: 'Este ponto já foi lido numa OS e não pode ser excluído. Inative-o.',
+};
+
+/**
+ * O nome da constraint citada na mensagem do Postgres.
+ *
+ * Procura o que vem depois da palavra `constraint`, e não o primeiro texto
+ * entre aspas: em "new row for relation "x" violates check constraint "y"" o
+ * primeiro é a TABELA. Do jeito antigo, nenhuma regra de CHECKS casava.
+ */
 function constraintDe(msg: string): string {
-  return msg.match(/"([^"]+)"/)?.[1] ?? '';
+  return msg.match(/constraint "([^"]+)"/)?.[1] ?? msg.match(/"([^"]+)"/)?.[1] ?? '';
 }
+
+/**
+ * As frases que o próprio Postgres escreve. Tudo que não começa assim veio de
+ * uma exceção levantada por nós, numa função ou gatilho, já em português e
+ * escrita para quem lê a tela — e trocá-la pela frase genérica do código de
+ * erro perderia justamente a explicação ("Uma área não pode ser transferida
+ * para outro cliente.").
+ */
+const FRASE_DO_POSTGRES =
+  /^(duplicate key value|new row (for relation|violates)|update or delete on table|insert or update on table|null value in column|permission denied|.* violates (check|foreign key|not-null) constraint)/;
 
 interface ErroBanco { code?: string; message?: string; details?: string | null }
 
@@ -65,13 +92,17 @@ export function msgErro(error: ErroBanco | null | undefined, fallback = 'Não fo
   const msg = error.message ?? '';
   const alvo = constraintDe(msg);
 
+  if (msg && ['23505', '23514', '23503', '23502', '42501'].includes(error.code ?? '') && !FRASE_DO_POSTGRES.test(msg)) {
+    return msg;
+  }
+
   switch (error.code) {
     case '23505': return UNICOS[alvo] ?? 'Já existe um registro com esses dados.';
     case '23514': return CHECKS[alvo] ?? 'Algum campo está fora do que o sistema aceita.';
     // Chave estrangeira: o registro é referido por outro, ou aponta para um que
     // não existe mais — quase sempre porque alguém apagou enquanto esta tela
     // estava aberta.
-    case '23503': return 'Este registro está ligado a outro e não pode ser alterado assim. Recarregue a página e tente de novo.';
+    case '23503': return FKS[alvo] ?? 'Este registro está ligado a outro e não pode ser alterado assim. Recarregue a página e tente de novo.';
     case '23502': return 'Falta preencher um campo obrigatório.';
     // RLS. A pessoa não precisa saber que existe uma policy; precisa saber que
     // o acesso dela não alcança aquilo.
