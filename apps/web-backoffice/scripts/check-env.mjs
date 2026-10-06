@@ -22,7 +22,7 @@ if (faltando.length > 0) {
   for (const k of faltando) console.error(`   • ${k}`)
   console.error(
     '\n  Local:  copie .env.example para .env' +
-      '\n  Vercel: Settings → Environment Variables (marque Production, Preview e Development)\n',
+      '\n  Cloudflare Pages: Settings → Variables and Secrets (em Production e em Preview)\n',
   )
   process.exit(1)
 }
