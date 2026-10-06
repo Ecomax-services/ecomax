@@ -1,0 +1,22 @@
+// Configuração do Worker que publica este app na Cloudflare.
+//
+// O painel novo da Cloudflare cria projetos como Worker (com
+// "npx wrangler deploy"), e o wrangler precisa saber onde está o site:
+// - "name" tem de ser IGUAL ao nome do Worker no painel, ou o deploy recusa;
+// - "assets.directory" é a saída do "npm run build";
+// - "single-page-application" serve o index.html para as rotas do
+//   react-router (/usuarios, /ordens/…), que não existem como arquivo.
+//
+// Os cabeçalhos de cache e segurança vêm de public/_headers, que o build
+// copia para dist/ e o Worker aplica.
+//
+// As variáveis VITE_* são lidas NO BUILD: no painel do Worker elas ficam em
+// Settings → Build → Variables and secrets, e não nas variáveis de runtime.
+{
+  "name": "ecomax-cliente",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

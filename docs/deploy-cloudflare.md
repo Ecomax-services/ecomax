@@ -13,15 +13,34 @@ Um projeto Pages por app:
 
 O `mobile-operador` não vai para cá: é Expo, distribuído pela loja.
 
-## Por que Pages, e não Worker
+## Pages ou Worker
 
-No painel atual da Cloudflare, "Create" abre por padrão um **Worker** (com
-`npx wrangler deploy`). Para estes apps o certo é **Pages**: um Worker só
-aceita domínio próprio se o DNS do domínio estiver na Cloudflare, e o
-`ecomax.com.br` está na Locaweb. O Pages aceita um CNAME feito na própria
-Locaweb.
+O painel novo da Cloudflare cria projetos como **Worker** (com
+`npx wrangler deploy`), e nem sempre mostra o caminho do Pages. O repositório
+funciona dos dois jeitos:
 
-## Criar o projeto
+- **Worker:** usa o `wrangler.jsonc` de cada app. O `name` dele tem de ser
+  igual ao nome do Worker no painel (`ecomax-cliente`, `ecomax-painel`).
+  **Restrição:** Worker só aceita domínio próprio com o DNS do domínio na
+  Cloudflare. Com o `ecomax.com.br` na Locaweb, o app fica no endereço
+  `*.workers.dev` até o DNS mudar de lugar.
+- **Pages:** ignora o `wrangler.jsonc`, usa o `public/_headers`, e aceita
+  `cliente.ecomax.com.br` com um CNAME feito na própria Locaweb.
+
+### Worker: campos
+
+| Campo | Valor |
+|---|---|
+| Project name | `ecomax-cliente` (ou `ecomax-painel`) |
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
+| Path (em *Advanced settings*) | `apps/web-portal-cliente` (ou `apps/web-backoffice`) |
+
+As variáveis `VITE_*` vão em **Settings → Build → Variables and secrets**
+(variáveis de **build**). As de runtime, em *Settings → Variables*, não chegam
+ao Vite: o build continuaria dizendo que faltam.
+
+## Pages: criar o projeto
 
 Em **Workers & Pages → Create → Pages → Connect to Git** (no painel novo, o
 link fica no rodapé: *"Looking to deploy Pages? Get started"*):
