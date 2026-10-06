@@ -11,6 +11,41 @@ Um projeto Vercel por app, com **Root Directory** apontando para a pasta do app:
 
 O `mobile-operador` não vai para a Vercel — é Expo, distribuído por Expo Go / EAS.
 
+## Publicação pelo GitHub Action
+
+Desde 05/10/2026 a integração da Vercel com o GitHub não publica: o plano Hobby
+recusa repositório **privado de organização** ("Cannot deploy from a private
+GitHub organization repository on the Hobby plan"), qualquer que seja o autor
+do merge. A publicação é feita pelo workflow `.github/workflows/deploy-vercel.yml`,
+que roda depois da CI da `main` e só segue se ela passou.
+
+### Configurar (uma vez)
+
+No GitHub: **Settings → Secrets and variables → Actions → New repository
+secret**, quatro segredos:
+
+| Segredo | Onde pegar |
+|---|---|
+| `VERCEL_TOKEN` | Vercel → avatar → **Account Settings → Tokens → Create**. Escopo: a conta onde estão os projetos. |
+| `VERCEL_ORG_ID` | Vercel → **Settings → General** da conta (ou do time) → *Vercel ID* / *Team ID* |
+| `VERCEL_PROJECT_ID_BACKOFFICE` | projeto **backoffice** → **Settings → General** → *Project ID* |
+| `VERCEL_PROJECT_ID_CLIENTE` | projeto **cliente** → **Settings → General** → *Project ID* |
+
+As variáveis do app (`VITE_*`) continuam nos projetos da Vercel, em
+**Production**: o workflow as baixa com `vercel pull` antes do build.
+
+### Publicar de novo sem commit
+
+Depois de trocar uma variável na Vercel: GitHub → **Actions → Deploy na Vercel
+→ Run workflow**.
+
+### Os checks vermelhos nos PRs
+
+A integração com o GitHub continua conectada e marca "Vercel – backoffice" e
+"Vercel – cliente" como falha em todo PR e merge. Não afetam nada. Para
+removê-los: em cada projeto, **Settings → Git → Disconnect**. O workflow não
+depende dessa conexão.
+
 ## Por que cada linha do `vercel.json`
 
 **`rewrites` para `/index.html`** — o roteamento é do react-router, e o único
