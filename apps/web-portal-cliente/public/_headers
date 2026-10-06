@@ -1,0 +1,21 @@
+# Cabeçalhos do Cloudflare Pages (o equivalente ao "headers" do vercel.json).
+#
+# Assets do build levam hash no nome: nunca mudam sob a mesma URL, então
+# podem ficar em cache por um ano. O index.html é o único arquivo cujo
+# conteúdo muda sob a mesma URL; cacheado, o navegador pediria assets de um
+# deploy que já não existe e a pessoa veria tela branca.
+#
+# As rotas do react-router (/usuarios, /ordens/…) não precisam de regra: sem
+# um 404.html no build, o Pages serve o index.html para qualquer caminho que
+# não seja arquivo.
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY

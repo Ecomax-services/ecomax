@@ -209,7 +209,8 @@ nada. Rode com `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`.
 | [design-system.md](design-system.md) | tokens e componentes |
 | [AGENTS.md](AGENTS.md) | instruções para agentes de IA |
 | [docs/QA-RELEASE-5.md](docs/QA-RELEASE-5.md) | roteiro de QA do Portal |
-| [docs/deploy-vercel.md](docs/deploy-vercel.md) | publicação dos apps web |
+| [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md) | publicação dos apps web (Cloudflare Pages) |
+| [docs/deploy-vercel.md](docs/deploy-vercel.md) | publicação anterior, na Vercel (desativada) |
 | [apps/mobile-operador/IOS.md](apps/mobile-operador/IOS.md) | publicação na App Store |
 
 ---

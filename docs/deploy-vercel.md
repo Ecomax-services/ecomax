@@ -1,5 +1,10 @@
 # Deploy na Vercel
 
+> **Desativado em 05/10/2026.** O plano Hobby da Vercel não publica repositório
+> privado de organização do GitHub. A publicação passou para o Cloudflare Pages —
+> ver [deploy-cloudflare.md](deploy-cloudflare.md). Este arquivo fica como
+> histórico até a troca de domínio terminar.
+
 ## Projetos
 
 Um projeto Vercel por app, com **Root Directory** apontando para a pasta do app:
