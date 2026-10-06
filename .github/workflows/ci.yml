@@ -83,7 +83,8 @@ jobs:
         run: npm run lint --if-present
 
   # ---------------------------------------------------------------------------
-  # Regras de domínio em shared/, testadas sem banco e sem app.
+  # Regras de domínio em shared/ e regras puras dos apps, testadas sem banco
+  # e sem app.
   #
   # O App calcula o monitoramento offline e o banco recalcula no envio; os
   # testes de shared/tests/ fixam os mesmos casos que a suíte de RLS prova no
@@ -98,8 +99,11 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - name: Testes de shared/
-        run: node --test "shared/tests/*.test.ts"
+      - name: Testes de shared/ e das regras puras dos apps
+        # O registrar.mjs ensina o Node a resolver `@/` e importações sem
+        # extensão, como o Vite e o Metro fazem. Só módulos puros rodam aqui:
+        # nada que importe react-native ou supabase.
+        run: node --import ./scripts/testes/registrar.mjs --test "shared/tests/*.test.ts" "apps/*/src/**/*.test.ts"
 
   # ---------------------------------------------------------------------------
   # Prova que o repositório recria o banco do zero.

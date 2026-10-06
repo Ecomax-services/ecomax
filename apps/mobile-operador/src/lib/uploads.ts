@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
+import { arquivoJaEnviado } from '@/lib/execucao/regras';
 
 const BUCKET = 'operacional-docs';
 
@@ -66,6 +67,29 @@ export async function enviarArquivoLocal(
     encoding: FileSystem.EncodingType.Base64,
   });
   return enviarBase64(caminho, base64, contentType);
+}
+
+/**
+ * Envia um arquivo do aparelho para um caminho FIXO, tolerando reenvio.
+ *
+ * É o upload da execução offline: o caminho vem de `caminhoFixo` (identificador
+ * da execução + do arquivo), então tentar de novo depois de uma falha cai no
+ * mesmo lugar. Se o storage responder que já existe, é porque a tentativa
+ * anterior chegou — e isso conta como enviado, não como erro.
+ */
+export async function enviarArquivoNoCaminho(
+  caminho: string,
+  uri: string,
+  contentType: string,
+): Promise<'enviado' | 'ja_existia'> {
+  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(caminho, decode(base64), { contentType, upsert: false });
+  if (!error) return 'enviado';
+  const statusCode = (error as { statusCode?: string | number }).statusCode;
+  if (arquivoJaEnviado(error.message, statusCode)) return 'ja_existia';
+  throw new Error(traduzErro(error.message));
 }
 
 /**
