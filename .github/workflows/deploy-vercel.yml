@@ -1,0 +1,86 @@
+name: Deploy na Vercel
+
+# Publica o Backoffice e o Portal na Vercel pela CLI.
+#
+# Por que não pela integração com o GitHub: no plano Hobby, a Vercel recusa
+# publicar a partir de repositório PRIVADO de ORGANIZAÇÃO ("Cannot deploy from a
+# private GitHub organization repository on the Hobby plan"), não importa quem
+# faça o merge — confirmado em 06/10/2026 com merges do Ecomax-s. A CLI, com o
+# token da conta, publica o build feito aqui.
+#
+# Só publica commit da main cuja CI passou: roda depois do workflow "CI" e
+# confere o resultado dele. Código com teste quebrado não vai para o ar.
+#
+# Segredos (Settings → Secrets and variables → Actions) — ver
+# docs/deploy-vercel.md, seção "Publicação pelo GitHub Action":
+#   VERCEL_TOKEN                  token da conta na Vercel
+#   VERCEL_ORG_ID                 ID da conta/time na Vercel
+#   VERCEL_PROJECT_ID_BACKOFFICE  ID do projeto backoffice
+#   VERCEL_PROJECT_ID_CLIENTE     ID do projeto cliente
+#
+# As variáveis do app (VITE_*) continuam no projeto da Vercel: o `vercel pull`
+# as traz para o build. Faltando alguma, o scripts/check-env.mjs para o build
+# com o nome dela.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # Para publicar de novo sem commit novo (ex.: depois de trocar uma variável).
+  workflow_dispatch:
+
+# Um deploy por vez; o mais novo cancela o que ainda estiver na fila.
+concurrency:
+  group: deploy-vercel
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: deploy ${{ matrix.app }}
+    # workflow_run dispara também quando a CI falha; aqui só segue se passou.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: backoffice
+            projeto: VERCEL_PROJECT_ID_BACKOFFICE
+          - app: cliente
+            projeto: VERCEL_PROJECT_ID_CLIENTE
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets[matrix.projeto] }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # O commit que a CI aprovou, e não o que estiver na main agora.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Conferir os segredos
+        # Sem isto, a falha aparece adiante como um erro de autenticação da CLI
+        # que não diz qual segredo falta.
+        run: |
+          falta=""
+          [ -n "${{ secrets.VERCEL_TOKEN }}" ] || falta="$falta VERCEL_TOKEN"
+          [ -n "$VERCEL_ORG_ID" ] || falta="$falta VERCEL_ORG_ID"
+          [ -n "$VERCEL_PROJECT_ID" ] || falta="$falta ${{ matrix.projeto }}"
+          if [ -n "$falta" ]; then
+            echo "::error::Segredos faltando no GitHub:$falta. Ver docs/deploy-vercel.md."
+            exit 1
+          fi
+
+      - name: Baixar configuração e variáveis do projeto
+        run: npx --yes vercel@latest pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        # Respeita o Root Directory do projeto na Vercel (apps/web-…).
+        run: npx --yes vercel@latest build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Publicar
+        run: npx --yes vercel@latest deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
