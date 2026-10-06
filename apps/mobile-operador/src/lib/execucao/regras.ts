@@ -145,10 +145,13 @@ export function montarEnvio(pacote: PacoteOs, rascunho: RascunhoExecucao, caminh
     problemas.push('Só é possível iniciar na data programada.');
   }
 
-  // 2. Produtos
+  // 2. Produtos. O lote vem da lista da base do técnico.
   if (rascunho.produtos.length === 0) problemas.push('Registre pelo menos um produto.');
+  if (!pacote.base) problemas.push('Seu cadastro não tem base de estoque. Peça ao escritório para definir a sua base.');
+  const lotesDaBase = new Map(pacote.lotes.map((l) => [l.id, l.produtoId]));
   for (const p of rascunho.produtos) {
     if (!p.estoqueLoteId) problemas.push('O lote é obrigatório.');
+    else if (pacote.base && lotesDaBase.get(p.estoqueLoteId) !== p.produtoId) problemas.push('O lote escolhido não é da sua base.');
     const q = numeroDigitado(p.quantidade);
     if (!(q > 0)) problemas.push('Informe a quantidade aplicada.');
   }

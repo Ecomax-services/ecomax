@@ -19,7 +19,7 @@ declare
   v_cli_b uuid := gen_random_uuid();
   v_func_a uuid := gen_random_uuid();
   v_func_b uuid := gen_random_uuid();
-  v_cliente uuid; v_cliente_b uuid; v_area uuid; v_base uuid; v_produto uuid; v_lote uuid;
+  v_cliente uuid; v_cliente_b uuid; v_area uuid; v_base uuid; v_produto uuid; v_lote uuid; v_lote_alheio uuid;
   v_os uuid; v_os_b uuid; v_hoje date := (now() at time zone 'America/Sao_Paulo')::date;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -58,9 +58,10 @@ begin
   insert into public.os_planos_controle (os_id, tipo_controle, frequencia) values (v_os, 'Controle Roedores', 'Mensal');
   perform public.preparar_monitoramento_os(v_os);
 
-  insert into public.funcionarios (id, nome_completo, cpf, cargo, setor, profile_id) values
-    (v_func_a, '[RLS] Técnico reg A', '00000000041', 'Operador', 'Operacional', v_op_a),
-    (v_func_b, '[RLS] Técnico reg B', '00000000042', 'Operador', 'Operacional', v_op_b);
+  -- O técnico A trabalha na base onde está o lote: é dela a lista do App.
+  insert into public.funcionarios (id, nome_completo, cpf, cargo, setor, profile_id, base_id) values
+    (v_func_a, '[RLS] Técnico reg A', '00000000041', 'Operador', 'Operacional', v_op_a, v_base),
+    (v_func_b, '[RLS] Técnico reg B', '00000000042', 'Operador', 'Operacional', v_op_b, v_base);
   insert into public.os_funcionarios (os_id, funcionario_id) values (v_os, v_func_a), (v_os_b, v_func_b);
 
   -- Os arquivos que o App sobe antes de chamar a função.
@@ -69,8 +70,14 @@ begin
     ('operacional-docs', 'os/'||v_os||'/assinatura/2-tecnico.png'),
     ('operacional-docs', 'os/'||v_os||'/foto/1-ponto.jpg');
 
+  -- Um lote do mesmo produto em outra base: o técnico não pode usá-lo.
+  insert into public.bases (nome) values ('[RLS] Outra base registro') returning id into v_base;
+  insert into public.estoque_lotes (produto_id, base_id, lote, validade, quantidade)
+  values (v_produto, v_base, 'RG-ALHEIO', v_hoje + 200, 3) returning id into v_lote_alheio;
+
   insert into t values ('op_a', v_op_a), ('op_b', v_op_b), ('cli_a', v_cli_a), ('cli_b', v_cli_b),
-    ('os', v_os), ('os_b', v_os_b), ('produto', v_produto), ('lote', v_lote), ('func_a', v_func_a);
+    ('os', v_os), ('os_b', v_os_b), ('produto', v_produto), ('lote', v_lote), ('func_a', v_func_a),
+    ('lote_alheio', v_lote_alheio);
 end $$;
 
 create or replace function pg_temp.esperar(_caso text, _obtido boolean, _esperado boolean)
@@ -157,6 +164,16 @@ begin
   r := pg_temp.enviar('op_a', jsonb_set(pg_temp.envio(gen_random_uuid()), '{inicio}',
                                         to_jsonb(now() - interval '2 days')));
   perform pg_temp.esperar('fora da data programada é recusado', r like 'erro: Só é possível iniciar na data programada%', true);
+
+  r := pg_temp.enviar('op_a', jsonb_set(pg_temp.envio(gen_random_uuid()), '{produtos,0,estoque_lote_id}',
+                                        to_jsonb((select v from t where k = 'lote_alheio'))));
+  perform pg_temp.esperar('lote de outra base é recusado', r like 'erro: O lote escolhido não é da sua base%', true);
+
+  update public.funcionarios set base_id = null where id = (select v from t where k = 'func_a');
+  r := pg_temp.enviar('op_a', pg_temp.envio(gen_random_uuid()));
+  perform pg_temp.esperar('técnico sem base no cadastro é recusado', r like 'erro: Seu cadastro não tem base%', true);
+  update public.funcionarios set base_id = (select base_id from public.estoque_lotes where id = (select v from t where k = 'lote'))
+   where id = (select v from t where k = 'func_a');
 
   perform pg_temp.esperar('nada disso mudou a situação da OS',
     (select status = 'confirmada' and execucao_uuid is null from public.ordens_servico where id = (select v from t where k = 'os')), true);

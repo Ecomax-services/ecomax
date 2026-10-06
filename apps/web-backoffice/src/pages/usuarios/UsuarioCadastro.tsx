@@ -8,7 +8,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
-import { cpfExists, criarFuncionario, listGestores, listPerfisAcesso, uploadFuncionarioFile } from '@/lib/funcionarios';
+import { cpfExists, criarFuncionario, listGestores, listPerfisAcesso, listBasesParaColaborador, uploadFuncionarioFile } from '@/lib/funcionarios';
 import { listCatalogoAtivos } from '@/lib/configuracoes';
 import { maskCPF, maskRG, maskDate, maskPhone, maskCEP } from '@/lib/masks';
 import { cpfValido, emailValido } from '@/lib/documentosFiscais';
@@ -48,7 +48,7 @@ const roleFromPerfil: Record<string, string> = {
 const empty = {
   nome: '', cpf: '', rg: '', nascimento: '', telefone: '', cep: '',
   logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
-  cargo: '', setor: '', gestorId: '', admissao: '',
+  cargo: '', setor: '', gestorId: '', baseId: '', admissao: '',
   asoVenc: '', cnhNA: false, cnhNumero: '', cnhCat: 'B', cnhVenc: '',
   comAcesso: true, email: '', perfilId: '', senha: 'Ec0max!7Yz2',
   cargaHoraria: '44h', turno: 'Comercial (08h–17h)',
@@ -88,6 +88,7 @@ export function UsuarioCadastro() {
   const [cargos, setCargos] = useState<string[]>(['Técnico de Campo', 'Supervisora', 'Analista Admin.', 'Almoxarife']);
   const [setores, setSetores] = useState<string[]>(['Operações', 'Comercial', 'Administrativo', 'Almoxarifado']);
   const [gestores, setGestores] = useState<{ id: string; nome: string }[]>([]);
+  const [bases, setBases] = useState<{ id: string; nome: string }[]>([]);
   const [perfis, setPerfis] = useState<{ id: string; nome: string }[]>([]);
 
   const up = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -125,6 +126,7 @@ export function UsuarioCadastro() {
     listCatalogoAtivos('cargos').then((v) => v.length && setCargos(v)).catch(() => {});
     listCatalogoAtivos('setores').then((v) => v.length && setSetores(v)).catch(() => {});
     listGestores().then(setGestores);
+    listBasesParaColaborador().then(setBases).catch(() => {});
     listPerfisAcesso().then((p) => {
       setPerfis(p);
       setForm((f) => ({ ...f, perfilId: f.perfilId || (p[0]?.id ?? '') }));
@@ -232,6 +234,7 @@ export function UsuarioCadastro() {
           cargo: form.cargo,
           setor: form.setor,
           gestor_id: form.gestorId || null,
+          base_id: form.baseId || null,
           data_admissao: brParaISO(form.admissao),
           aso_validade: brParaISO(form.asoVenc),
           cnh_numero: form.cnhNA ? null : form.cnhNumero || null,
@@ -344,6 +347,9 @@ export function UsuarioCadastro() {
                 <SelectField label="Gestor" value={form.gestorId} onChange={(e) => up('gestorId', e.target.value)}
                   options={[{ value: '', label: 'Sem gestor' }, ...gestores.map((g) => ({ value: g.id, label: g.nome }))]} />
                 <TextField label="Data de admissão" placeholder="dd/mm/aaaa" inputMode="numeric" value={form.admissao} onChange={(e) => up('admissao', maskDate(e.target.value))} />
+                {/* No App, o técnico escolhe o lote entre os desta base. */}
+                <SelectField label="Base de estoque" value={form.baseId} onChange={(e) => up('baseId', e.target.value)}
+                  options={[{ value: '', label: 'Sem base' }, ...bases.map((b) => ({ value: b.id, label: b.nome }))]} />
               </div>
               <div className="mt-[18px] grid grid-cols-2 gap-[18px]">
                 <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50 p-[18px]">

@@ -19,7 +19,7 @@ const UUID = '22222222-2222-2222-2222-222222222222';
 
 function pacote(): PacoteOs {
   return {
-    versao: 1,
+    versao: 2,
     baixadoEm: '2026-10-06T10:00:00Z',
     os: {
       id: OS, codigo: 'OS-1050', status: 'confirmada', dataProgramada: '2026-10-06', horaPrevista: '08:00',
@@ -38,6 +38,8 @@ function pacote(): PacoteOs {
     listas: { especiesAl: [], outrasPragasAl: [], pragasPg: [], pragasOc: [], tecnicasDi: [] },
     areas: ['Fábrica'],
     produtos: [],
+    base: { id: 'base', nome: 'Base Sorocaba' },
+    lotes: [{ id: 'lote', produtoId: 'prod', lote: 'RG-01', validade: '2027-04-01', quantidade: 3 }],
   };
 }
 
@@ -169,4 +171,18 @@ test('sem os arquivos no storage, o envio não fecha', () => {
   assert.ok(r.problemas.includes('1 foto ainda não foi enviada.'));
   assert.ok(r.problemas.includes('A assinatura do cliente ainda não foi enviada.'));
   assert.ok(r.problemas.includes('A sua assinatura ainda não foi enviada.'));
+});
+
+test('o lote tem de ser da base do técnico, e do produto certo', () => {
+  const r0 = rascunho();
+  r0.produtos = [{ produtoId: 'outro-produto', estoqueLoteId: 'lote', quantidade: '1', unidade: null }];
+  const r1 = montarEnvio(pacote(), r0, enviados(), '2026-10-06T14:00:00Z');
+  assert.equal(r1.ok, false);
+  if (!r1.ok) assert.ok(r1.problemas.includes('O lote escolhido não é da sua base.'));
+
+  const semBase = pacote();
+  semBase.base = null;
+  const r2 = montarEnvio(semBase, rascunho(), enviados(), '2026-10-06T14:00:00Z');
+  assert.equal(r2.ok, false);
+  if (!r2.ok) assert.ok(r2.problemas.includes('Seu cadastro não tem base de estoque. Peça ao escritório para definir a sua base.'));
 });

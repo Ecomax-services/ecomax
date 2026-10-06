@@ -25,6 +25,8 @@ export interface FuncionarioRow {
   cargo: string;
   setor: string;
   gestor_id: string | null;
+  /** Base de estoque: no App, o técnico escolhe o lote entre os desta base. */
+  base_id: string | null;
   data_admissao: string | null;
   carga_horaria: string | null;
   turno: string | null;
@@ -39,6 +41,7 @@ export interface FuncionarioRow {
   avatar_url: string | null;
   observacoes: string | null;
   gestor?: { nome_completo: string } | { nome_completo: string }[] | null;
+  base?: { nome: string } | { nome: string }[] | null;
 }
 
 
@@ -209,7 +212,7 @@ export async function acessoStatus(profileId: string | null): Promise<AcessoStat
 export async function getFuncionario(id: string): Promise<FuncionarioRow | null> {
   const { data, error } = await supabase
     .from('funcionarios')
-    .select('*, gestor:gestor_id(nome_completo)')
+    .select('*, gestor:gestor_id(nome_completo), base:base_id(nome)')
     .eq('id', id)
     .maybeSingle();
   if (error) throw new Error(msgErro(error));
@@ -293,6 +296,18 @@ export async function listGestores(): Promise<{ id: string; nome: string }[]> {
     .order('nome_completo');
   if (error) throw new Error(msgErro(error));
   return (data as { id: string; nome_completo: string }[]).map((r) => ({ id: r.id, nome: r.nome_completo }));
+}
+
+/**
+ * Bases para o cadastro do colaborador. Lê `bases` direto, e não a view do
+ * Estoque: quem cadastra colaborador pode não ter acesso ao Estoque, e a
+ * policy `bases_gestao_usuarios_select` libera só isto.
+ */
+export async function listBasesParaColaborador(): Promise<{ id: string; nome: string }[]> {
+  const { data, error } = await supabase.from('bases').select('id, nome').eq('ativo', true)
+    .order('central', { ascending: false }).order('nome');
+  if (error) throw new Error(msgErro(error));
+  return data ?? [];
 }
 
 export async function listPerfisAcesso(): Promise<{ id: string; nome: string }[]> {

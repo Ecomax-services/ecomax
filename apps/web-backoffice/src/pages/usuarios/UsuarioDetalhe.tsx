@@ -22,6 +22,7 @@ import {
   listAuditoria,
   listPerfisAcesso,
   listGestores,
+  listBasesParaColaborador,
   resetSenha,
   setBloqueioLogin,
   alterarPerfilAcesso,
@@ -52,6 +53,7 @@ const tabs: { key: Tab; label: string }[] = [
 ];
 
 const gestorNomeOf = (g: FuncionarioRow['gestor']) => (Array.isArray(g) ? g[0]?.nome_completo : g?.nome_completo) ?? '—';
+const baseNomeOf = (b: FuncionarioRow['base']) => (Array.isArray(b) ? b[0]?.nome : b?.nome) ?? 'Sem base';
 const isoToBR = (iso: string | null) => (iso ? iso.split('-').reverse().join('/') : '');
 const fmtDoc = (iso: string | null) => (iso ? isoToBR(iso) : SEM_DATA);
 
@@ -304,6 +306,7 @@ function DadosView({ row, asoState, cnhState, docUrls }: { row: FuncionarioRow; 
             <Info className={cell} label="Setor" value={row.setor} />
             <Info className={cell} label="Gestor" value={gestorNomeOf(row.gestor)} />
             <Info className={cell} label="Admissão" value={isoToBR(row.data_admissao) || '—'} />
+            <Info className={cell} label="Base de estoque" value={baseNomeOf(row.base)} />
           </div>
         </div>
         <div className="rounded-2xl border border-ink-100 bg-white px-7 py-6">
@@ -397,12 +400,14 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
     cargo: row.cargo,
     setor: row.setor,
     gestor_id: row.gestor_id ?? '',
+    base_id: row.base_id ?? '',
     admissao: isoToBR(row.data_admissao),
     aso: isoToBR(row.aso_validade),
     cnh: isoToBR(row.cnh_validade),
   });
   const [saving, setSaving] = useState(false);
   const [gestores, setGestores] = useState<{ id: string; nome: string }[]>([]);
+  const [bases, setBases] = useState<{ id: string; nome: string }[]>([]);
   const [cargos, setCargos] = useState<string[]>([]);
   const [setores, setSetores] = useState<string[]>([]);
   const [files, setFiles] = useState<{ foto: File | null; aso: File | null; cnh: File | null }>({ foto: null, aso: null, cnh: null });
@@ -413,6 +418,7 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
 
   useEffect(() => {
     listGestores().then((g) => setGestores(g.filter((x) => x.id !== row.id)));
+    listBasesParaColaborador().then(setBases).catch(() => {});
     listCatalogoAtivos('cargos').then((v) => v.length && setCargos(v)).catch(() => {});
     listCatalogoAtivos('setores').then((v) => v.length && setSetores(v)).catch(() => {});
   }, [row.id]);
@@ -447,6 +453,7 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
         cargo: f.cargo,
         setor: f.setor,
         gestor_id: f.gestor_id || null,
+        base_id: f.base_id || null,
         data_admissao: brParaISO(f.admissao),
         aso_validade: brParaISO(f.aso),
         cnh_validade: brParaISO(f.cnh),
@@ -506,6 +513,8 @@ function DadosEdit({ row, onCancel, onSaved }: { row: FuncionarioRow; onCancel: 
             <TextField label="Admissão" placeholder="dd/mm/aaaa" inputMode="numeric" value={f.admissao} onChange={(e) => up('admissao', maskDate(e.target.value))} />
             <TextField label="Vecto ASO" placeholder="dd/mm/aaaa" inputMode="numeric" value={f.aso} onChange={(e) => up('aso', maskDate(e.target.value))} />
             <TextField label="Vecto CNH" placeholder="dd/mm/aaaa" inputMode="numeric" value={f.cnh} onChange={(e) => up('cnh', maskDate(e.target.value))} />
+            <SelectField label="Base de estoque" value={f.base_id} onChange={(e) => up('base_id', e.target.value)}
+              options={[{ value: '', label: 'Sem base' }, ...bases.map((b) => ({ value: b.id, label: b.nome }))]} />
           </div>
         </div>
         <div className="col-span-2 rounded-2xl border border-ink-100 bg-white px-7 py-6">

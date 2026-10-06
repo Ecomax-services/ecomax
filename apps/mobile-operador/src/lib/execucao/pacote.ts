@@ -33,7 +33,19 @@ export async function baixarPacote(osId: string): Promise<PacoteOs> {
   if (error) throw new Error(msgErro(error));
   const cliente = os.cliente as unknown as { id: string; nome: string } & Parameters<typeof enderecoDe>[0];
 
-  const [planos, legendas, listas, areas, produtos] = await Promise.all([
+  // A base do técnico vem do cadastro dele. `base:base_id(...)` com a coluna:
+  // há duas relações entre colaborador e base (o responsável da base é um
+  // colaborador), e sem a coluna o PostgREST não sabe qual embutir.
+  const { data: usuario } = await supabase.auth.getUser();
+  const { data: eu, error: eEu } = await supabase
+    .from('funcionarios')
+    .select('base_id, base:base_id(id, nome)')
+    .eq('profile_id', usuario.user?.id ?? '')
+    .maybeSingle();
+  if (eEu) throw new Error(msgErro(eEu));
+  const base = (eu?.base as unknown as { id: string; nome: string } | null) ?? null;
+
+  const [planos, legendas, listas, areas, produtos, lotes, porTipo] = await Promise.all([
     supabase
       .from('os_planos_controle')
       .select('id, tipo_controle, frequencia, servico_codigo, pontos:os_plano_pontos(id, numero, area, fase, identificacao)')
@@ -60,8 +72,22 @@ export async function baixarPacote(osId: string): Promise<PacoteOs> {
       .from('os_produtos')
       .select('produto_id, qtd_recomendada, produto:produtos(nome, unidade, unidade_aplicacao, fator_aplicacao)')
       .eq('os_id', osId),
+    // Filtro explícito pela base: quem também tem acesso ao Estoque leria os
+    // lotes de todas as bases pela RLS, e a lista do App é só a dele.
+    base
+      ? supabase
+          .from('estoque_lotes')
+          .select('id, produto_id, lote, validade, quantidade, produto:produtos(nome, unidade, unidade_aplicacao, fator_aplicacao)')
+          .eq('base_id', base.id)
+          .gt('quantidade', 0)
+          .order('validade', { ascending: true, nullsFirst: false })
+      : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from('tipo_servico_produtos')
+      .select('produto_id, tipo_servico')
+      .in('tipo_servico', os.tipos_servico ?? []),
   ]);
-  for (const r of [planos, legendas, listas, areas, produtos]) {
+  for (const r of [planos, legendas, listas, areas, produtos, lotes, porTipo]) {
     if (r.error) throw new Error(msgErro(r.error));
   }
 
@@ -73,20 +99,36 @@ export async function baixarPacote(osId: string): Promise<PacoteOs> {
     (legendasPorServico[l.servico_codigo] ??= []).push({ codigo: l.codigo, rotulo: l.nome, corBg: l.cor_bg, corFg: l.cor_fg });
   }
 
-  // O mesmo produto pode aparecer duas vezes (dois lotes previstos); no
-  // pacote ele é um só — o lote é escolhido em campo.
+  type InfoProduto = { nome: string; unidade: string; unidade_aplicacao: string | null; fator_aplicacao: number | null };
+  const paraProduto = (produtoId: string, info: InfoProduto, qtd: number, previsto: boolean): PacoteOs['produtos'][number] => ({
+    produtoId,
+    nome: info.nome,
+    unidade: info.unidade,
+    unidadeAplicacao: info.unidade_aplicacao,
+    fatorAplicacao: info.fator_aplicacao == null ? null : Number(info.fator_aplicacao),
+    qtdRecomendada: qtd,
+    previsto,
+  });
+
+  // Previstos primeiro. O mesmo produto pode aparecer duas vezes (dois lotes
+  // previstos); no pacote ele é um só — o lote é escolhido em campo.
   const produtosUnicos = new Map<string, PacoteOs['produtos'][number]>();
   for (const p of produtos.data ?? []) {
-    const info = p.produto as unknown as { nome: string; unidade: string; unidade_aplicacao: string | null; fator_aplicacao: number | null } | null;
+    const info = p.produto as unknown as InfoProduto | null;
     if (!info || produtosUnicos.has(p.produto_id)) continue;
-    produtosUnicos.set(p.produto_id, {
-      produtoId: p.produto_id,
-      nome: info.nome,
-      unidade: info.unidade,
-      unidadeAplicacao: info.unidade_aplicacao,
-      fatorAplicacao: info.fator_aplicacao == null ? null : Number(info.fator_aplicacao),
-      qtdRecomendada: Number(p.qtd_recomendada),
-    });
+    produtosUnicos.set(p.produto_id, paraProduto(p.produto_id, info, Number(p.qtd_recomendada), true));
+  }
+
+  // Depois, os da base do técnico ligados aos tipos de serviço da OS
+  // ("produto filtrado por tipo de serviço"). Sem nenhum produto configurado
+  // para esses tipos, vale tudo que a base tem — uma lista vazia deixaria o
+  // técnico sem como registrar o que aplicou.
+  const daOs = new Set((porTipo.data ?? []).map((x) => x.produto_id));
+  for (const l of lotes.data ?? []) {
+    const info = l.produto as unknown as InfoProduto | null;
+    if (!info || produtosUnicos.has(l.produto_id)) continue;
+    if (daOs.size > 0 && !daOs.has(l.produto_id)) continue;
+    produtosUnicos.set(l.produto_id, paraProduto(l.produto_id, info, 0, false));
   }
 
   const pacote: PacoteOs = {
@@ -121,6 +163,10 @@ export async function baixarPacote(osId: string): Promise<PacoteOs> {
     },
     areas: (areas.data ?? []).map((a) => a.nome),
     produtos: [...produtosUnicos.values()],
+    base,
+    lotes: (lotes.data ?? []).map((l) => ({
+      id: l.id, produtoId: l.produto_id, lote: l.lote, validade: l.validade, quantidade: Number(l.quantidade),
+    })),
   };
 
   await AsyncStorage.setItem(chave(osId), JSON.stringify(pacote));

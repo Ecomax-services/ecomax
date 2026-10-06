@@ -18,7 +18,7 @@
 import type { ServicoCodigo } from '@/lib/monitoramento';
 
 /** Muda quando o formato do pacote muda; pacote de versão diferente é baixado de novo. */
-export const VERSAO_PACOTE = 1;
+export const VERSAO_PACOTE = 2;
 export const VERSAO_RASCUNHO = 1;
 
 export interface PontoDoPacote {
@@ -53,7 +53,20 @@ export interface ProdutoDoPacote {
   /** Unidade em que o técnico registra (mL, g); nula = a mesma do estoque. */
   unidadeAplicacao: string | null;
   fatorAplicacao: number | null;
+  /** Quanto o Backoffice previu na OS; 0 quando o produto não estava previsto. */
   qtdRecomendada: number;
+  previsto: boolean;
+}
+
+/** Lote da base do técnico, com saldo. O técnico escolhe entre estes. */
+export interface LoteDoPacote {
+  id: string;
+  produtoId: string;
+  lote: string;
+  /** AAAA-MM-DD. */
+  validade: string | null;
+  /** Saldo na unidade de estoque, no momento do download. */
+  quantidade: number;
 }
 
 export interface PacoteOs {
@@ -83,7 +96,15 @@ export interface PacoteOs {
   };
   /** Áreas ativas do cliente, para as aplicações da Desinsetização. */
   areas: string[];
+  /**
+   * Produtos que o técnico pode registrar: os previstos na OS e os da base
+   * dele ligados aos tipos de serviço da OS.
+   */
   produtos: ProdutoDoPacote[];
+  /** A base do técnico. Nula: o cadastro não tem base, e não há lote a escolher. */
+  base: { id: string; nome: string } | null;
+  /** Lotes com saldo da base do técnico, os que vencem antes primeiro. */
+  lotes: LoteDoPacote[];
 }
 
 export interface LeituraNoRascunho {
