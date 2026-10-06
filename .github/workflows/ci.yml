@@ -36,7 +36,9 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          # O mesmo da Vercel (engines em package.json). O @supabase/supabase-js
+          # já exige Node 22+, e a Vercel recusa build com Node 20 desde 01/10/2026.
+          node-version: 24
           cache: npm
           cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
 

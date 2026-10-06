@@ -28,6 +28,13 @@ não existe, e a pessoa vê tela branca até limpar o cache.
 **Nada de chave `comment`** — a Vercel valida o `vercel.json` com schema estrito
 e recusa propriedades desconhecidas. O deploy falha na validação, antes do build.
 
+## Versão do Node
+
+`"engines": { "node": "24.x" }` no `package.json` de cada app. A Vercel usa o
+`engines` **em vez** da versão escolhida em Project Settings, então é aqui que
+se muda. Desde 01/10/2026 ela recusa build com Node 20, e o
+`@supabase/supabase-js` já exige Node 22 ou mais. A CI usa a mesma versão.
+
 ## Variáveis de ambiente
 
 Nos dois projetos, marcadas para **Production, Preview e Development**:
