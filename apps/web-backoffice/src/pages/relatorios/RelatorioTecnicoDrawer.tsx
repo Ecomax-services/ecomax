@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Cloud, CloudOff, EyeOff, History, Lock, Save } from 'lucide-react';
+import { Cloud, CloudOff, EyeOff, History, Lock, Save, TrendingDown, TrendingUp } from 'lucide-react';
 import { Drawer } from '@/components/ui/Drawer';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -10,9 +10,10 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 import { rotuloStatus } from '@/lib/statusOs';
 import {
-  contagemDeBlocos, ddmm, montarBlocos, rotuloDoPeriodo,
-  type Bloco, type ConteudoVersao, type Frequencia, type GrupoDeBlocos,
+  MESES_CURTOS, contagemDeBlocos, ddmm, montarBlocos, rotuloDoPeriodo,
+  type Bloco, type ConteudoVersao, type Frequencia, type GrupoDeBlocos, type Meses, type Tendencia,
 } from '@/lib/relatorio';
+import { CORES_GRAFICO, graficoDeBarras, type Serie } from '@/lib/graficos';
 import { abrirRelatorio, lancarCaptura, salvarVersao, type RelatorioAberto } from '@/lib/relatoriosTecnicos';
 
 type Aba = 'blocos' | 'exec' | 'compl';
@@ -495,6 +496,10 @@ function ConteudoDoBloco({ bloco, podeEditar, osId, especies, onCaptura }: {
           <h4 className="mb-2 text-[13.5px] font-bold text-ink-900">{captura ? 'Capturas no período por tipo' : 'Totais por status no período'}</h4>
           <Cartoes itens={bloco.totais.map((t) => ({ valor: t.n, rotulo: captura ? t.nome : `${t.codigo} · ${t.nome}` }))} />
         </div>
+        <TabelaMeses titulo="Consolidação anual" sub="Evolução mês a mês · meses sem visita aparecem sem valor"
+          primeira="Classificação" mesAtual={bloco.consolidacao.mesAtual}
+          linhas={bloco.consolidacao.linhas.map((l) => ({ rotulo: captura ? l.nome : `${l.codigo} · ${l.nome}`, valores: l.valores }))} />
+        <TendenciaBloco t={bloco.tendencia} />
       </>
     );
   }
@@ -515,6 +520,13 @@ function ConteudoDoBloco({ bloco, podeEditar, osId, especies, onCaptura }: {
             { valor: bloco.indiceMedio.toLocaleString('pt-BR'), rotulo: 'Índice médio por armadilha' },
           ]} />
         </div>
+        <div>
+          <h4 className="mb-2 text-[13.5px] font-bold text-ink-900">Evolução mensal do total capturado</h4>
+          <Grafico series={[{ nome: 'Total', cor: CORES_GRAFICO.total, valores: bloco.mensal.total }]} mesAtual={bloco.mensal.mesAtual} rotulos />
+        </div>
+        <TabelaMeses titulo="Visão mensal por tipo" sub="Meses sem visita aparecem sem valor" primeira="Tipo"
+          mesAtual={bloco.mensal.mesAtual} linhas={bloco.mensal.porTipo.map((t) => ({ rotulo: t.especie, valores: t.valores }))} />
+        <TendenciaBloco t={bloco.tendencia} />
         <p className="text-[12.5px] text-ink-400">A contagem não usa a legenda de status 1 a 4.</p>
       </>
     );
@@ -526,21 +538,124 @@ function ConteudoDoBloco({ bloco, podeEditar, osId, especies, onCaptura }: {
           cab={['Data', 'Setor', 'Ocorrência apontada', 'Praga / indício', 'Ação']}
           linhas={bloco.linhas.map((l) => [br(l.data), l.setor, l.ocorrencia, l.praga, l.acao])} />
         <Cartoes itens={[{ valor: bloco.linhas.length, rotulo: 'Ocorrências no período' }]} />
+        <TabelaMeses titulo="Visão por período" sub="Meses sem visita aparecem sem valor" primeira="Situação"
+          mesAtual={bloco.mensal.mesAtual} linhas={[{ rotulo: 'Registradas', valores: bloco.mensal.registradas }]} />
+        <TendenciaBloco t={bloco.tendencia} />
       </>
     );
   }
-  // Comparativo: a série mês a mês e os gráficos entram no PR 23.
   if (bloco.tipo !== 'comparativo') return null;
+  const ultimo = MESES_CURTOS[Math.max(0, bloco.mesAtual - 1)];
   return (
     <>
-      <Tabela titulo="Iscas consumidas × placas com ocorrência, por visita"
-        cab={['Visita', 'Iscas consumidas', 'Placas com ocorrência']}
-        linhas={bloco.serie.map((s) => [br(s.data), s.iscas, s.placas])} />
+      <div>
+        <h4 className="text-[13.5px] font-bold text-ink-900">Iscas consumidas × placas com ocorrência, mês a mês</h4>
+        <p className="mb-2 text-[12.5px] text-ink-400">
+          {bloco.portaIscas} porta-iscas e {bloco.placasAdesivas} placas adesivas · {bloco.areaNome} · Jan a {ultimo} {bloco.ano}
+        </p>
+        <Legenda itens={[{ nome: 'Iscas consumidas', cor: CORES_GRAFICO.iscas }, { nome: 'Placas com ocorrência', cor: CORES_GRAFICO.placas }]} />
+        <Grafico mesAtual={bloco.mesAtual} series={[
+          { nome: 'Iscas consumidas', cor: CORES_GRAFICO.iscas, valores: bloco.iscas },
+          { nome: 'Placas com ocorrência', cor: CORES_GRAFICO.placas, valores: bloco.placas },
+        ]} />
+      </div>
       <Cartoes itens={[
-        { valor: bloco.totalIscas, rotulo: 'Iscas consumidas no período' },
-        { valor: bloco.totalPlacas, rotulo: 'Placas com ocorrência no período' },
+        { valor: bloco.totalIscas, rotulo: `Iscas consumidas no acumulado ${bloco.ano}` },
+        { valor: bloco.totalPlacas, rotulo: `Placas com ocorrência no acumulado ${bloco.ano}` },
+      ]} />
+      <p className="text-[13px] text-ink-700">{bloco.relacao}</p>
+      <TabelaMeses titulo="Mês a mês" primeira="" mesAtual={bloco.mesAtual} linhas={[
+        { rotulo: 'Iscas consumidas', valores: bloco.iscas },
+        { rotulo: 'Placas com ocorrência', valores: bloco.placas },
       ]} />
     </>
+  );
+}
+
+/** Gráfico de barras compartilhado com o PDF (`lib/graficos.ts`). */
+function Grafico({ series, mesAtual, rotulos }: { series: Serie[]; mesAtual: number; rotulos?: boolean }) {
+  // O SVG é montado só com números e rótulos fixos, e o texto é escapado em `graficoDeBarras`.
+  const svg = graficoDeBarras({ categorias: MESES_CURTOS, series, mesAtual, rotulos, largura: 640, altura: 180 });
+  return <div className="overflow-x-auto [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: svg }} />;
+}
+
+function Legenda({ itens }: { itens: { nome: string; cor: string }[] }) {
+  return (
+    <div className="mb-1 flex flex-wrap gap-4 text-[12.5px] text-ink-500">
+      {itens.map((i) => (
+        <span key={i.nome} className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: i.cor }} />{i.nome}</span>
+      ))}
+    </div>
+  );
+}
+
+/** Tabela Jan–Dez: "—" sem valor (mês sem visita ou ainda por vir); zero em cinza. */
+function TabelaMeses({ titulo, sub, primeira, linhas, mesAtual }: {
+  titulo: string; sub?: string; primeira: string; linhas: { rotulo: string; valores: Meses }[]; mesAtual: number;
+}) {
+  return (
+    <div>
+      {titulo && <h4 className="text-[13.5px] font-bold text-ink-900">{titulo}</h4>}
+      {sub && <p className="mb-2 text-[12.5px] text-ink-400">{sub}</p>}
+      <div className="overflow-x-auto rounded-lg border border-ink-100">
+        <table className="w-full text-[12.5px] tabular-nums">
+          <thead className="bg-ink-50">
+            <tr>
+              <th className="px-3 py-2 text-left text-[11.5px] font-bold uppercase text-ink-400">{primeira}</th>
+              {MESES_CURTOS.map((m) => <th key={m} className="px-2 py-2 text-center text-[11.5px] font-bold uppercase text-ink-400">{m}</th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink-100">
+            {linhas.map((l) => (
+              <tr key={l.rotulo}>
+                <td className="whitespace-nowrap px-3 py-2 text-ink-700">{l.rotulo}</td>
+                {l.valores.map((v, i) => (
+                  <td key={i} className={cn('px-2 py-2 text-center', v == null || v === 0 || i + 1 > mesAtual ? 'text-ink-300' : 'font-semibold text-ink-900')}>
+                    {v == null ? '—' : v.toLocaleString('pt-BR')}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** "Tendência <ano anterior> × <ano>": mesmo período do ano anterior. */
+function TendenciaBloco({ t }: { t: Tendencia }) {
+  const ate = t.ate ? MESES_CURTOS[t.ate - 1] : null;
+  const melhora = t.variacao != null && t.variacao <= 0;
+  return (
+    <div className="rounded-lg border border-ink-100 p-4">
+      <h4 className="text-[13.5px] font-bold text-ink-900">Tendência {t.anoAnterior} × {t.ano} · {t.rotulo}</h4>
+      <p className="mb-2 text-[12.5px] text-ink-400">
+        {ate ? `Comparação Jan a ${ate} contra o mesmo período de ${t.anoAnterior}` : `Ainda sem visita em ${t.ano}`}
+      </p>
+      <Legenda itens={[{ nome: `${t.anoAnterior} · ano anterior`, cor: CORES_GRAFICO.anoAnterior }, { nome: `${t.ano} · ano atual`, cor: CORES_GRAFICO.anoAtual }]} />
+      <Grafico mesAtual={12} series={[
+        { nome: String(t.anoAnterior), cor: CORES_GRAFICO.anoAnterior, valores: t.anterior },
+        { nome: String(t.ano), cor: CORES_GRAFICO.anoAtual, valores: t.atual.map((v, i) => (i + 1 > t.ate ? null : v)) },
+      ]} />
+      <div className="mt-3 flex flex-wrap items-center gap-2.5">
+        <Cartoes itens={[
+          { valor: t.somaAnterior, rotulo: `Acumulado ${t.anoAnterior} no período` },
+          { valor: t.somaAtual, rotulo: `Acumulado ${t.ano} no período` },
+        ]} />
+        {t.variacao == null
+          ? <Chip cls="bg-ink-100 text-ink-500">Sem base em {t.anoAnterior} para comparar</Chip>
+          : (
+            <Chip cls={melhora ? 'bg-[#eaf6ea] text-[#1a5c1a]' : 'bg-[#fdf3e6] text-[#b45309]'}>
+              {melhora ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />}
+              {t.variacao > 0 ? '+' : ''}{t.variacao}% contra {t.anoAnterior}
+            </Chip>
+          )}
+      </div>
+      <div className="mt-3">
+        <TabelaMeses titulo="" primeira="" mesAtual={12} linhas={[{ rotulo: `${t.anoAnterior} · ano anterior`, valores: t.anterior }]} />
+      </div>
+    </div>
   );
 }
 

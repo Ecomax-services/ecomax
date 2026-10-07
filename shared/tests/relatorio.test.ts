@@ -36,6 +36,33 @@ function dados(): DadosRelatorio {
     responsavel_tecnico: null,
     relatorio: { versao_atual: 1, versao_publicada: null, publicado_em: null },
     janela: { de: '2026-08-03', ate: '2026-08-30' },
+    historico: {
+      ano: 2026, mes_atual: 8,
+      visitas: [
+        { ano: 2025, mes: 8, area_id: 'fab', area_texto: null, servico: 'PI', fase: 1, n: 1 },
+        { ano: 2026, mes: 7, area_id: 'fab', area_texto: null, servico: 'PI', fase: 1, n: 1 },
+        { ano: 2026, mes: 8, area_id: 'fab', area_texto: null, servico: 'PI', fase: 1, n: 2 },
+        { ano: 2026, mes: 8, area_id: 'fab', area_texto: null, servico: 'PI', fase: 2, n: 1 },
+        { ano: 2026, mes: 8, area_id: 'fab', area_texto: null, servico: 'PA', fase: null, n: 1 },
+        { ano: 2025, mes: 8, area_id: 'fab', area_texto: null, servico: 'AL', fase: null, n: 1 },
+        { ano: 2026, mes: 8, area_id: 'fab', area_texto: null, servico: 'AL', fase: null, n: 2 },
+        { ano: 2026, mes: 8, area_id: 'cd', area_texto: null, servico: 'OC', fase: null, n: 1 },
+      ],
+      status: [
+        { ano: 2025, mes: 8, area_id: 'fab', area_texto: null, servico: 'PI', fase: 1, codigo: 1, n: 2 },
+        { ano: 2026, mes: 7, area_id: 'fab', area_texto: null, servico: 'PI', fase: 1, codigo: 2, n: 1 },
+        { ano: 2026, mes: 8, area_id: 'fab', area_texto: null, servico: 'PI', fase: 1, codigo: 1, n: 1 },
+        { ano: 2026, mes: 8, area_id: 'fab', area_texto: null, servico: 'PI', fase: 1, codigo: 3, n: 1 },
+        { ano: 2026, mes: 8, area_id: 'fab', area_texto: null, servico: 'PA', fase: null, codigo: 1, n: 1 },
+      ],
+      contagens: [
+        { ano: 2025, mes: 8, area_id: 'fab', area_texto: null, servico: 'AL', especie: 'Mosca Doméstica', total: 10 },
+        { ano: 2026, mes: 8, area_id: 'fab', area_texto: null, servico: 'AL', especie: 'Mosca Doméstica', total: 5 },
+        { ano: 2026, mes: 8, area_id: 'fab', area_texto: null, servico: 'AL', especie: 'Outros', total: 1 },
+      ],
+      ocorrencias: [{ ano: 2026, mes: 8, area_id: 'cd', area_texto: null, n: 1 }],
+      capturas: [{ ano: 2026, mes: 8, area_id: 'fab', especie: 'Lagartixa', n: 1 }],
+    },
     areas: [{ id: 'fab', nome: 'Fábrica', ordem: 1 }, { id: 'cd', nome: 'CD', ordem: 2 }],
     visitas: [
       { os_id: OS, codigo: 'OS-1', data: '2026-08-30' },
@@ -147,11 +174,58 @@ test('ocorrências: só o que teve ocorrência vira linha', () => {
   assert.equal(oc.resumo, '1 ocorrência setorial registrada na execução');
 });
 
-test('comparativo: iscas consumidas × placas com ocorrência por visita', () => {
+const sem = null;
+
+test('comparativo: iscas consumidas × placas com ocorrência, mês a mês no ano', () => {
   const cmp = todos(montarBlocos(dados())).find((b) => b.servico === 'CMP') as BlocoComparativo;
-  assert.deepEqual(cmp.serie, [{ data: '2026-08-20', iscas: 0, placas: 0 }, { data: '2026-08-30', iscas: 1, placas: 1 }]);
+  // Julho teve visita de Porta-Isca (status 2): zero; agosto, uma isca e uma placa; o resto, sem valor.
+  assert.deepEqual(cmp.iscas, [sem, sem, sem, sem, sem, sem, 0, 1, sem, sem, sem, sem]);
+  assert.deepEqual(cmp.placas, [sem, sem, sem, sem, sem, sem, 0, 1, sem, sem, sem, sem]);
   assert.equal(cmp.totalIscas, 1);
   assert.equal(cmp.totalPlacas, 1);
+  assert.equal(cmp.portaIscas, 2);
+  assert.equal(cmp.placasAdesivas, 1);
+  assert.equal(cmp.relacao, '1 iscas consumidas por placa com ocorrência');
+  assert.match(cmp.resumo, /1 iscas consumidas e 1 placas com ocorrência em 2026$/);
+});
+
+test('consolidação anual: meses sem visita e meses por vir ficam sem valor', () => {
+  const pi = todos(montarBlocos(dados())).find((b) => b.id === 'fab:PI:f1') as BlocoStatus;
+  assert.equal(pi.consolidacao.ano, 2026);
+  const consumida = pi.consolidacao.linhas.find((l) => l.codigo === 1)!;
+  assert.deepEqual(consumida.valores, [sem, sem, sem, sem, sem, sem, 0, 1, sem, sem, sem, sem]);
+});
+
+test('tendência contra o mesmo período do ano anterior', () => {
+  const g = todos(montarBlocos(dados()));
+  const pi = g.find((b) => b.id === 'fab:PI:f1') as BlocoStatus;
+  // Atividade = status diferente de 3: julho (2) e agosto (1); 2025: agosto com 2.
+  assert.equal(pi.tendencia.ate, 8);
+  assert.deepEqual([pi.tendencia.somaAnterior, pi.tendencia.somaAtual, pi.tendencia.variacao], [2, 2, 0]);
+  assert.equal(pi.tendencia.rotulo, 'pontos com atividade por mês');
+  assert.equal(pi.tendencia.anterior[7], 2);
+  assert.equal(pi.tendencia.anterior[0], sem);
+
+  const al = g.find((b) => b.servico === 'AL') as BlocoContagem;
+  assert.deepEqual(al.mensal.total[7], 6);
+  assert.deepEqual(al.mensal.porTipo.map((t) => [t.especie, t.valores[7]]), [['Mosca Doméstica', 5], ['Outros', 1]]);
+  assert.deepEqual([al.tendencia.somaAnterior, al.tendencia.somaAtual, al.tendencia.variacao], [10, 6, -40]);
+});
+
+test('ocorrências e capturas por mês', () => {
+  const g = todos(montarBlocos(dados()));
+  assert.equal((g.find((b) => b.servico === 'OC') as BlocoOcorrencia).mensal.registradas[7], 1);
+  const cn = g.find((b) => b.servico === 'CN') as BlocoStatus;
+  assert.equal(cn.consolidacao.linhas.find((l) => l.nome === 'Lagartixa')!.valores[7], 1);
+  assert.equal(cn.tendencia.rotulo, 'capturas não-alvo por mês');
+});
+
+test('sem histórico no ano anterior não há variação', () => {
+  const d = dados();
+  d.historico.visitas = d.historico.visitas.filter((v) => v.ano === 2026);
+  const pi = todos(montarBlocos(d)).find((b) => b.id === 'fab:PI:f1') as BlocoStatus;
+  assert.equal(pi.tendencia.somaAnterior, 0);
+  assert.equal(pi.tendencia.variacao, null);
 });
 
 test('Captura Não-Alvo: linhas são as placas da área, células a espécie', () => {
@@ -166,6 +240,7 @@ test('ponto sem mapa cai na área de texto, ou em "Geral"', () => {
   const d = dados();
   d.pontos = [ponto({ area_id: null, area_texto: 'Galpão 2' }), ponto({ area_id: null, area_texto: null, numero: 2 })];
   d.planos = [{ id: 'p', servico: 'PI', tipo_controle: 'x', frequencia: null }];
+  d.historico = { ano: 2026, mes_atual: 8, visitas: [], status: [], contagens: [], ocorrencias: [], capturas: [] };
   assert.deepEqual(montarBlocos(d).map((g) => g.areaNome), ['Galpão 2', 'Geral']);
 });
 

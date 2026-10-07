@@ -42,6 +42,7 @@ export interface DadosRelatorio {
   responsavel_tecnico: { nome: string; formacao: string | null; conselho: string | null; registro: string | null } | null;
   relatorio: { versao_atual: number; versao_publicada: number | null; publicado_em: string | null } | null;
   janela: { de: string; ate: string };
+  historico: Historico;
   areas: { id: string; nome: string; ordem: number | null }[];
   visitas: { os_id: string; codigo: string; data: string }[];
   planos: { id: string; servico: string | null; tipo_controle: string; frequencia: string | null }[];
@@ -52,6 +53,19 @@ export interface DadosRelatorio {
   especies_nao_alvo: string[];
   legendas: { tipo_servico: string; servico: string; codigo: number; nome: string; cor_bg: string | null; cor_fg: string | null }[];
 }
+
+/** Histórico agregado por mês, do 1º de janeiro do ano anterior até a execução. */
+export interface Historico {
+  ano: number;
+  mes_atual: number;
+  visitas: ({ ano: number; mes: number; servico: string; fase: number | null; n: number } & AreaCrua)[];
+  status: ({ ano: number; mes: number; servico: string; fase: number | null; codigo: number; n: number } & AreaCrua)[];
+  contagens: ({ ano: number; mes: number; servico: string; especie: string; total: number } & AreaCrua)[];
+  ocorrencias: ({ ano: number; mes: number; n: number } & AreaCrua)[];
+  capturas: { ano: number; mes: number; area_id: string | null; especie: string; n: number }[];
+}
+
+interface AreaCrua { area_id: string | null; area_texto: string | null }
 
 export interface PontoLido {
   os_id: string; id: string; cliente_ponto_id: string | null;
@@ -142,6 +156,29 @@ export interface BlocoBase {
   resumo: string;
 }
 
+/** Doze meses; `null` = sem valor (mês sem visita, ou ainda por vir). */
+export type Meses = (number | null)[];
+
+export const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+/** "Consolidação anual · Evolução mês a mês · meses sem visita aparecem sem valor". */
+export interface Consolidacao { ano: number; mesAtual: number; linhas: { codigo: number | string; nome: string; valores: Meses }[] }
+
+/** "Tendência <ano anterior> × <ano> · <rótulo>". */
+export interface Tendencia {
+  ano: number;
+  anoAnterior: number;
+  /** Último mês do ano com dado (1–12); 0 quando ainda não há. */
+  ate: number;
+  rotulo: string;
+  atual: Meses;
+  anterior: Meses;
+  somaAtual: number;
+  somaAnterior: number;
+  /** Variação percentual contra o ano anterior; `null` sem base de comparação. */
+  variacao: number | null;
+}
+
 export interface LinhaGrade { chave: string; codigo: string; local: string; celulas: Record<string, { valor: number | string; rotulo: string } | null> }
 
 export interface BlocoStatus extends BlocoBase {
@@ -152,6 +189,8 @@ export interface BlocoStatus extends BlocoBase {
   totais: { codigo: number | string; nome: string; n: number }[];
   verificados: number;
   total: number;
+  consolidacao: Consolidacao;
+  tendencia: Tendencia;
 }
 
 export interface BlocoContagem extends BlocoBase {
@@ -161,6 +200,9 @@ export interface BlocoContagem extends BlocoBase {
   linhas: { chave: string; codigo: string; local: string; contagens: Record<string, number>; total: number }[];
   totalGeral: number;
   indiceMedio: number;
+  /** "Evolução mensal do total capturado" e "Visão mensal por tipo". */
+  mensal: { ano: number; mesAtual: number; total: Meses; porTipo: { especie: string; valores: Meses }[] };
+  tendencia: Tendencia;
 }
 
 export interface BlocoAplicacao extends BlocoBase {
@@ -171,15 +213,24 @@ export interface BlocoAplicacao extends BlocoBase {
 export interface BlocoOcorrencia extends BlocoBase {
   tipo: 'ocorrencia';
   linhas: { data: string; setor: string; ocorrencia: string; praga: string; acao: string }[];
+  /** "Visão por período": ocorrências registradas por mês. */
+  mensal: { ano: number; mesAtual: number; registradas: Meses };
+  tendencia: Tendencia;
 }
 
 export interface BlocoComparativo extends BlocoBase {
   tipo: 'comparativo';
-  visitas: Visita[];
-  /** Por visita: iscas consumidas (PI com status 1) e placas com ocorrência (PA com status 1). */
-  serie: { data: string; iscas: number; placas: number }[];
+  ano: number;
+  mesAtual: number;
+  /** Mês a mês: iscas consumidas (Porta-Isca com status 1) e placas com ocorrência (Placa Adesiva com status 1). */
+  iscas: Meses;
+  placas: Meses;
   totalIscas: number;
   totalPlacas: number;
+  portaIscas: number;
+  placasAdesivas: number;
+  /** "1,5 iscas consumidas por placa com ocorrência" / "Sem placas com ocorrência no período". */
+  relacao: string;
 }
 
 export type Bloco = BlocoStatus | BlocoContagem | BlocoAplicacao | BlocoOcorrencia | BlocoComparativo;
@@ -224,6 +275,36 @@ function areaDoPonto(p: { area_id: string | null; area_texto: string | null }, a
 
 const idDoBloco = (area: Area, servico: ServicoBloco, fase: number | null) => `${area.chave}:${servico}${fase ? `:f${fase}` : ''}`;
 
+/**
+ * Os doze meses de um ano: o valor nos meses com visita; sem valor nos meses
+ * sem visita e nos que ainda não chegaram ("meses sem visita aparecem sem
+ * valor", no protótipo).
+ */
+function meses(ano: number, ate: number, comVisita: Set<string>, valor: (mes: number) => number): Meses {
+  return Array.from({ length: 12 }, (_, i) => {
+    const m = i + 1;
+    return m > ate || !comVisita.has(`${ano}-${m}`) ? null : valor(m);
+  });
+}
+
+/**
+ * Tendência: o ano da execução, de janeiro até o último mês com dado, contra o
+ * mesmo período do ano anterior. Variação negativa é melhora (menos atividade).
+ */
+export function tendencia(ano: number, mesAtual: number, comVisita: Set<string>, valorDe: (ano: number, mes: number) => number, rotulo: string): Tendencia {
+  const atual = meses(ano, mesAtual, comVisita, (m) => valorDe(ano, m));
+  const anterior = meses(ano - 1, 12, comVisita, (m) => valorDe(ano - 1, m));
+  let ate = 0;
+  atual.forEach((v, i) => { if (v != null) ate = i + 1; });
+  const soma = (xs: Meses) => xs.slice(0, ate).reduce<number>((t, v) => t + (v ?? 0), 0);
+  const somaAtual = soma(atual);
+  const somaAnterior = soma(anterior);
+  const variacao = somaAnterior > 0 ? Math.round(((somaAtual - somaAnterior) / somaAnterior) * 100) : null;
+  return { ano, anoAnterior: ano - 1, ate, rotulo, atual, anterior, somaAtual, somaAnterior, variacao };
+}
+
+const somaMeses = (xs: Meses) => xs.reduce<number>((t, v) => t + (v ?? 0), 0);
+
 // ---------------------------------------------------------------------------
 // Montagem
 // ---------------------------------------------------------------------------
@@ -240,6 +321,22 @@ export function montarBlocos(dados: DadosRelatorio, conteudo: ConteudoVersao = {
   const freqPlano = new Map<string, Frequencia | null>();
   for (const p of dados.planos) if (p.servico && !freqPlano.has(p.servico)) freqPlano.set(p.servico, frequenciaDe(p.frequencia));
   const servicosDaOs = new Set(dados.planos.map((p) => p.servico).filter(Boolean) as string[]);
+
+  // Histórico mês a mês, pela mesma chave de área dos blocos.
+  const h = dados.historico;
+  const ano = h.ano;
+  const mesAtual = h.mes_atual;
+  const chaveDe = (r: { area_id: string | null; area_texto: string | null }) => areaDoPonto(r, areas).chave;
+  const mesesComVisita = (area: Area, servicos: string[], fase?: number | null) => new Set(
+    h.visitas
+      .filter((v) => chaveDe(v) === area.chave && servicos.includes(v.servico) && (fase === undefined || (v.fase ?? null) === fase))
+      .map((v) => `${v.ano}-${v.mes}`),
+  );
+  const somaStatus = (area: Area, servicos: string[], fase: number | null | undefined, ano_: number, mes: number, filtro: (codigo: number) => boolean) =>
+    h.status
+      .filter((r) => r.ano === ano_ && r.mes === mes && chaveDe(r) === area.chave && servicos.includes(r.servico)
+        && (fase === undefined || (r.fase ?? null) === fase) && filtro(r.codigo))
+      .reduce((t, r) => t + r.n, 0);
 
   // Agrupa as leituras por bloco (área × serviço × fase).
   const porBloco = new Map<string, { area: Area; servico: ServicoBloco; fase: number | null; pontos: PontoLido[] }>();
@@ -347,7 +444,20 @@ export function montarBlocos(dados: DadosRelatorio, conteudo: ConteudoVersao = {
       const totais = legenda.map((l) => ({ codigo: l.codigo, nome: l.nome, n: pontos.filter((p) => p.status_codigo === l.codigo).length }));
       const verificados = daOs.filter((p) => p.situacao && p.situacao !== 'pendente').length;
       const resumo = `${verificados} de ${daOs.length} ${UNIDADE[servico]} verificados no app · ${periodo}`;
-      blocos.push({ ...base(area, servico, fase, resumo, freq), tipo: 'status', visitas: vis, linhas, legenda, totais, verificados, total: daOs.length });
+      const comVisita = mesesComVisita(area, [servico], fase);
+      const consolidacao: Consolidacao = {
+        ano, mesAtual,
+        linhas: legenda.map((l) => ({
+          codigo: l.codigo, nome: l.nome,
+          valores: meses(ano, mesAtual, comVisita, (m) => somaStatus(area, [servico], fase, ano, m, (c) => c === Number(l.codigo))),
+        })),
+      };
+      // Atividade = todo status diferente de 3 (intacta/sem ocorrência), como no protótipo.
+      const tend = tendencia(ano, mesAtual, comVisita, (a, m) => somaStatus(area, [servico], fase, a, m, (c) => c !== 3), 'pontos com atividade por mês');
+      blocos.push({
+        ...base(area, servico, fase, resumo, freq), tipo: 'status', visitas: vis, linhas, legenda, totais, verificados, total: daOs.length,
+        consolidacao, tendencia: tend,
+      });
     } else if (servico === 'AL' || servico === 'PG') {
       const linhasBase = linhasDe(pontos, servico);
       const especiesSet = new Set<string>();
@@ -364,7 +474,20 @@ export function montarBlocos(dados: DadosRelatorio, conteudo: ConteudoVersao = {
       const totalGeral = linhas.reduce((t, l) => t + l.total, 0);
       const indiceMedio = linhas.length ? Math.round((totalGeral / linhas.length) * 10) / 10 : 0;
       const resumo = `${linhas.length} ${UNIDADE[servico]} com contagem lançada no app · ${totalGeral} no total · ${periodo}`;
-      blocos.push({ ...base(area, servico, null, resumo, freq), tipo: 'contagem', visitas: vis, especies, linhas, totalGeral, indiceMedio });
+      const comVisita = mesesComVisita(area, [servico]);
+      const contagensDoBloco = h.contagens.filter((r) => r.servico === servico && chaveDe(r) === area.chave);
+      const totalDe = (a: number, m: number, especie?: string) => contagensDoBloco
+        .filter((r) => r.ano === a && r.mes === m && (especie === undefined || r.especie === especie))
+        .reduce((t, r) => t + Number(r.total), 0);
+      const especiesDoAno = [...new Set([...especies, ...contagensDoBloco.filter((r) => r.ano === ano).map((r) => r.especie)])]
+        .sort((a, b) => (a === 'Outros' ? 1 : b === 'Outros' ? -1 : a.localeCompare(b, 'pt-BR')));
+      const mensal = {
+        ano, mesAtual,
+        total: meses(ano, mesAtual, comVisita, (m) => totalDe(ano, m)),
+        porTipo: especiesDoAno.map((e) => ({ especie: e, valores: meses(ano, mesAtual, comVisita, (m) => totalDe(ano, m, e)) })),
+      };
+      const tend = tendencia(ano, mesAtual, comVisita, (a, m) => totalDe(a, m), 'total capturado por mês');
+      blocos.push({ ...base(area, servico, null, resumo, freq), tipo: 'contagem', visitas: vis, especies, linhas, totalGeral, indiceMedio, mensal, tendencia: tend });
     } else if (servico === 'OC') {
       const dataDe = new Map(visitas.map((v) => [v.os_id, v.data]));
       // Só o que teve ocorrência: "sem ocorrência" é conforme e não vira linha.
@@ -379,7 +502,12 @@ export function montarBlocos(dados: DadosRelatorio, conteudo: ConteudoVersao = {
         }))
         .sort((a, b) => a.data.localeCompare(b.data) || a.setor.localeCompare(b.setor));
       const resumo = `${plural(linhas.length, 'ocorrência setorial registrada', 'ocorrências setoriais registradas')} na execução`;
-      blocos.push({ ...base(area, servico, null, resumo, null), tipo: 'ocorrencia', linhas });
+      const comVisita = mesesComVisita(area, ['OC']);
+      const registradasDe = (a: number, m: number) => h.ocorrencias
+        .filter((r) => r.ano === a && r.mes === m && chaveDe(r) === area.chave).reduce((t, r) => t + r.n, 0);
+      const mensal = { ano, mesAtual, registradas: meses(ano, mesAtual, comVisita, (m) => registradasDe(ano, m)) };
+      const tend = tendencia(ano, mesAtual, comVisita, registradasDe, 'ocorrências registradas por mês');
+      blocos.push({ ...base(area, servico, null, resumo, null), tipo: 'ocorrencia', linhas, mensal, tendencia: tend });
     }
   }
 
@@ -393,16 +521,23 @@ export function montarBlocos(dados: DadosRelatorio, conteudo: ConteudoVersao = {
   }
   for (const { area, pi, pa } of areasComDesratizacao.values()) {
     if (!pi.length || !pa.length) continue;
-    const vis = visitasCom([...pi, ...pa]);
-    const serie = vis.map((v) => ({
-      data: v.data,
-      iscas: pi.filter((p) => p.os_id === v.os_id && p.status_codigo === 1).length,
-      placas: pa.filter((p) => p.os_id === v.os_id && p.status_codigo === 1).length,
-    }));
-    const totalIscas = serie.reduce((t, s) => t + s.iscas, 0);
-    const totalPlacas = serie.reduce((t, s) => t + s.placas, 0);
-    const resumo = `Consolida os blocos de Porta-Isca e Placa Adesiva da área · ${totalIscas} iscas consumidas e ${totalPlacas} placas com ocorrência no período`;
-    blocos.push({ ...base(area, 'CMP', null, resumo, null), tipo: 'comparativo', visitas: vis, serie, totalIscas, totalPlacas });
+    // Consolida todos os blocos de Porta-Isca e Placa Adesiva da área — todas
+    // as fases, inclusive os ocultos —, mês a mês no ano da execução.
+    const comVisita = mesesComVisita(area, ['PI', 'PA']);
+    const iscas = meses(ano, mesAtual, comVisita, (m) => somaStatus(area, ['PI'], undefined, ano, m, (c) => c === 1));
+    const placas = meses(ano, mesAtual, comVisita, (m) => somaStatus(area, ['PA'], undefined, ano, m, (c) => c === 1));
+    const totalIscas = somaMeses(iscas);
+    const totalPlacas = somaMeses(placas);
+    const relacao = totalPlacas > 0
+      ? `${(totalIscas / totalPlacas).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} iscas consumidas por placa com ocorrência`
+      : 'Sem placas com ocorrência no período';
+    const resumo = `Consolida os blocos de Porta-Isca e Placa Adesiva da área · ${totalIscas} iscas consumidas e ${totalPlacas} placas com ocorrência em ${ano}`;
+    blocos.push({
+      ...base(area, 'CMP', null, resumo, null), tipo: 'comparativo', ano, mesAtual, iscas, placas, totalIscas, totalPlacas,
+      portaIscas: new Set(pi.map((p) => p.cliente_ponto_id ?? p.id)).size,
+      placasAdesivas: new Set(pa.map((p) => p.cliente_ponto_id ?? p.id)).size,
+      relacao,
+    });
   }
 
   // Captura Não-Alvo: nas placas adesivas da área, quando a OS tem Placa Adesiva.
@@ -426,9 +561,19 @@ export function montarBlocos(dados: DadosRelatorio, conteudo: ConteudoVersao = {
       const legenda: ItemLegenda[] = dados.especies_nao_alvo.map((e, i) => ({ codigo: codigos.get(e) ?? e, nome: e, ...COR_ESPECIE[i % COR_ESPECIE.length] }));
       const totais = legenda.map((l) => ({ codigo: l.codigo, nome: l.nome, n: capturas.filter((c) => c.especie === l.nome).length }));
       const resumo = `${placas.length} ${UNIDADE.CN} · ${capturas.length} ${capturas.length === 1 ? 'captura' : 'capturas'} · ${rotuloDoPeriodo(vis)}`;
+      // Meses com Placa Adesiva lida na área; capturas do histórico pela área do mapa.
+      const comVisita = mesesComVisita(area, ['PA']);
+      const capturasDe = (a: number, m: number, especie?: string) => h.capturas
+        .filter((r) => r.ano === a && r.mes === m && (r.area_id ?? null) === area.id && (especie === undefined || r.especie === especie))
+        .reduce((t, r) => t + r.n, 0);
+      const consolidacao: Consolidacao = {
+        ano, mesAtual,
+        linhas: legenda.map((l) => ({ codigo: l.codigo, nome: l.nome, valores: meses(ano, mesAtual, comVisita, (m) => capturasDe(ano, m, l.nome)) })),
+      };
+      const tend = tendencia(ano, mesAtual, comVisita, (a, m) => capturasDe(a, m), 'capturas não-alvo por mês');
       blocos.push({
         ...base(area, 'CN', null, resumo, freqPlano.get('PA') ?? null), tipo: 'captura', visitas: vis, linhas, legenda, totais,
-        verificados: placas.length, total: placas.length,
+        verificados: placas.length, total: placas.length, consolidacao, tendencia: tend,
       });
     }
   }

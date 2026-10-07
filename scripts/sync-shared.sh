@@ -20,6 +20,7 @@ MODULOS=(
   "statusOs.ts:src/lib/statusOs.ts"
   "monitoramento.ts:src/lib/monitoramento.ts"
   "relatorio.ts:src/lib/relatorio.ts"
+  "graficos.ts:src/lib/graficos.ts"
 )
 
 for par in "${MODULOS[@]}"; do
