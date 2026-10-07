@@ -9,7 +9,7 @@ import {
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NotificationsScreen } from '@/screens/NotificationsScreen';
 import { AboutScreen } from '@/screens/AboutScreen';
-import { contarNaoLidas, assinarNaoLidas } from '@/lib/notificacoes';
+import { contarNaoLidas, assinarNaoLidas } from '@/lib/notificacoes/dados';
 import { assinarPrefBadge, carregarPrefBadge } from '@/lib/preferencias';
 import { OsListScreen } from '@/screens/os/OsListScreen';
 import { OsDetailScreen } from '@/screens/os/OsDetailScreen';
