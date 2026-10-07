@@ -20,6 +20,7 @@ import { EtapaMonitoramento, type MonitoramentoRef } from '@/screens/execucao/Et
 import { EtapaReposicao } from '@/screens/execucao/EtapaReposicao';
 import { EtapaCliente } from '@/screens/execucao/EtapaCliente';
 import { EtapaEmissao } from '@/screens/execucao/EtapaEmissao';
+import { CertificadoNaConclusao } from '@/screens/execucao/CertificadoNaConclusao';
 import type { OsStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<OsStackParamList, 'Execucao'>;
@@ -201,6 +202,7 @@ export function ExecucaoScreen({ route, navigation }: Props) {
                 <View style={s.sucessoIcone}><MaterialIcons name="task-alt" size={44} color={colors.primary} /></View>
                 <Text style={s.sucessoTitulo}>Serviço concluído</Text>
                 <Text style={s.sucessoTexto}>A {pacote.os.codigo} foi enviada ao escritório e está no seu histórico.</Text>
+                <CertificadoNaConclusao osId={osId} codigo={pacote.os.codigo} />
                 <Pressable onPress={() => navigation.popToTop()} style={s.sucessoBtn}><Text style={s.sucessoBtnTexto}>Voltar às OS</Text></Pressable>
               </View>
             ) : null}
