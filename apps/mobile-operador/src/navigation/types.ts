@@ -19,6 +19,8 @@ export type ConfigStackParamList = {
 export type OsStackParamList = {
   OsList: undefined;
   OsDetail: { id: string; codigo: string };
+  /** "Detalhes do serviço" de OS concluída: o histórico, só leitura. */
+  OsConcluida: { id: string; codigo: string };
   /** Execução em campo, em seis etapas (src/screens/execucao). */
   Execucao: { osId: string };
   /** OS de colega, aberta da agenda da equipe: só leitura, só o que a agenda traz. */
