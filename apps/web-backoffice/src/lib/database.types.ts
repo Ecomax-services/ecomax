@@ -2344,6 +2344,62 @@ export type Database = {
           },
         ]
       }
+      os_capturas_nao_alvo: {
+        Row: {
+          cliente_ponto_id: string
+          created_at: string
+          created_by: string | null
+          especie: string
+          id: string
+          os_id: string
+        }
+        Insert: {
+          cliente_ponto_id: string
+          created_at?: string
+          created_by?: string | null
+          especie: string
+          id?: string
+          os_id: string
+        }
+        Update: {
+          cliente_ponto_id?: string
+          created_at?: string
+          created_by?: string | null
+          especie?: string
+          id?: string
+          os_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_capturas_nao_alvo_cliente_ponto_id_fkey"
+            columns: ["cliente_ponto_id"]
+            isOneToOne: false
+            referencedRelation: "cliente_pontos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_capturas_nao_alvo_cliente_ponto_id_fkey"
+            columns: ["cliente_ponto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["cliente_ponto_id"]
+          },
+          {
+            foreignKeyName: "os_capturas_nao_alvo_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_capturas_nao_alvo_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
+          },
+        ]
+      }
       os_certificados: {
         Row: {
           emitido_em: string
@@ -3865,6 +3921,20 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      listar_relatorios_tecnicos: {
+        Args: never
+        Returns: {
+          cliente: string
+          codigo: string
+          data_execucao: string
+          os_id: string
+          publicado_em: string
+          status_os: string
+          tipos: string[]
+          versao_atual: number
+          versao_publicada: number
+        }[]
+      }
       minha_base_id: { Args: never; Returns: string }
       minha_equipe: {
         Args: never
@@ -3949,6 +4019,7 @@ export type Database = {
         Args: { _dados: Json; _os_id: string }
         Returns: Json
       }
+      relatorio_dados: { Args: { _os_id: string }; Returns: Json }
       salvar_versao_relatorio: {
         Args: {
           _conteudo: Json

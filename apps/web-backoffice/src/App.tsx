@@ -33,6 +33,7 @@ import { Configuracoes } from '@/pages/configuracoes/Configuracoes';
 import { CadastrosAuxiliares } from '@/pages/configuracoes/CadastrosAuxiliares';
 import { MeuPerfil } from '@/pages/configuracoes/MeuPerfil';
 import { Permissoes } from '@/pages/configuracoes/Permissoes';
+import { RelatoriosTecnicos } from '@/pages/relatorios/RelatoriosTecnicos';
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
@@ -69,6 +70,15 @@ export const router = createBrowserRouter([
           { path: '/operacional/nova', element: <CriarOrdemServico /> },
           { path: '/operacional/:id', element: <OrdemServicoDetalhe /> },
           { path: '/operacional/:id/emitir', element: <EmitirOs /> },
+        ],
+      },
+      {
+        element: <RequireModule module="relatorios" />,
+        children: [
+          // O hub de Relatórios (relatórios internos) é a Fase 5; até lá,
+          // "Relatórios" abre direto os relatórios técnicos.
+          { path: '/relatorios', element: <Navigate to="/relatorios/tecnicos" replace /> },
+          { path: '/relatorios/tecnicos', element: <RelatoriosTecnicos /> },
         ],
       },
       {
