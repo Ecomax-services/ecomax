@@ -110,6 +110,8 @@ export function AgendaScreen() {
     const destino = destinoDoItem({ status: item.status, minha: minha(item), cronogramaId: item.cronogramaId });
     if (destino === 'execucao') {
       navigation.navigate('OS', { screen: 'Execucao', params: { osId: item.osId }, initial: false });
+    } else if (destino === 'historico') {
+      navigation.navigate('OS', { screen: 'OsConcluida', params: { id: item.osId, codigo: item.codigo }, initial: false });
     } else if (destino === 'detalhe') {
       navigation.navigate('OS', { screen: 'OsDetail', params: { id: item.osId, codigo: item.codigo }, initial: false });
     } else {

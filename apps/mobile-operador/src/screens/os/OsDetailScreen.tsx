@@ -28,10 +28,18 @@ export function OsDetailScreen({ route, navigation }: Props) {
   const load = useCallback(() => {
     setLoading(true);
     Promise.all([getOs(id), listProdutos(id), listCronograma(id), rascunhoGuardado(id)])
-      .then(([o, p, c, r]) => { setOs(o); setProdutos(p); setCronograma(c); setTemRascunho(!!r); })
+      .then(([o, p, c, r]) => {
+        // OS concluída tem o registro completo no "Detalhes do serviço" do
+        // histórico. Chega-se aqui por notificação ou link antigo.
+        if (o.status === 'executada' || o.status === 'concluida') {
+          navigation.replace('OsConcluida', { id, codigo: o.codigo });
+          return;
+        }
+        setOs(o); setProdutos(p); setCronograma(c); setTemRascunho(!!r);
+      })
       .catch((e) => Alert.alert('Erro', (e as Error).message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, navigation]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (loading || !os) {

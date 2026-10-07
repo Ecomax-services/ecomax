@@ -58,28 +58,6 @@ function composeEndereco(c: any): string {
   const cidade = [c?.cidade, c?.uf].filter(Boolean).join('/');
   return [linha, cidade].filter(Boolean).join(' - ') || '—';
 }
-const nomeOf = (c: any) => (Array.isArray(c) ? c[0]?.nome : c?.nome) ?? '—';
-
-// ============================================================
-// Lista de OS do operador (RLS já filtra para as minhas)
-// ============================================================
-export interface OsListItem {
-  id: string; codigo: string; cliente: string; tipos: string; status: OsStatus;
-  data: string; dataSort: string; hora: string;
-}
-export async function listMinhasOs(): Promise<OsListItem[]> {
-  const { data, error } = await supabase
-    .from('ordens_servico')
-    .select('id, codigo, status, data_programada, hora_prevista, tipos_servico, cliente:cliente_id(nome)')
-    .order('data_programada', { ascending: true, nullsFirst: false });
-  if (error) throw new Error(msgErro(error));
-  return (data as any[]).map((o) => ({
-    id: o.id, codigo: o.codigo, cliente: nomeOf(o.cliente),
-    tipos: (o.tipos_servico as string[] | null ?? []).join(', ') || '—',
-    status: o.status, data: brDate(o.data_programada), dataSort: o.data_programada ?? '9999',
-    hora: o.hora_prevista ?? '',
-  }));
-}
 
 // ============================================================
 // Detalhe da OS

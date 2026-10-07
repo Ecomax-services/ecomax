@@ -128,11 +128,12 @@ export const PILULA: Record<SituacaoNaAgenda, { rotulo: string; bg: string; fg: 
 };
 
 /** O que abre ao tocar num item da agenda. */
-export type Destino = 'execucao' | 'detalhe' | 'equipe';
+export type Destino = 'execucao' | 'historico' | 'detalhe' | 'equipe';
 
 /**
  * Regra do protótipo: OS de outro técnico abre o "Detalhes do serviço" da
- * equipe, só leitura; OS concluída abre o detalhe; o resto abre a execução.
+ * equipe, só leitura; OS concluída abre o "Detalhes do serviço" do histórico;
+ * o resto abre a execução.
  *
  * Duas situações que o protótipo não tem e o sistema tem: a OS que não aceita
  * mais execução (cancelada, não executada) abre o detalhe; a data de
@@ -142,8 +143,9 @@ export type Destino = 'execucao' | 'detalhe' | 'equipe';
 export function destinoDoItem(item: { status: string; minha: boolean; cronogramaId: string | null }): Destino {
   if (!item.minha) return 'equipe';
   const situacao = situacaoNaAgenda(item.status);
-  if (situacao === 'concluida' || situacao === 'nao_executada') return 'detalhe';
   if (item.cronogramaId) return 'detalhe';
+  if (situacao === 'concluida') return 'historico';
+  if (situacao === 'nao_executada') return 'detalhe';
   return 'execucao';
 }
 

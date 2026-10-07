@@ -56,10 +56,10 @@ test('as três pílulas do protótipo cobrem os status do sistema', () => {
   assert.equal(situacaoNaAgenda('nao_executada'), 'nao_executada');
 });
 
-test('tocar: OS de colega abre a equipe; concluída abre o detalhe; o resto executa', () => {
+test('tocar: OS de colega abre a equipe; concluída abre o histórico; o resto executa', () => {
   assert.equal(destinoDoItem({ status: 'confirmada', minha: false, cronogramaId: null }), 'equipe');
   assert.equal(destinoDoItem({ status: 'executada', minha: false, cronogramaId: null }), 'equipe');
-  assert.equal(destinoDoItem({ status: 'executada', minha: true, cronogramaId: null }), 'detalhe');
+  assert.equal(destinoDoItem({ status: 'executada', minha: true, cronogramaId: null }), 'historico');
   assert.equal(destinoDoItem({ status: 'nao_executada', minha: true, cronogramaId: null }), 'detalhe');
   assert.equal(destinoDoItem({ status: 'confirmada', minha: true, cronogramaId: null }), 'execucao');
   assert.equal(destinoDoItem({ status: 'em_andamento', minha: true, cronogramaId: null }), 'execucao');
