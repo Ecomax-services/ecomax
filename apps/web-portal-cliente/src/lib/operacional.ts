@@ -9,6 +9,7 @@ export { osStatusLabel, rotuloStatus, corDoStatus } from '@/lib/statusOs';
 
 import type { OsStatus } from '@/lib/statusOs';
 import { corDoStatus, rotuloStatus } from '@/lib/statusOs';
+import { COMPORTAMENTO, NOME_LONGO_SERVICO, codigoDoPonto, descreverRegistro, isServicoCodigo } from '@/lib/monitoramento';
 
 /**
  * Estilo inline da pílula de status.
@@ -156,20 +157,10 @@ export async function listCronogramaDaOs(osId: string): Promise<CronogramaClient
 // ---------- Aba "Mapeamento" ----------
 
 /**
- * Situação de um ponto do plano de controle.
- *
- * Os rótulos são do cliente, não do operador: "Não conforme" diz mais a quem
- * recebe o relatório do que o slug do banco. `pendente` vira "Não registrado"
- * porque, para quem lê depois da visita, o que importa é que ficou sem registro
- * — e não que alguém ainda vai preencher.
+ * Cores da situação de um ponto. O rótulo vem de `descreverRegistro`
+ * (shared/monitoramento.ts), o mesmo do histórico do App: técnico e cliente
+ * leem a mesma coisa sobre a mesma visita.
  */
-export const situacaoPontoLabel: Record<string, string> = {
-  conforme: 'Conforme',
-  nao_conforme: 'Não conforme',
-  inacessivel: 'Inacessível',
-  pendente: 'Não registrado',
-};
-
 export const situacaoPontoCor: Record<string, { bg: string; fg: string }> = {
   conforme: { bg: '#e7f6e7', fg: '#1d6b25' },
   nao_conforme: { bg: '#fdeceb', fg: '#a3341f' },
@@ -179,52 +170,106 @@ export const situacaoPontoCor: Record<string, { bg: string; fg: string }> = {
 
 export interface PontoDoPlano {
   id: string;
-  numero: number;
+  /** "PI-03"; em plano antigo, "Ponto 3". */
+  codigo: string;
   identificacao: string;
+  /** "Fábrica · Fase 1"; vazio em plano antigo. */
+  area: string;
   situacao: string;
-  situacaoLabel: string;
-  observacao: string | null;
+  /** O que foi registrado: legenda, capturas ou ocorrência. */
+  registro: string;
+  detalhes: string[];
+}
+
+export interface AplicacaoDoPlano {
+  id: string;
+  tecnica: string;
+  produto: string;
+  quantidade: string;
+  areas: string;
 }
 
 export interface PlanoDeControle {
   id: string;
-  tipoControle: string;
+  /** Nome do serviço ("Desratização · Porta Iscas (uso externo)") ou, em plano antigo, o tipo de controle. */
+  titulo: string;
+  /** Desinsetização registra aplicação, não ponto. */
+  porAplicacao: boolean;
   frequencia: string;
   pontosPrevistos: number;
   pontos: PontoDoPlano[];
+  aplicacoes: AplicacaoDoPlano[];
 }
 
 export async function listMapeamentoDaOs(osId: string): Promise<PlanoDeControle[]> {
   const { data: planos, error: e1 } = await supabase
     .from('os_planos_controle')
-    .select('id, tipo_controle, frequencia, pontos_previstos')
+    .select('id, tipo_controle, servico_codigo, frequencia, pontos_previstos')
     .eq('os_id', osId)
     .order('tipo_controle');
   if (e1) throw new Error(e1.message);
   if (!planos?.length) return [];
+  const ids = planos.map((p) => p.id);
 
-  const { data: pontos, error: e2 } = await supabase
-    .from('os_plano_pontos')
-    .select('id, plano_id, numero, identificacao, situacao, observacao')
-    .in('plano_id', (planos as any[]).map((p) => p.id))
-    .order('numero');
-  if (e2) throw new Error(e2.message);
+  const [pontosR, aplR] = await Promise.all([
+    supabase
+      .from('os_plano_pontos')
+      .select('id, plano_id, numero, identificacao, area, fase, situacao, status_rotulo, contagens, sem_ocorrencia, observacao, acao_corretiva')
+      .in('plano_id', ids)
+      .order('numero'),
+    supabase
+      .from('os_aplicacoes')
+      .select('id, plano_id, tecnica, quantidade, unidade, lote, areas, produto:produto_id(nome)')
+      .eq('os_id', osId)
+      .order('created_at'),
+  ]);
+  if (pontosR.error) throw new Error(pontosR.error.message);
+  if (aplR.error) throw new Error(aplR.error.message);
 
+  const servicoDe = new Map(planos.map((p) => [p.id, p.servico_codigo]));
   const porPlano = new Map<string, PontoDoPlano[]>();
-  for (const p of (pontos as any[] | null) ?? []) {
+  for (const p of pontosR.data ?? []) {
+    const servico = servicoDe.get(p.plano_id) ?? null;
+    const { rotulo, detalhes } = descreverRegistro({
+      servico, situacao: p.situacao, statusRotulo: p.status_rotulo,
+      contagens: (p.contagens as Record<string, number> | null) ?? null,
+      semOcorrencia: p.sem_ocorrencia, observacao: p.observacao, acaoCorretiva: p.acao_corretiva,
+    });
     const lista = porPlano.get(p.plano_id) ?? [];
     lista.push({
-      id: p.id, numero: p.numero, identificacao: p.identificacao ?? `Ponto ${p.numero}`,
-      situacao: p.situacao, situacaoLabel: situacaoPontoLabel[p.situacao] ?? p.situacao,
-      observacao: p.observacao,
+      id: p.id, codigo: codigoDoPonto(servico, p.numero), identificacao: p.identificacao ?? '—',
+      area: [p.area, p.fase ? `Fase ${p.fase}` : null].filter(Boolean).join(' · '),
+      situacao: p.situacao, registro: rotulo, detalhes,
     });
     porPlano.set(p.plano_id, lista);
   }
 
-  return (planos as any[]).map((p) => ({
-    id: p.id, tipoControle: p.tipo_controle, frequencia: p.frequencia,
-    pontosPrevistos: p.pontos_previstos, pontos: porPlano.get(p.id) ?? [],
-  }));
+  const aplicacoesPorPlano = new Map<string, AplicacaoDoPlano[]>();
+  for (const a of aplR.data ?? []) {
+    const produto = Array.isArray(a.produto) ? a.produto[0] : a.produto;
+    const lista = aplicacoesPorPlano.get(a.plano_id) ?? [];
+    lista.push({
+      id: a.id, tecnica: a.tecnica ?? '—',
+      produto: [produto?.nome, a.lote ? `Lote ${a.lote}` : null].filter(Boolean).join(' · ') || '—',
+      quantidade: a.quantidade == null ? '—' : `${Number(a.quantidade).toLocaleString('pt-BR')}${a.unidade ? ` ${a.unidade}` : ''}`,
+      areas: (a.areas ?? []).join(', ') || '—',
+    });
+    aplicacoesPorPlano.set(a.plano_id, lista);
+  }
+
+  return planos.map((p) => {
+    const servico = p.servico_codigo && isServicoCodigo(p.servico_codigo) ? p.servico_codigo : null;
+    const pontos = porPlano.get(p.id) ?? [];
+    return {
+      id: p.id,
+      titulo: servico ? NOME_LONGO_SERVICO[servico] : p.tipo_controle,
+      porAplicacao: servico ? COMPORTAMENTO[servico] === 'aplicacao' : false,
+      frequencia: p.frequencia ?? '',
+      pontosPrevistos: p.pontos_previstos || pontos.length,
+      pontos,
+      aplicacoes: aplicacoesPorPlano.get(p.id) ?? [],
+    };
+  });
 }
 
 /**

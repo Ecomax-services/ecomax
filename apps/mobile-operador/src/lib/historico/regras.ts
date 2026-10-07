@@ -6,7 +6,7 @@
  * Sem rede e sem React, para serem testadas fora do App.
  */
 
-import { COMPORTAMENTO, isServicoCodigo, type ServicoCodigo } from '@/lib/monitoramento';
+import { codigoDoPonto, descreverRegistro } from '@/lib/monitoramento';
 import { hojeEmBrasilia } from '@/lib/agenda/regras';
 
 const MESES = [
@@ -98,44 +98,21 @@ export interface CartaoPonto {
   obs: string;
 }
 
-const ROTULO_SITUACAO: Record<string, string> = {
-  conforme: 'Conforme',
-  nao_conforme: 'Não conforme',
-  inacessivel: 'Inacessível',
-  pendente: 'Não avaliado',
-};
-
 /**
  * O protótipo desenha o detalhe com o modelo antigo ("Conforme"/"Consumo").
- * No modelo aprovado cada serviço diz uma coisa diferente:
- *   - status (PI, PA): o rótulo da legenda gravado no ponto;
- *   - contagem (AL, PG): o total capturado, com a quantidade por espécie;
- *   - ocorrência (OC): com ou sem ocorrência, e a ação corretiva.
- * O ícone verde/âmbar segue a `situacao` calculada pelo banco.
+ * No modelo aprovado cada serviço diz uma coisa diferente — a descrição vem de
+ * `descreverRegistro` (shared/monitoramento.ts), a mesma da aba Mapeamento do
+ * Portal. O ícone verde/âmbar segue a `situacao` calculada pelo banco.
  */
 export function cartaoDoPonto(p: PontoRegistrado): CartaoPonto {
-  const servico: ServicoCodigo | null = p.servico && isServicoCodigo(p.servico) ? p.servico : null;
-  const codigo = servico ?? 'Ponto';
-  const nome = [`${codigo}-${String(p.numero).padStart(2, '0')}`, p.identificacao].filter(Boolean).join(' · ');
-  const ok = p.situacao === 'conforme';
-  const obs: string[] = [];
-  let status = ROTULO_SITUACAO[p.situacao ?? 'pendente'] ?? 'Não avaliado';
-
-  const comportamento = servico ? COMPORTAMENTO[servico] : null;
-  if (comportamento === 'status' && p.statusRotulo) {
-    status = p.statusRotulo;
-  } else if (comportamento === 'contagem') {
-    const itens = Object.entries(p.contagens ?? {}).filter(([, n]) => n > 0);
-    const total = itens.reduce((t, [, n]) => t + n, 0);
-    if (p.situacao !== 'inacessivel') status = total === 0 ? 'Sem captura' : `${total} ${total === 1 ? 'captura' : 'capturas'}`;
-    if (itens.length) obs.push(itens.map(([especie, n]) => `${especie}: ${n}`).join(' · '));
-  } else if (comportamento === 'ocorrencia') {
-    status = p.semOcorrencia ? 'Sem ocorrência' : 'Com ocorrência';
-  }
-
-  if (p.observacao) obs.push(p.observacao);
-  if (p.acaoCorretiva) obs.push(`Ação corretiva: ${p.acaoCorretiva}`);
-  return { id: p.id, nome, status, ok, obs: obs.join('\n') };
+  const { rotulo, detalhes } = descreverRegistro(p);
+  return {
+    id: p.id,
+    nome: [codigoDoPonto(p.servico, p.numero), p.identificacao].filter(Boolean).join(' · '),
+    status: rotulo,
+    ok: p.situacao === 'conforme',
+    obs: detalhes.join('\n'),
+  };
 }
 
 /** "12 pontos, 11 conformes". */

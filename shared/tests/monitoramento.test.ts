@@ -13,6 +13,7 @@ import {
   alertaLampada, aplicacaoCompleta, diasAteVencer, erroDaLeitura, isServicoCodigo, podeAvancar,
   progressoDaOs, progressoDoServico, proximoPendente, sanitizarContagem, situacaoDaLeitura,
   textoBloqueio, textoProgressoDaOs, textoProgressoDoServico,
+  codigoDoPonto, descreverRegistro,
 } from '../monitoramento.ts';
 import type { ServicoNaOs } from '../monitoramento.ts';
 
@@ -124,4 +125,41 @@ test('contagem digitada vira só dígitos, sem zero à esquerda, até quatro', (
 test('código de serviço desconhecido é reconhecido como tal', () => {
   assert.equal(isServicoCodigo('PI'), true);
   assert.equal(isServicoCodigo('XX'), false);
+});
+
+// Registro do ponto: o App (histórico) e o Portal (Mapeamento) descrevem igual.
+
+const reg = (p: Partial<Parameters<typeof descreverRegistro>[0]>) => descreverRegistro({
+  servico: 'PI', situacao: 'conforme', statusRotulo: null, contagens: null, semOcorrencia: null,
+  observacao: null, acaoCorretiva: null, ...p,
+});
+
+test('código do ponto: "PI-03"; plano antigo sem serviço vira "Ponto 3"', () => {
+  assert.equal(codigoDoPonto('PI', 3), 'PI-03');
+  assert.equal(codigoDoPonto(null, 3), 'Ponto 3');
+  assert.equal(codigoDoPonto('XX', 3), 'Ponto 3');
+});
+
+test('PI/PA descrevem pelo rótulo da legenda', () => {
+  assert.deepEqual(reg({ statusRotulo: 'Isca Consumida', situacao: 'nao_conforme', observacao: 'Reposta.' }),
+    { rotulo: 'Isca Consumida', detalhes: ['Reposta.'] });
+});
+
+test('AL/PG descrevem pelo total capturado, com a quantidade por espécie', () => {
+  assert.deepEqual(reg({ servico: 'AL', contagens: { Moscas: 3, Mariposas: 0, Mosquitos: 1 } }),
+    { rotulo: '4 capturas', detalhes: ['Moscas: 3 · Mosquitos: 1'] });
+  assert.equal(reg({ servico: 'PG', contagens: {} }).rotulo, 'Sem captura');
+  assert.equal(reg({ servico: 'AL', contagens: { Moscas: 1 } }).rotulo, '1 captura');
+});
+
+test('OC descreve com ou sem ocorrência, e a ação corretiva', () => {
+  assert.deepEqual(reg({ servico: 'OC', situacao: 'nao_conforme', semOcorrencia: false, observacao: 'Fezes.', acaoCorretiva: 'Vedação.' }),
+    { rotulo: 'Com ocorrência', detalhes: ['Fezes.', 'Ação corretiva: Vedação.'] });
+  assert.equal(reg({ servico: 'OC', semOcorrencia: true }).rotulo, 'Sem ocorrência');
+});
+
+test('ponto sem registro e plano antigo ficam com a situação', () => {
+  assert.equal(reg({ servico: 'AL', situacao: 'pendente' }).rotulo, 'Não registrado');
+  assert.equal(reg({ servico: null, situacao: 'nao_conforme' }).rotulo, 'Não conforme');
+  assert.equal(reg({ servico: null, situacao: null }).rotulo, 'Não registrado');
 });
