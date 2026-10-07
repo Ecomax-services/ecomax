@@ -234,3 +234,15 @@ export function montarEnvio(pacote: PacoteOs, rascunho: RascunhoExecucao, caminh
     },
   };
 }
+
+/** Lado maior das fotos da execução, em pixels. */
+export const LADO_MAIOR_DA_FOTO = 1600;
+
+/**
+ * Redimensionamento da foto: só o lado maior é informado, para manter a
+ * proporção. `null` quando a foto já é pequena (não aumenta foto).
+ */
+export function reducaoDaFoto(largura: number, altura: number, max = LADO_MAIOR_DA_FOTO): { width: number } | { height: number } | null {
+  if (!(largura > 0) || !(altura > 0) || Math.max(largura, altura) <= max) return null;
+  return largura >= altura ? { width: max } : { height: max };
+}

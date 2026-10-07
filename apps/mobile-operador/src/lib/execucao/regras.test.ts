@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import {
   arquivoJaEnviado, caminhoFixo, classificarFalha, contentTypeDe, dataEmBrasilia, extensaoDe,
   montarEnvio, numeroDigitado,
+  reducaoDaFoto,
 } from './regras';
 import type { CaminhosEnviados, PacoteOs, RascunhoExecucao } from './tipos';
 
@@ -194,4 +195,12 @@ test('quem assina vai só com nome e assinatura — sem CPF nem cargo (aprovaç�
   assert.equal(r.ok, true);
   if (!r.ok) return;
   assert.deepEqual(Object.keys(r.dados.assinante as object).sort(), ['assinatura', 'nome']);
+});
+
+test('foto: reduz o lado maior para 1600 px e nunca aumenta', () => {
+  assert.deepEqual(reducaoDaFoto(4000, 3000), { width: 1600 });
+  assert.deepEqual(reducaoDaFoto(3000, 4000), { height: 1600 });
+  assert.equal(reducaoDaFoto(1200, 900), null);
+  assert.equal(reducaoDaFoto(1600, 1600), null);
+  assert.equal(reducaoDaFoto(0, 0), null);
 });
