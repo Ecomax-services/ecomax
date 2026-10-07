@@ -18,7 +18,7 @@
 import type { ServicoCodigo } from '@/lib/monitoramento';
 
 /** Muda quando o formato do pacote muda; pacote de versão diferente é baixado de novo. */
-export const VERSAO_PACOTE = 2;
+export const VERSAO_PACOTE = 4;
 export const VERSAO_RASCUNHO = 1;
 
 export interface PontoDoPacote {
@@ -53,6 +53,8 @@ export interface ProdutoDoPacote {
   /** Unidade em que o técnico registra (mL, g); nula = a mesma do estoque. */
   unidadeAplicacao: string | null;
   fatorAplicacao: number | null;
+  /** Ficha técnica (caminho no storage do Portal), se houver. */
+  fichaTecnicaUrl: string | null;
   /** Quanto o Backoffice previu na OS; 0 quando o produto não estava previsto. */
   qtdRecomendada: number;
   previsto: boolean;
@@ -79,8 +81,14 @@ export interface PacoteOs {
     /** AAAA-MM-DD. */
     dataProgramada: string | null;
     horaPrevista: string | null;
+    duracaoEstimada: string | null;
     tiposServico: string[];
-    cliente: { id: string; nome: string; endereco: string };
+    pragas: string[];
+    /** Observações do escritório para o técnico. */
+    observacoes: string | null;
+    /** Croqui / mapa de pontos (caminho no storage operacional). */
+    mapaPontosUrl: string | null;
+    cliente: { id: string; nome: string; endereco: string; telefone: string | null };
     /** Já tem execução registrada (por este ou outro aparelho). */
     jaExecutada: boolean;
   };
@@ -105,6 +113,12 @@ export interface PacoteOs {
   base: { id: string; nome: string } | null;
   /** Lotes com saldo da base do técnico, os que vencem antes primeiro. */
   lotes: LoteDoPacote[];
+  /** Para o carimbo e a prévia do certificado. */
+  tecnico: { nome: string } | null;
+  /** Responsável técnico vigente; nulo enquanto o cliente não informar. */
+  responsavelTecnico: { nome: string; conselho: string; registro: string } | null;
+  /** Menor validade configurada entre os tipos de serviço da OS; nula se nenhum tiver. */
+  validadeCertificadoDias: number | null;
 }
 
 export interface LeituraNoRascunho {

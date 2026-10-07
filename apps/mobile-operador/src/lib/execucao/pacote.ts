@@ -27,11 +27,11 @@ function enderecoDe(c: { logradouro?: string | null; numero?: string | null; com
 export async function baixarPacote(osId: string): Promise<PacoteOs> {
   const { data: os, error } = await supabase
     .from('ordens_servico')
-    .select('id, codigo, status, data_programada, hora_prevista, tipos_servico, execucao_uuid, cliente:clientes(id, nome, logradouro, numero, complemento, bairro, cidade, uf)')
+    .select('id, codigo, status, data_programada, hora_prevista, duracao_estimada, tipos_servico, pragas, observacoes, mapa_pontos_url, execucao_uuid, cliente:clientes(id, nome, telefone, logradouro, numero, complemento, bairro, cidade, uf)')
     .eq('id', osId)
     .single();
   if (error) throw new Error(msgErro(error));
-  const cliente = os.cliente as unknown as { id: string; nome: string } & Parameters<typeof enderecoDe>[0];
+  const cliente = os.cliente as unknown as { id: string; nome: string; telefone: string | null } & Parameters<typeof enderecoDe>[0];
 
   // A base do técnico vem do cadastro dele. `base:base_id(...)` com a coluna:
   // há duas relações entre colaborador e base (o responsável da base é um
@@ -39,13 +39,13 @@ export async function baixarPacote(osId: string): Promise<PacoteOs> {
   const { data: usuario } = await supabase.auth.getUser();
   const { data: eu, error: eEu } = await supabase
     .from('funcionarios')
-    .select('base_id, base:base_id(id, nome)')
+    .select('nome_completo, base_id, base:base_id(id, nome)')
     .eq('profile_id', usuario.user?.id ?? '')
     .maybeSingle();
   if (eEu) throw new Error(msgErro(eEu));
   const base = (eu?.base as unknown as { id: string; nome: string } | null) ?? null;
 
-  const [planos, legendas, listas, areas, produtos, lotes, porTipo] = await Promise.all([
+  const [planos, legendas, listas, areas, produtos, lotes, porTipo, rt, validades] = await Promise.all([
     supabase
       .from('os_planos_controle')
       .select('id, tipo_controle, frequencia, servico_codigo, pontos:os_plano_pontos(id, numero, area, fase, identificacao)')
@@ -70,14 +70,14 @@ export async function baixarPacote(osId: string): Promise<PacoteOs> {
       .order('ordem'),
     supabase
       .from('os_produtos')
-      .select('produto_id, qtd_recomendada, produto:produtos(nome, unidade, unidade_aplicacao, fator_aplicacao)')
+      .select('produto_id, qtd_recomendada, produto:produtos(nome, unidade, unidade_aplicacao, fator_aplicacao, ficha_tecnica_url)')
       .eq('os_id', osId),
     // Filtro explícito pela base: quem também tem acesso ao Estoque leria os
     // lotes de todas as bases pela RLS, e a lista do App é só a dele.
     base
       ? supabase
           .from('estoque_lotes')
-          .select('id, produto_id, lote, validade, quantidade, produto:produtos(nome, unidade, unidade_aplicacao, fator_aplicacao)')
+          .select('id, produto_id, lote, validade, quantidade, produto:produtos(nome, unidade, unidade_aplicacao, fator_aplicacao, ficha_tecnica_url)')
           .eq('base_id', base.id)
           .gt('quantidade', 0)
           .order('validade', { ascending: true, nullsFirst: false })
@@ -86,8 +86,19 @@ export async function baixarPacote(osId: string): Promise<PacoteOs> {
       .from('tipo_servico_produtos')
       .select('produto_id, tipo_servico')
       .in('tipo_servico', os.tipos_servico ?? []),
+    supabase
+      .from('responsaveis_tecnicos')
+      .select('nome, conselho, registro')
+      .is('vigente_ate', null)
+      .maybeSingle(),
+    supabase
+      .from('catalogo_itens')
+      .select('validade_certificado_dias')
+      .eq('catalogo', 'tipos_servico')
+      .in('nome', os.tipos_servico ?? [])
+      .not('validade_certificado_dias', 'is', null),
   ]);
-  for (const r of [planos, legendas, listas, areas, produtos, lotes, porTipo]) {
+  for (const r of [planos, legendas, listas, areas, produtos, lotes, porTipo, rt, validades]) {
     if (r.error) throw new Error(msgErro(r.error));
   }
 
@@ -99,13 +110,14 @@ export async function baixarPacote(osId: string): Promise<PacoteOs> {
     (legendasPorServico[l.servico_codigo] ??= []).push({ codigo: l.codigo, rotulo: l.nome, corBg: l.cor_bg, corFg: l.cor_fg });
   }
 
-  type InfoProduto = { nome: string; unidade: string; unidade_aplicacao: string | null; fator_aplicacao: number | null };
+  type InfoProduto = { nome: string; unidade: string; unidade_aplicacao: string | null; fator_aplicacao: number | null; ficha_tecnica_url: string | null };
   const paraProduto = (produtoId: string, info: InfoProduto, qtd: number, previsto: boolean): PacoteOs['produtos'][number] => ({
     produtoId,
     nome: info.nome,
     unidade: info.unidade,
     unidadeAplicacao: info.unidade_aplicacao,
     fatorAplicacao: info.fator_aplicacao == null ? null : Number(info.fator_aplicacao),
+    fichaTecnicaUrl: info.ficha_tecnica_url,
     qtdRecomendada: qtd,
     previsto,
   });
@@ -140,8 +152,12 @@ export async function baixarPacote(osId: string): Promise<PacoteOs> {
       status: os.status,
       dataProgramada: os.data_programada,
       horaPrevista: os.hora_prevista,
+      duracaoEstimada: os.duracao_estimada,
       tiposServico: os.tipos_servico ?? [],
-      cliente: { id: cliente.id, nome: cliente.nome, endereco: enderecoDe(cliente) },
+      pragas: os.pragas ?? [],
+      observacoes: os.observacoes,
+      mapaPontosUrl: os.mapa_pontos_url,
+      cliente: { id: cliente.id, nome: cliente.nome, endereco: enderecoDe(cliente), telefone: cliente.telefone },
       jaExecutada: os.execucao_uuid != null,
     },
     planos: (planos.data ?? []).map((p) => ({
@@ -164,6 +180,12 @@ export async function baixarPacote(osId: string): Promise<PacoteOs> {
     areas: (areas.data ?? []).map((a) => a.nome),
     produtos: [...produtosUnicos.values()],
     base,
+    tecnico: eu?.nome_completo ? { nome: eu.nome_completo } : null,
+    responsavelTecnico: rt.data ?? null,
+    // [A DEFINIR — qual validade vale com mais de um tipo de serviço] Provisório:
+    // a menor, para o certificado nunca prometer mais do que o serviço cobre.
+    validadeCertificadoDias: (validades.data ?? []).reduce<number | null>(
+      (min, v) => (v.validade_certificado_dias == null ? min : Math.min(min ?? Infinity, v.validade_certificado_dias)), null),
     lotes: (lotes.data ?? []).map((l) => ({
       id: l.id, produtoId: l.produto_id, lote: l.lote, validade: l.validade, quantidade: Number(l.quantidade),
     })),
