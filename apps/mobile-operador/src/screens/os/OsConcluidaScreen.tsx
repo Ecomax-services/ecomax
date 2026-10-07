@@ -1,17 +1,17 @@
 import { useCallback, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Image, Modal, Alert, Linking } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Image, Modal, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import * as Sharing from 'expo-sharing';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { colors, fonts } from '@/theme';
 import { Cartao, LinhaDado, RotuloSecao, tons } from '@/screens/execucao/componentes';
 import { PILULA, situacaoNaAgenda } from '@/lib/agenda/regras';
 import { brDate } from '@/lib/operacional';
-import { baixarPdf, getDetalheConcluida, urlDoDocumento, type DetalheConcluida } from '@/lib/historico/dados';
+import { getDetalheConcluida, type DetalheConcluida } from '@/lib/historico/dados';
+import { compartilharPdf, emitirCertificado, visualizarPdf } from '@/lib/certificado';
 import type { OsStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<OsStackParamList, 'OsConcluida'>;
@@ -33,15 +33,31 @@ export function OsConcluidaScreen({ navigation, route }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [foto, setFoto] = useState<string | null>(null);
   const [compartilhando, setCompartilhando] = useState(false);
+  /** O que ainda impede a emissão do certificado, quando ele não existe. */
+  const [pendencia, setPendencia] = useState<string | null>(null);
 
+  // Sem certificado, tenta emitir: a emissão logo após o envio pode ter
+  // falhado por falta de rede, ou o escritório completou o cadastro depois.
   useFocusEffect(useCallback(() => {
+    let vivo = true;
     setErro(null);
-    getDetalheConcluida(id).then(setD).catch((e) => setErro((e as Error).message));
+    getDetalheConcluida(id)
+      .then(async (det) => {
+        if (!vivo) return;
+        setD(det);
+        if (det.certificadoPdf) return;
+        const r = await emitirCertificado(id);
+        if (!vivo) return;
+        if (r.tipo === 'emitido') setD(await getDetalheConcluida(id));
+        else setPendencia(r.tipo === 'pendente' ? `Pendente no escritório: ${r.faltas.join(' ')}` : r.mensagem);
+      })
+      .catch((e) => vivo && setErro((e as Error).message));
+    return () => { vivo = false; };
   }, [id]));
 
   const visualizar = async (caminho: string) => {
     try {
-      await Linking.openURL(await urlDoDocumento(caminho));
+      await visualizarPdf(caminho);
     } catch (e) {
       Alert.alert('Documento', (e as Error).message);
     }
@@ -51,9 +67,7 @@ export function OsConcluidaScreen({ navigation, route }: Props) {
     if (!d?.certificadoPdf) return;
     setCompartilhando(true);
     try {
-      if (!(await Sharing.isAvailableAsync())) throw new Error('Este aparelho não permite compartilhar arquivos.');
-      const uri = await baixarPdf(d.certificadoPdf, `certificado-${d.codigo}`);
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: `Certificado ${d.codigo}` });
+      await compartilharPdf(d.certificadoPdf, d.codigo);
     } catch (e) {
       Alert.alert('Compartilhar', (e as Error).message);
     } finally {
@@ -192,7 +206,7 @@ export function OsConcluidaScreen({ navigation, route }: Props) {
         <Text style={s.nota}>
           {d.certificadoPdf
             ? 'Registro somente leitura. O compartilhamento usa o PDF gerado na execução.'
-            : 'Registro somente leitura. O compartilhamento fica disponível quando o certificado em PDF for gerado.'}
+            : `Registro somente leitura. O compartilhamento fica disponível quando o certificado em PDF for gerado.${pendencia ? `\n${pendencia}` : ''}`}
         </Text>
       </ScrollView>
 
