@@ -23,10 +23,9 @@ export interface DadosCertificado {
     endereco: string | null;
     assinaturaPath: string | null;
     assinanteNome: string | null;
-    assinanteCargo: string | null;
     tecnicoAssinaturaPath: string | null;
   };
-  cliente: { nome: string; documento: string | null; endereco: string; telefone: string | null };
+  cliente: { nome: string; endereco: string; telefone: string | null };
   empresa: { razaoSocial: string | null; cnpj: string | null; endereco: string | null; contato: string | null; ceatox: string | null; logoPath: string | null } | null;
   licencas: { rotulo: string; descricao: string }[];
   rt: { id: string; nome: string; formacao: string | null; conselho: string | null; registro: string | null; assinaturaPath: string | null } | null;
@@ -153,9 +152,10 @@ export function montarSnapshot(d: DadosCertificado, emitidoEm: string): Snapshot
       ['Contato', e.contato!],
     ],
     licencas: d.licencas.map((l) => [l.rotulo, l.descricao]),
+    // Como no certificado aprovado: razão social, endereço e contato. Sem CPF
+    // nem CNPJ do contratante (pedido da Ecomax na aprovação, 06/10/2026).
     contratante: [
       ['Razão social', d.cliente.nome],
-      ...(d.cliente.documento ? [[d.cliente.documento.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ', documentoFormatado(d.cliente.documento)!] as [string, string]] : []),
       ['Endereço', d.os.endereco || d.cliente.endereco],
       ['Contato', d.os.contato || d.cliente.telefone || '—'],
     ],
@@ -182,7 +182,9 @@ export function montarSnapshot(d: DadosCertificado, emitidoEm: string): Snapshot
     ceatox: e.ceatox!,
     responsavelTecnico: rtTexto,
     assinaturas: [
-      { papel: ['Cliente', d.os.assinanteCargo].filter(Boolean).join(' · '), nome: d.os.assinanteNome!, caminho: d.os.assinaturaPath, bucket: 'operacional-docs' },
+      // Só o nome: CPF e cargo do cliente saíram do certificado na aprovação da
+      // Release 4 (e-mail de 06/10/2026).
+      { papel: 'Cliente', nome: d.os.assinanteNome!, caminho: d.os.assinaturaPath, bucket: 'operacional-docs' },
       { papel: 'Técnico executor', nome: d.tecnico?.nome ?? '—', caminho: d.os.tecnicoAssinaturaPath, bucket: 'operacional-docs' },
       { papel: `Responsável técnico · ${rt.conselho} ${rt.registro}`, nome: rt.nome, caminho: rt.assinaturaPath, bucket: 'institucional' },
     ],

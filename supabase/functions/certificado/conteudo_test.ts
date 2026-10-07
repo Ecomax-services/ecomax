@@ -10,10 +10,10 @@ function dados(): DadosCertificado {
     os: {
       id: 'os-1', codigo: 'OS-1050', status: 'executada', tipos: ['Desratização'], pragas: ['Ratos', 'Camundongos'],
       inicio: '2026-08-11T11:30:00Z', termino: '2026-08-11T13:10:00Z', contato: null, endereco: null,
-      assinaturaPath: 'os/os-1/assinatura/cliente.png', assinanteNome: 'Ana Ribeiro', assinanteCargo: 'Gerente',
+      assinaturaPath: 'os/os-1/assinatura/cliente.png', assinanteNome: 'Ana Ribeiro',
       tecnicoAssinaturaPath: 'os/os-1/assinatura/tecnico.png',
     },
-    cliente: { nome: '[EXEMPLO] Cliente', documento: '12345678000190', endereco: 'Rua A, 10 · Sorocaba/SP', telefone: '(15) 3232-0000' },
+    cliente: { nome: '[EXEMPLO] Cliente', endereco: 'Rua A, 10 · Sorocaba/SP', telefone: '(15) 3232-0000' },
     empresa: { razaoSocial: 'ECOMAX SERVICOS AMBIENTAIS LTDA', cnpj: '04009610000107', endereco: '[EXEMPLO] endereço', contato: '[EXEMPLO] contato', ceatox: '[EXEMPLO] CEATOX', logoPath: null },
     licencas: [{ rotulo: 'IBAMA', descricao: '[EXEMPLO] CTF nº 0' }],
     rt: { id: 'rt-1', nome: '[EXEMPLO] RT', formacao: 'Química responsável', conselho: 'CRQ', registro: '04-0000', assinaturaPath: 'rt/assinatura.png' },
@@ -63,8 +63,8 @@ Deno.test('snapshot: número é o código, validade conta do dia da execução e
   assertEquals(s.servico.find(([r]) => r === 'Execução')![1], '11/08/2026 às 08:30');
   assertEquals(s.servico.find(([r]) => r === 'Validade')![1], '09/11/2026 (90 dias)');
   assertEquals(s.contratada[1], ['CNPJ', '04.009.610/0001-07']);
-  assertEquals(s.contratante[1], ['CNPJ', '12.345.678/0001-90']);
-  assertEquals(s.assinaturas.map((a) => a.papel), ['Cliente · Gerente', 'Técnico executor', 'Responsável técnico · CRQ 04-0000']);
+  assertEquals(s.contratante.map(([r]) => r), ['Razão social', 'Endereço', 'Contato']);
+  assertEquals(s.assinaturas.map((a) => a.papel), ['Cliente', 'Técnico executor', 'Responsável técnico · CRQ 04-0000']);
   assertEquals(s.assinaturas[2].bucket, 'institucional');
 });
 

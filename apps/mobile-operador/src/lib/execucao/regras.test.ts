@@ -63,7 +63,7 @@ function rascunho(): RascunhoExecucao {
     ],
     fotos: [{ id: 'f1', uriLocal: 'file:///x/f1.jpg', nome: 'Isca', pontoId: 'pi1' }],
     reposicao: { observacao: '', itens: [{ produtoId: 'prod', quantidade: '0' }] },
-    assinante: { nome: ' Maria ', cpf: '529.982.247-25', cargo: 'Gerente', assinaturaUri: 'file:///x/cliente.png' },
+    assinante: { nome: ' Maria ', assinaturaUri: 'file:///x/cliente.png' },
     tecnicoAssinaturaUri: 'file:///x/tecnico.png',
     envio: { tentativas: 0, ultimoErro: null, ultimaTentativa: null },
   };
@@ -135,7 +135,7 @@ test('as recusas do servidor são antecipadas, com o mesmo texto', () => {
   r0.produtos = [];
   r0.pontos = { pi1: { statusCodigo: 1 } };
   r0.aplicacoes = [];
-  r0.assinante = { nome: '', cpf: '', cargo: '', assinaturaUri: null };
+  r0.assinante = { nome: '', assinaturaUri: null };
   r0.tecnicoAssinaturaUri = null;
   const r = montarEnvio(pacote(), r0, enviados(), '2026-10-06T14:00:00Z');
   assert.equal(r.ok, false);
@@ -145,8 +145,6 @@ test('as recusas do servidor são antecipadas, com o mesmo texto', () => {
     // PI-02 sem leitura + Desinsetização sem aplicação.
     'Avalie todos os pontos para avançar. Faltam 2.',
     'Informe o nome de quem assina.',
-    'Informe o CPF de quem assina.',
-    'Informe o cargo de quem assina.',
     'Colete a assinatura do cliente.',
     'Assine antes de concluir.',
   ]) {
@@ -191,10 +189,9 @@ test('o lote tem de ser da base do técnico, e do produto certo', () => {
   if (!r2.ok) assert.ok(r2.problemas.includes('Seu cadastro não tem base de estoque. Peça ao escritório para definir a sua base.'));
 });
 
-test('CPF incompleto é recusado antes de sair do aparelho', () => {
-  const r0 = rascunho();
-  r0.assinante = { ...r0.assinante, cpf: '529.982' };
-  const r = montarEnvio(pacote(), r0, enviados(), '2026-10-06T14:00:00Z');
-  assert.equal(r.ok, false);
-  if (!r.ok) assert.ok(r.problemas.includes('Informe o CPF de quem assina.'));
+test('quem assina vai só com nome e assinatura — sem CPF nem cargo (aprovação de 06/10)', () => {
+  const r = montarEnvio(pacote(), rascunho(), enviados(), '2026-10-06T14:00:00Z');
+  assert.equal(r.ok, true);
+  if (!r.ok) return;
+  assert.deepEqual(Object.keys(r.dados.assinante as object).sort(), ['assinatura', 'nome']);
 });

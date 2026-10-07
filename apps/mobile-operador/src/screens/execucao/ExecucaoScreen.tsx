@@ -116,9 +116,7 @@ export function ExecucaoScreen({ route, navigation }: Props) {
     if (etapa === 5) {
       const a = rascunho.assinante;
       const erro = !a.nome.trim() ? 'Informe o nome de quem assina.'
-        : a.cpf.replace(/\D/g, '').length !== 11 ? 'Informe o CPF de quem assina.'
-          : !a.cargo.trim() ? 'Informe o cargo de quem assina.'
-            : !a.assinaturaUri ? 'Colete a assinatura do cliente.' : '';
+        : !a.assinaturaUri ? 'Colete a assinatura do cliente.' : '';
       if (erro) return setErroEtapa(erro);
       return irPara(6);
     }

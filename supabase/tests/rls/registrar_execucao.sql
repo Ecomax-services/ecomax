@@ -114,7 +114,8 @@ create or replace function pg_temp.envio(_uuid uuid) returns jsonb language sql 
       'caminho', 'os/' || (select v from t where k = 'os') || '/foto/1-ponto.jpg', 'nome', 'Isca consumida')),
     'reposicao', jsonb_build_object('observacao', 'Consumo alto', 'itens', jsonb_build_array(
       jsonb_build_object('produto_id', (select v from t where k = 'produto'), 'quantidade', 1))),
-    'assinante', jsonb_build_object('nome', 'Maria Souza', 'cpf', '529.982.247-25', 'cargo', 'Gerente',
+    -- Só nome e assinatura: CPF e cargo saíram na aprovação da Release 4 (06/10).
+    'assinante', jsonb_build_object('nome', 'Maria Souza',
       'assinatura', 'os/' || (select v from t where k = 'os') || '/assinatura/1-cliente.png'),
     'tecnico_assinatura', 'os/' || (select v from t where k = 'os') || '/assinatura/2-tecnico.png'
   );
@@ -188,9 +189,9 @@ begin
   r := pg_temp.enviar('op_a', pg_temp.envio(v_uuid));
   perform pg_temp.esperar('o envio completo é registrado', r = 'registrada', true);
 
-  perform pg_temp.esperar('a OS fica executada, com assinante e técnico',
+  perform pg_temp.esperar('a OS fica executada, com assinante e técnico — sem pedir CPF nem cargo',
     exists (select 1 from public.ordens_servico where id = (select v from t where k = 'os')
-             and status = 'executada' and assinante_cpf = '52998224725'
+             and status = 'executada' and assinante_nome = 'Maria Souza'
              and tecnico_executor_id = (select v from t where k = 'func_a') and execucao_uuid = v_uuid), true);
 
   perform pg_temp.esperar('o ponto com status 1 fica não conforme',

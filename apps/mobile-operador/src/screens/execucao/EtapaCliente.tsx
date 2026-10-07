@@ -7,11 +7,6 @@ import { Cartao, RotuloSecao, LinhaDado, Erro, estilos } from '@/screens/execuca
 import { CampoAssinatura } from '@/screens/execucao/CampoAssinatura';
 import type { PacoteOs, RascunhoExecucao } from '@/lib/execucao/tipos';
 
-const mascaraCpf = (v: string) => {
-  const d = v.replace(/\D/g, '').slice(0, 11);
-  return d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-};
-
 /** Resumo de uma linha do monitoramento e dos produtos, para o cliente conferir antes de assinar. */
 export function resumoDaExecucao(pacote: PacoteOs, r: RascunhoExecucao): [string, string][] {
   const nomeProduto = (id: string) => pacote.produtos.find((p) => p.produtoId === id)?.nome ?? 'Produto';
@@ -32,8 +27,9 @@ export function resumoDaExecucao(pacote: PacoteOs, r: RascunhoExecucao): [string
 /**
  * Etapa 5 — Assinatura do cliente.
  *
- * Nome, CPF e cargo de quem recebe são obrigatórios — estão no certificado
- * aprovado. O CPF vai só com dígitos para o servidor; a máscara é da tela.
+ * Quem recebe se identifica pelo nome e pela assinatura. O protótipo pedia
+ * também CPF e cargo; a Ecomax pediu para retirá-los na aprovação da Release 4
+ * (e-mail de 06/10/2026), e eles não existem mais nem no banco.
  */
 export function EtapaCliente({
   pacote, rascunho, atualizar, erro,
@@ -54,18 +50,6 @@ export function EtapaCliente({
           <Text style={estilos.campoRotulo}>Nome</Text>
           <TextInput value={a.nome} onChangeText={(v) => set({ nome: v })} placeholder="Nome de quem recebe"
             placeholderTextColor={colors.neutral400} style={[estilos.campo, s.input]} />
-        </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={estilos.campoRotulo}>CPF</Text>
-            <TextInput value={mascaraCpf(a.cpf)} onChangeText={(v) => set({ cpf: v.replace(/\D/g, '').slice(0, 11) })}
-              keyboardType="number-pad" placeholder="000.000.000-00" placeholderTextColor={colors.neutral400} style={[estilos.campo, s.input]} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={estilos.campoRotulo}>Cargo</Text>
-            <TextInput value={a.cargo} onChangeText={(v) => set({ cargo: v })} placeholder="Cargo"
-              placeholderTextColor={colors.neutral400} style={[estilos.campo, s.input]} />
-          </View>
         </View>
       </Cartao>
 

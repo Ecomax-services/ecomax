@@ -181,9 +181,6 @@ export function montarEnvio(pacote: PacoteOs, rascunho: RascunhoExecucao, caminh
   // 4 e 5. Assinaturas
   const a = rascunho.assinante;
   if (!a.nome.trim()) problemas.push('Informe o nome de quem assina.');
-  // 11 dígitos: a coluna do banco exige, e um CPF pela metade só falharia lá.
-  if (a.cpf.replace(/\D/g, '').length !== 11) problemas.push('Informe o CPF de quem assina.');
-  if (!a.cargo.trim()) problemas.push('Informe o cargo de quem assina.');
   if (!a.assinaturaUri) problemas.push('Colete a assinatura do cliente.');
   if (!rascunho.tecnicoAssinaturaUri) problemas.push('Assine antes de concluir.');
 
@@ -231,7 +228,7 @@ export function montarEnvio(pacote: PacoteOs, rascunho: RascunhoExecucao, caminh
         ? { observacao: rascunho.reposicao?.observacao?.trim() || null, itens: itensReposicao }
         : null,
       assinante: {
-        nome: a.nome.trim(), cpf: a.cpf, cargo: a.cargo.trim(), assinatura: caminhos.assinaturaCliente,
+        nome: a.nome.trim(), assinatura: caminhos.assinaturaCliente,
       },
       tecnico_assinatura: caminhos.assinaturaTecnico,
     },

@@ -2019,8 +2019,6 @@ export type Database = {
       }
       ordens_servico: {
         Row: {
-          assinante_cargo: string | null
-          assinante_cpf: string | null
           assinante_nome: string | null
           assinatura_url: string | null
           cancelamento_motivo: string | null
@@ -2068,8 +2066,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          assinante_cargo?: string | null
-          assinante_cpf?: string | null
           assinante_nome?: string | null
           assinatura_url?: string | null
           cancelamento_motivo?: string | null
@@ -2117,8 +2113,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          assinante_cargo?: string | null
-          assinante_cpf?: string | null
           assinante_nome?: string | null
           assinatura_url?: string | null
           cancelamento_motivo?: string | null
