@@ -155,7 +155,7 @@ async function assinar(bucket: string, caminhos: string[]): Promise<Map<string, 
 export async function getDetalheConcluida(osId: string): Promise<DetalheConcluida> {
   const [osR, prodR, planosR, aplR, fotosR, certR, relR] = await Promise.all([
     supabase.from('ordens_servico')
-      .select('id, codigo, status, tipos_servico, pragas, descricao, endereco_execucao, data_programada, inicio_execucao, termino_execucao, check_in_at, check_out_at, assinatura_url, assinante_nome, assinante_cargo, tecnico_assinatura_url, executor:funcionarios!ordens_servico_tecnico_executor_id_fkey(nome_completo), cliente:cliente_id(nome, logradouro, numero, complemento, bairro, cidade, uf)')
+      .select('id, codigo, status, tipos_servico, pragas, descricao, endereco_execucao, data_programada, inicio_execucao, termino_execucao, check_in_at, check_out_at, assinatura_url, assinante_nome, tecnico_assinatura_url, executor:funcionarios!ordens_servico_tecnico_executor_id_fkey(nome_completo), cliente:cliente_id(nome, logradouro, numero, complemento, bairro, cidade, uf)')
       .eq('id', osId).single(),
     supabase.from('os_produtos')
       .select('id, qtd_utilizada, unidade, unidade_utilizada, lote, produto:produto_id(nome, unidade), lote_escolhido:estoque_lote_id(lote)')
@@ -221,7 +221,7 @@ export async function getDetalheConcluida(osId: string): Promise<DetalheConcluid
   const executor = umSo(o.executor as { nome_completo: string } | { nome_completo: string }[] | null);
   const assinaturas: Assinatura[] = [
     {
-      papel: ['Cliente', o.assinante_cargo].filter(Boolean).join(' · '),
+      papel: 'Cliente',
       nome: o.assinante_nome ?? '—',
       url: o.assinatura_url ? urlsOs.get(o.assinatura_url) ?? null : null,
     },

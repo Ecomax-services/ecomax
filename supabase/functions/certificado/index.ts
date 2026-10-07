@@ -43,7 +43,7 @@ function enderecoDoCliente(c: Record<string, string | null> | null): string {
 async function carregar(osId: string): Promise<DadosCertificado> {
   const [osR, empR, licR, rtR, prodR, aplR, tiposR] = await Promise.all([
     admin.from('ordens_servico')
-      .select('id, codigo, status, tipos_servico, pragas, inicio_execucao, termino_execucao, contato, endereco_execucao, assinatura_url, assinante_nome, assinante_cargo, tecnico_assinatura_url, tecnico:funcionarios!ordens_servico_tecnico_executor_id_fkey(nome_completo), cliente:cliente_id(nome, razao_social, cnpj, cpf, telefone, logradouro, numero, complemento, bairro, cidade, uf, cep)')
+      .select('id, codigo, status, tipos_servico, pragas, inicio_execucao, termino_execucao, contato, endereco_execucao, assinatura_url, assinante_nome, tecnico_assinatura_url, tecnico:funcionarios!ordens_servico_tecnico_executor_id_fkey(nome_completo), cliente:cliente_id(nome, razao_social, telefone, logradouro, numero, complemento, bairro, cidade, uf, cep)')
       .eq('id', osId).single(),
     admin.from('empresa_config').select('razao_social, cnpj, endereco, contato, ceatox, logo_path').maybeSingle(),
     admin.from('empresa_licencas').select('rotulo, descricao').eq('ativo', true).order('ordem'),
@@ -69,11 +69,11 @@ async function carregar(osId: string): Promise<DadosCertificado> {
     os: {
       id: o.id, codigo: o.codigo, status: o.status, tipos: o.tipos_servico ?? [], pragas: o.pragas ?? [],
       inicio: o.inicio_execucao, termino: o.termino_execucao, contato: o.contato, endereco: o.endereco_execucao,
-      assinaturaPath: o.assinatura_url, assinanteNome: o.assinante_nome, assinanteCargo: o.assinante_cargo,
+      assinaturaPath: o.assinatura_url, assinanteNome: o.assinante_nome,
       tecnicoAssinaturaPath: o.tecnico_assinatura_url,
     },
     cliente: {
-      nome: c?.razao_social || c?.nome || '—', documento: c?.cnpj || c?.cpf || null,
+      nome: c?.razao_social || c?.nome || '—',
       endereco: enderecoDoCliente(c), telefone: c?.telefone ?? null,
     },
     empresa: e ? { razaoSocial: e.razao_social, cnpj: e.cnpj, endereco: e.endereco, contato: e.contato, ceatox: e.ceatox, logoPath: e.logo_path } : null,

@@ -172,7 +172,9 @@ export interface RascunhoExecucao {
   aplicacoes: AplicacaoNoRascunho[];
   fotos: FotoNoRascunho[];
   reposicao: { observacao: string; itens: { produtoId: string; quantidade: string }[] } | null;
-  assinante: { nome: string; cpf: string; cargo: string; assinaturaUri: string | null };
+  /** Quem recebe: nome e assinatura. CPF e cargo saíram na aprovação (06/10);
+   *  rascunho antigo que ainda os tenha é aceito e eles são ignorados. */
+  assinante: { nome: string; assinaturaUri: string | null };
   tecnicoAssinaturaUri: string | null;
   /** Rastro das tentativas de envio, para a tela explicar o que houve. */
   envio: { tentativas: number; ultimoErro: string | null; ultimaTentativa: string | null };

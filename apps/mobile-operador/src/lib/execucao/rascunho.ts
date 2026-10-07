@@ -36,7 +36,7 @@ function novoRascunho(osId: string): RascunhoExecucao {
     aplicacoes: [],
     fotos: [],
     reposicao: null,
-    assinante: { nome: '', cpf: '', cargo: '', assinaturaUri: null },
+    assinante: { nome: '', assinaturaUri: null },
     tecnicoAssinaturaUri: null,
     envio: { tentativas: 0, ultimoErro: null, ultimaTentativa: null },
   };
