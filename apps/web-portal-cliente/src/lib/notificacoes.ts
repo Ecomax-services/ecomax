@@ -36,8 +36,9 @@ function tagLabelOf(tipo: string): string {
 function toItem(r: any): NotificationItem {
   const kind: NotificationKind = r.tipo === 'os' ? 'os' : 'info';
   // O rótulo do CTA acompanha o destino. "Ver detalhes" era genérico e, pior,
-  // não levava a lugar nenhum: o botão não navegava.
-  const destino = r.os_id ? '/ordens' : (r.link as string | null) ?? null;
+  // não levava a lugar nenhum: o botão não navegava. Notificação de OS abre a
+  // própria OS (relatório publicado, certificado pronto), não a lista.
+  const destino = r.os_id ? `/ordens/${r.os_id}` : (r.link as string | null) ?? null;
   return {
     id: r.id, kind, tagLabel: tagLabelOf(r.tipo), datetime: fmtDateTime(r.created_at),
     title: r.titulo, description: r.descricao ?? '',

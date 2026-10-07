@@ -82,7 +82,7 @@ export function OrdemServicoDetalhe() {
   const contagens = useMemo<Record<AbaId, number | null>>(
     () => ({
       relatorios: relatorios?.length ?? null,
-      mapeamento: mapeamento?.reduce((n, p) => n + p.pontos.length, 0) ?? null,
+      mapeamento: mapeamento?.reduce((n, p) => n + (p.porAplicacao ? p.aplicacoes.length : p.pontos.length), 0) ?? null,
       cronograma: cronograma?.length ?? null,
       certificado: certificados?.length ?? null,
     }),
@@ -229,54 +229,88 @@ function AbaMapeamento({ dados }: { dados: PlanoDeControle[] | null }) {
 
   return (
     <div className="space-y-5">
-      {dados.map((p) => (
-        <Quadro key={p.id}>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-ink-100 px-5 py-3.5">
-            <h3 className="text-sm font-semibold text-ink-900">{p.tipoControle}</h3>
-            <span className="text-[13px] text-ink-500">{p.frequencia}</span>
-            {/* Previstos contra registrados: é o que diz se a visita cobriu o
-                combinado. Sem os dois números, "8 pontos" não significa nada. */}
-            <span className="ml-auto text-[13px] text-ink-500">
-              {p.pontos.length} de {p.pontosPrevistos} ponto{p.pontosPrevistos === 1 ? '' : 's'} registrado
-              {p.pontos.length === 1 ? '' : 's'}
-            </span>
-          </div>
-          {p.pontos.length === 0 ? (
-            <p className="px-5 py-4 text-[13px] text-ink-400">Nenhum ponto registrado neste plano.</p>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-ink-50">
-                <tr>
-                  <th className={cn(TH, 'w-16 text-center')}>Nº</th>
-                  <th className={TH}>Ponto</th>
-                  <th className={TH}>Situação</th>
-                  <th className={TH}>Observação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink-100">
-                {p.pontos.map((pt) => {
-                  const cor = situacaoPontoCor[pt.situacao] ?? { bg: '#f2f3f4', fg: '#686f7d' };
-                  return (
-                    <tr key={pt.id}>
-                      <td className="px-4 py-3 text-center text-[13px] tabular-nums text-ink-500">{pt.numero}</td>
-                      <td className="px-4 py-3 text-sm text-ink-900">{pt.identificacao}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className="inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold"
-                          style={{ backgroundColor: cor.bg, color: cor.fg }}
-                        >
-                          {pt.situacaoLabel}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-[13px] text-ink-500">{pt.observacao || '—'}</td>
+      {dados.map((p) => {
+        // Registrado = avaliado em campo. O ponto nasce da planta do cliente
+        // antes da visita, então contar linhas diria "8 de 8" sem ninguém ter ido.
+        const registrados = p.pontos.filter((pt) => pt.situacao !== 'pendente').length;
+        const comArea = p.pontos.some((pt) => pt.area);
+        return (
+          <Quadro key={p.id}>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-ink-100 px-5 py-3.5">
+              <h3 className="text-sm font-semibold text-ink-900">{p.titulo}</h3>
+              <span className="text-[13px] text-ink-500">{p.frequencia}</span>
+              <span className="ml-auto text-[13px] text-ink-500">
+                {p.porAplicacao
+                  ? `${p.aplicacoes.length} aplicaç${p.aplicacoes.length === 1 ? 'ão registrada' : 'ões registradas'}`
+                  : `${registrados} de ${p.pontosPrevistos} ponto${p.pontosPrevistos === 1 ? '' : 's'} registrado${registrados === 1 ? '' : 's'}`}
+              </span>
+            </div>
+            {p.porAplicacao ? (
+              p.aplicacoes.length === 0 ? (
+                <p className="px-5 py-4 text-[13px] text-ink-400">Nenhuma aplicação registrada neste plano.</p>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-ink-50">
+                    <tr>
+                      <th className={TH}>Técnica</th>
+                      <th className={TH}>Produto</th>
+                      <th className={TH}>Quantidade</th>
+                      <th className={TH}>Áreas</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </Quadro>
-      ))}
+                  </thead>
+                  <tbody className="divide-y divide-ink-100">
+                    {p.aplicacoes.map((a) => (
+                      <tr key={a.id}>
+                        <td className="px-4 py-3 text-sm text-ink-900">{a.tecnica}</td>
+                        <td className="px-4 py-3 text-[13px] text-ink-700">{a.produto}</td>
+                        <td className="px-4 py-3 text-[13px] tabular-nums text-ink-700">{a.quantidade}</td>
+                        <td className="px-4 py-3 text-[13px] text-ink-500">{a.areas}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )
+            ) : p.pontos.length === 0 ? (
+              <p className="px-5 py-4 text-[13px] text-ink-400">Nenhum ponto registrado neste plano.</p>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-ink-50">
+                  <tr>
+                    <th className={cn(TH, 'w-20')}>Ponto</th>
+                    <th className={TH}>Local</th>
+                    {comArea && <th className={TH}>Área</th>}
+                    <th className={TH}>Registro</th>
+                    <th className={TH}>Observação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100">
+                  {p.pontos.map((pt) => {
+                    const cor = situacaoPontoCor[pt.situacao] ?? { bg: '#f2f3f4', fg: '#686f7d' };
+                    return (
+                      <tr key={pt.id}>
+                        <td className="px-4 py-3 text-[13px] font-semibold tabular-nums text-ink-700">{pt.codigo}</td>
+                        <td className="px-4 py-3 text-sm text-ink-900">{pt.identificacao}</td>
+                        {comArea && <td className="px-4 py-3 text-[13px] text-ink-500">{pt.area || '—'}</td>}
+                        <td className="px-4 py-3">
+                          <span
+                            className="inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                            style={{ backgroundColor: cor.bg, color: cor.fg }}
+                          >
+                            {pt.registro}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-ink-500">
+                          {pt.detalhes.length ? pt.detalhes.map((d) => <p key={d}>{d}</p>) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </Quadro>
+        );
+      })}
     </div>
   );
 }

@@ -340,3 +340,65 @@ export function alertaLampada(validade: string | null | undefined, hoje: string)
       : `Vence em ${n} ${n === 1 ? 'dia' : 'dias'}. Programe a troca.`,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Registro do ponto — como o que foi feito em campo aparece para quem lê
+// ---------------------------------------------------------------------------
+// Usado no "Detalhes do serviço" do App e na aba Mapeamento do Portal. Os dois
+// mostram o mesmo ponto; se cada um descrevesse do seu jeito, o técnico e o
+// cliente veriam coisas diferentes para a mesma visita.
+
+export const ROTULO_SITUACAO: Record<Situacao, string> = {
+  conforme: 'Conforme',
+  nao_conforme: 'Não conforme',
+  inacessivel: 'Inacessível',
+  // Para quem lê depois da visita, o que importa é que ficou sem registro.
+  pendente: 'Não registrado',
+};
+
+/** "PI-03"; sem serviço conhecido (plano antigo), "Ponto 3". */
+export function codigoDoPonto(servico: string | null | undefined, numero: number): string {
+  return servico && isServicoCodigo(servico) ? `${servico}-${String(numero).padStart(2, '0')}` : `Ponto ${numero}`;
+}
+
+export interface RegistroDoPonto {
+  servico: string | null;
+  situacao: string | null;
+  statusRotulo: string | null;
+  contagens: Record<string, number> | null;
+  semOcorrencia: boolean | null;
+  observacao: string | null;
+  acaoCorretiva: string | null;
+}
+
+/**
+ * O que o ponto registrou, em palavras. Cada serviço diz uma coisa:
+ *   - status (PI, PA): o rótulo da legenda gravado no ponto;
+ *   - contagem (AL, PG): o total capturado, e a quantidade por espécie;
+ *   - ocorrência (OC): com ou sem ocorrência, e a ação corretiva.
+ * Plano antigo (sem serviço) e ponto sem registro ficam com a situação.
+ */
+export function descreverRegistro(p: RegistroDoPonto): { rotulo: string; detalhes: string[] } {
+  const situacao = (p.situacao ?? 'pendente') as Situacao;
+  let rotulo = ROTULO_SITUACAO[situacao] ?? ROTULO_SITUACAO.pendente;
+  const detalhes: string[] = [];
+  const servico = p.servico && isServicoCodigo(p.servico) ? p.servico : null;
+
+  if (servico && situacao !== 'pendente') {
+    const comportamento = COMPORTAMENTO[servico];
+    if (comportamento === 'status' && p.statusRotulo) {
+      rotulo = p.statusRotulo;
+    } else if (comportamento === 'contagem') {
+      const itens = Object.entries(p.contagens ?? {}).filter(([, n]) => n > 0);
+      const total = itens.reduce((t, [, n]) => t + n, 0);
+      if (situacao !== 'inacessivel') rotulo = total === 0 ? 'Sem captura' : `${total} ${total === 1 ? 'captura' : 'capturas'}`;
+      if (itens.length) detalhes.push(itens.map(([especie, n]) => `${especie}: ${n}`).join(' · '));
+    } else if (comportamento === 'ocorrencia') {
+      rotulo = p.semOcorrencia ? 'Sem ocorrência' : 'Com ocorrência';
+    }
+  }
+
+  if (p.observacao) detalhes.push(p.observacao);
+  if (p.acaoCorretiva) detalhes.push(`Ação corretiva: ${p.acaoCorretiva}`);
+  return { rotulo, detalhes };
+}
