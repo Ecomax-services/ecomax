@@ -2853,6 +2853,47 @@ export type Database = {
           },
         ]
       }
+      os_relatorio_versoes: {
+        Row: {
+          conteudo: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          motivo: string
+          notas_internas: string | null
+          numero: number
+          os_id: string
+        }
+        Insert: {
+          conteudo: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          motivo: string
+          notas_internas?: string | null
+          numero: number
+          os_id: string
+        }
+        Update: {
+          conteudo?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          motivo?: string
+          notas_internas?: string | null
+          numero?: number
+          os_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_relatorio_versoes_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "os_relatorios_tecnicos"
+            referencedColumns: ["os_id"]
+          },
+        ]
+      }
       os_relatorios: {
         Row: {
           arquivo_url: string | null
@@ -2896,6 +2937,48 @@ export type Database = {
             foreignKeyName: "os_relatorios_os_id_fkey"
             columns: ["os_id"]
             isOneToOne: false
+            referencedRelation: "vw_monitoramento_historico"
+            referencedColumns: ["os_id"]
+          },
+        ]
+      }
+      os_relatorios_tecnicos: {
+        Row: {
+          created_at: string
+          os_id: string
+          publicado_em: string | null
+          publicado_por: string | null
+          versao_atual: number
+          versao_publicada: number | null
+        }
+        Insert: {
+          created_at?: string
+          os_id: string
+          publicado_em?: string | null
+          publicado_por?: string | null
+          versao_atual?: number
+          versao_publicada?: number | null
+        }
+        Update: {
+          created_at?: string
+          os_id?: string
+          publicado_em?: string | null
+          publicado_por?: string | null
+          versao_atual?: number
+          versao_publicada?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_relatorios_tecnicos_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: true
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_relatorios_tecnicos_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: true
             referencedRelation: "vw_monitoramento_historico"
             referencedColumns: ["os_id"]
           },
@@ -3865,6 +3948,15 @@ export type Database = {
       registrar_execucao: {
         Args: { _dados: Json; _os_id: string }
         Returns: Json
+      }
+      salvar_versao_relatorio: {
+        Args: {
+          _conteudo: Json
+          _notas_internas: string
+          _os_id: string
+          _versao_base: number
+        }
+        Returns: number
       }
       storage_doc_liberado_ao_cliente: {
         Args: { _name: string }
