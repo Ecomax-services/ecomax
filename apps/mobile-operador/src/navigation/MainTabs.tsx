@@ -13,6 +13,7 @@ import { contarNaoLidas, assinarNaoLidas } from '@/lib/notificacoes';
 import { assinarPrefBadge, carregarPrefBadge } from '@/lib/preferencias';
 import { OsListScreen } from '@/screens/os/OsListScreen';
 import { OsDetailScreen } from '@/screens/os/OsDetailScreen';
+import { ExecucaoScreen } from '@/screens/execucao/ExecucaoScreen';
 import { AgendaScreen } from '@/screens/AgendaScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
@@ -29,6 +30,7 @@ function OsStack() {
     <OsStackNav.Navigator screenOptions={{ headerShown: false }}>
       <OsStackNav.Screen name="OsList" component={OsListScreen} />
       <OsStackNav.Screen name="OsDetail" component={OsDetailScreen} />
+      <OsStackNav.Screen name="Execucao" component={ExecucaoScreen} options={{ gestureEnabled: false }} />
     </OsStackNav.Navigator>
   );
 }

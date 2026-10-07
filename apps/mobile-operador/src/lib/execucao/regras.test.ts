@@ -19,11 +19,12 @@ const UUID = '22222222-2222-2222-2222-222222222222';
 
 function pacote(): PacoteOs {
   return {
-    versao: 2,
+    versao: 4,
     baixadoEm: '2026-10-06T10:00:00Z',
     os: {
       id: OS, codigo: 'OS-1050', status: 'confirmada', dataProgramada: '2026-10-06', horaPrevista: '08:00',
-      tiposServico: ['Desratização'], cliente: { id: 'c', nome: 'Cliente', endereco: '—' }, jaExecutada: false,
+      duracaoEstimada: null, tiposServico: ['Desratização'], pragas: [], observacoes: null, mapaPontosUrl: null,
+      cliente: { id: 'c', nome: 'Cliente', endereco: '—', telefone: null }, jaExecutada: false,
     },
     planos: [
       { id: 'plano-pi', tipoControle: 'Controle Roedores', frequencia: 'Mensal', servico: 'PI',
@@ -40,6 +41,9 @@ function pacote(): PacoteOs {
     produtos: [],
     base: { id: 'base', nome: 'Base Sorocaba' },
     lotes: [{ id: 'lote', produtoId: 'prod', lote: 'RG-01', validade: '2027-04-01', quantidade: 3 }],
+    tecnico: { nome: 'Técnico' },
+    responsavelTecnico: null,
+    validadeCertificadoDias: 90,
   };
 }
 
@@ -185,4 +189,12 @@ test('o lote tem de ser da base do técnico, e do produto certo', () => {
   const r2 = montarEnvio(semBase, rascunho(), enviados(), '2026-10-06T14:00:00Z');
   assert.equal(r2.ok, false);
   if (!r2.ok) assert.ok(r2.problemas.includes('Seu cadastro não tem base de estoque. Peça ao escritório para definir a sua base.'));
+});
+
+test('CPF incompleto é recusado antes de sair do aparelho', () => {
+  const r0 = rascunho();
+  r0.assinante = { ...r0.assinante, cpf: '529.982' };
+  const r = montarEnvio(pacote(), r0, enviados(), '2026-10-06T14:00:00Z');
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.ok(r.problemas.includes('Informe o CPF de quem assina.'));
 });

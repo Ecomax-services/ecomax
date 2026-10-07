@@ -18,6 +18,8 @@ export type ConfigStackParamList = {
 export type OsStackParamList = {
   OsList: undefined;
   OsDetail: { id: string; codigo: string };
+  /** Execução em campo, em seis etapas (src/screens/execucao). */
+  Execucao: { osId: string };
 };
 
 /** As abas. Tipar isto é o que permite navegar de uma aba para uma tela de

@@ -8,6 +8,9 @@ interface Props {
   onClose: () => void;
   /** Recebe a assinatura em base64 (sem o prefixo data:). */
   onConfirm: (base64: string) => Promise<void>;
+  /** Padrão: "Assinatura do cliente". A execução também colhe a do técnico. */
+  titulo?: string;
+  subtitulo?: string;
 }
 
 // O quadro é um WebView; o estilo dele vai por CSS, não por prop.
@@ -24,7 +27,7 @@ const CANVAS_CSS = `
  * Antes desta tela existir, o botão "Coletar assinatura" gravava direto uma URL
  * inventada: ninguém assinava nada e a OS ficava apta a ser finalizada.
  */
-export function AssinaturaSheet({ visible, onClose, onConfirm }: Props) {
+export function AssinaturaSheet({ visible, onClose, onConfirm, titulo = 'Assinatura do cliente', subtitulo = 'Peça que assine no quadro abaixo.' }: Props) {
   const ref = useRef<SignatureViewRef>(null);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState('');
@@ -49,8 +52,8 @@ export function AssinaturaSheet({ visible, onClose, onConfirm }: Props) {
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <Text style={styles.title}>Assinatura do cliente</Text>
-          <Text style={styles.subtitle}>Peça que assine no quadro abaixo.</Text>
+          <Text style={styles.title}>{titulo}</Text>
+          <Text style={styles.subtitle}>{subtitulo}</Text>
 
           <View style={styles.canvas}>
             <SignatureScreen

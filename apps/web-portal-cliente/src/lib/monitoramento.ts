@@ -55,6 +55,16 @@ export const NOME_SERVICO: Record<ServicoCodigo, string> = {
   OC: 'Ocorrência Setorial',
 };
 
+/** Nome no cabeçalho da aba do App — o mesmo `nome_longo` de `monitoramento_servicos`. */
+export const NOME_LONGO_SERVICO: Record<ServicoCodigo, string> = {
+  DI: 'Desinsetização · Registro de aplicação',
+  PI: 'Desratização · Porta Iscas (uso externo)',
+  PA: 'Desratização · Placas Adesivas (uso interno)',
+  AL: 'Armadilhas Luminosas · Insetos Voadores',
+  PG: 'Armadilhas de Pragas de Grãos',
+  OC: 'Registros de Ocorrência Setorial',
+};
+
 export function isServicoCodigo(valor: string): valor is ServicoCodigo {
   return (SERVICOS_MONITORAMENTO as readonly string[]).includes(valor);
 }

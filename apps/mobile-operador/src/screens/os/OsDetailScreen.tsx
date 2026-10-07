@@ -1,20 +1,18 @@
 import { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TextInput, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Tag } from '@/components/Tag';
 import { Button } from '@/components/Button';
-import { AssinaturaSheet } from '@/components/AssinaturaSheet';
 import { colors, fonts, radius } from '@/theme';
 import {
-  getOs, listProdutos, listCronograma, registrarCheckIn, registrarCheckOut, salvarConsumo,
-  confirmarAssinatura, registrarFoto, marcarExecutada, tagDoStatus, isReadOnly, brTime,
+  getOs, listProdutos, listCronograma, tagDoStatus, isReadOnly,
   type OsDetail, type OsProdutoItem, type CronogramaItem,
 } from '@/lib/operacional';
+import { rascunhoGuardado } from '@/lib/execucao/rascunho';
 import type { OsStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<OsStackParamList, 'OsDetail'>;
@@ -24,108 +22,17 @@ export function OsDetailScreen({ route, navigation }: Props) {
   const [os, setOs] = useState<OsDetail | null>(null);
   const [produtos, setProdutos] = useState<OsProdutoItem[]>([]);
   const [cronograma, setCronograma] = useState<CronogramaItem[]>([]);
-  const [consumo, setConsumo] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [assinando, setAssinando] = useState(false);
+  const [temRascunho, setTemRascunho] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([getOs(id), listProdutos(id), listCronograma(id)])
-      .then(([o, p, c]) => {
-        setOs(o); setProdutos(p); setCronograma(c);
-        setConsumo(Object.fromEntries(p.map((x) => [x.id, x.utilizada == null ? '' : String(x.utilizada)])));
-      })
+    Promise.all([getOs(id), listProdutos(id), listCronograma(id), rascunhoGuardado(id)])
+      .then(([o, p, c, r]) => { setOs(o); setProdutos(p); setCronograma(c); setTemRascunho(!!r); })
       .catch((e) => Alert.alert('Erro', (e as Error).message))
       .finally(() => setLoading(false));
   }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
-
-  /**
-   * Anexa uma foto da execução.
-   *
-   * Câmera primeiro, galeria como alternativa: em campo o caso normal é
-   * fotografar na hora, mas a pessoa pode ter fotografado antes de abrir a OS.
-   */
-  const anexarFoto = () => {
-    Alert.alert('Anexar foto', 'De onde vem a foto?', [
-      { text: 'Câmera', onPress: () => capturar('camera') },
-      { text: 'Galeria', onPress: () => capturar('galeria') },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
-  };
-
-  const capturar = async (origem: 'camera' | 'galeria') => {
-    const perm =
-      origem === 'camera'
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert(
-        'Permissão necessária',
-        `Autorize o acesso ${origem === 'camera' ? 'à câmera' : 'às fotos'} nos ajustes do aparelho.`,
-      );
-      return;
-    }
-    const opcoes: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      // Reduz o arquivo antes de subir: em campo a rede costuma ser ruim, e a
-      // foto serve de evidência, não de material publicitário.
-      quality: 0.6,
-      allowsEditing: false,
-    };
-    const r =
-      origem === 'camera'
-        ? await ImagePicker.launchCameraAsync(opcoes)
-        : await ImagePicker.launchImageLibraryAsync(opcoes);
-    if (r.canceled || !r.assets?.[0]) return;
-    const asset = r.assets[0];
-    const nome = asset.fileName ?? `foto-${Date.now()}.jpg`;
-    await run(() => registrarFoto(id, asset.uri, nome), 'Foto anexada');
-  };
-
-  const run = async (fn: () => Promise<unknown>, ok?: string) => {
-    setBusy(true);
-    try { await fn(); if (ok) Alert.alert(ok); load(); }
-    catch (e) { Alert.alert('Erro', (e as Error).message); }
-    finally { setBusy(false); }
-  };
-
-  /**
-   * Check-in e check-out avisam quando a coordenada não entrou.
-   *
-   * O registro acontece de qualquer forma — se avisasse só no sucesso, o
-   * operador sairia do local achando que a localização foi gravada.
-   */
-  const registrarComGps = (fn: () => Promise<{ comGps: boolean }>, rotulo: string) => async () => {
-    setBusy(true);
-    try {
-      const { comGps } = await fn();
-      Alert.alert(rotulo, comGps ? 'Localização registrada.' : 'Registrado sem localização — o GPS não respondeu ou a permissão foi negada.');
-      load();
-    } catch (e) {
-      Alert.alert('Erro', (e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const salvarTodoConsumo = async () => {
-    for (const p of produtos) {
-      const raw = consumo[p.id] ?? '';
-      const val = raw.trim() === '' ? null : Number(raw.replace(',', '.'));
-      if (val != null && Number.isNaN(val)) return Alert.alert('Quantidade inválida', `Verifique o produto ${p.produto}.`);
-      if (val !== p.utilizada) await salvarConsumo(id, p.id, val);
-    }
-    Alert.alert('Consumo registrado'); load();
-  };
-
-  const confirmarFinalizar = () => {
-    Alert.alert('Marcar como executada', 'A assinatura do cliente é obrigatória. Confirmar?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Confirmar', onPress: () => run(() => marcarExecutada(id), 'OS marcada como executada') },
-    ]);
-  };
 
   if (loading || !os) {
     return (
@@ -139,6 +46,7 @@ export function OsDetailScreen({ route, navigation }: Props) {
 
   const t = tagDoStatus(os.status);
   const readOnly = isReadOnly(os.status);
+  const podeExecutar = !readOnly && os.status !== 'executada';
 
   return (
     <View style={styles.root}>
@@ -163,27 +71,21 @@ export function OsDetailScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {/* Check-in / out */}
-        <Section title="Execução">
-          <View style={styles.checkRow}>
-            <CheckState label="Check-in" time={brTime(os.checkInAt)} done={!!os.checkInAt} />
-            <CheckState label="Check-out" time={brTime(os.checkOutAt)} done={!!os.checkOutAt} />
-          </View>
-          {!readOnly && !os.checkInAt && <Button label="Registrar check-in" onPress={registrarComGps(() => registrarCheckIn(id, os.status), 'Check-in registrado')} />}
-          {!readOnly && os.checkInAt && !os.checkOutAt && <Button label="Registrar check-out" variant="outlineGreen" onPress={registrarComGps(() => registrarCheckOut(id), 'Check-out registrado')} />}
-          {/* O aviso era fixo e dizia que o GPS não era registrado, mesmo depois
-              de passar a ser. Agora conta o que de fato está gravado nesta OS. */}
-          <Text style={styles.hint}>
-            {os.checkInLat != null && os.checkInLng != null
-              ? `Local do check-in: ${os.checkInLat.toFixed(5)}, ${os.checkInLng.toFixed(5)}`
-              : os.checkInAt
-                ? 'Check-in registrado sem localização.'
-                : 'A localização é registrada junto com o check-in, se o aparelho permitir.'}
-          </Text>
-        </Section>
+        {/* A execução acontece em ExecucaoScreen, em seis etapas, e é enviada
+            de uma vez no fim. Esta tela é só de consulta: as ações avulsas que
+            ficavam aqui (check-in, consumo, assinatura, "marcar como executada")
+            gravavam direto no banco e brigavam com o envio único. */}
+        {podeExecutar && (
+          <Button
+            label={temRascunho ? 'Continuar execução' : 'Executar serviço'}
+            onPress={() => navigation.navigate('Execucao', { osId: id })}
+          />
+        )}
+        {temRascunho && podeExecutar && (
+          <Text style={styles.hint}>Há uma execução em andamento guardada neste aparelho.</Text>
+        )}
 
-        {/* Produtos / consumo */}
-        <Section title="Produtos — consumo">
+        <Section title="Produtos previstos">
           {produtos.length === 0 && <Text style={styles.empty}>Nenhum produto previsto.</Text>}
           {produtos.map((p) => (
             <View key={p.id} style={styles.prod}>
@@ -191,40 +93,9 @@ export function OsDetailScreen({ route, navigation }: Props) {
                 <Text style={styles.prodName}>{p.produto}</Text>
                 <Text style={styles.prodMeta}>Recomendado: {p.recomendada} {p.unidade}</Text>
               </View>
-              {readOnly ? (
-                <Text style={styles.prodVal}>{p.utilizada == null ? '—' : `${p.utilizada} ${p.unidade}`}</Text>
-              ) : (
-                <TextInput
-                  value={consumo[p.id] ?? ''}
-                  onChangeText={(v) => setConsumo((s) => ({ ...s, [p.id]: v }))}
-                  keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.neutral400}
-                  style={styles.input}
-                />
-              )}
+              <Text style={styles.prodVal}>{p.utilizada == null ? '—' : `${p.utilizada} ${p.unidade}`}</Text>
             </View>
           ))}
-          {!readOnly && produtos.length > 0 && <Button label="Salvar consumo" onPress={salvarTodoConsumo} style={{ marginTop: 4 }} />}
-        </Section>
-
-        {/* Assinatura e fotos */}
-        <Section title="Comprovação">
-          <View style={styles.compRow}>
-            <MaterialIcons name={os.assinaturaUrl ? 'check-circle' : 'draw'} size={18} color={os.assinaturaUrl ? colors.primary : colors.neutral400} />
-            <Text style={styles.compText}>{os.assinaturaUrl ? 'Assinatura do cliente coletada' : 'Assinatura pendente'}</Text>
-          </View>
-          {!readOnly && !os.assinaturaUrl && (
-            <Button
-              label="Coletar assinatura do cliente"
-              variant="outlineGreen"
-              onPress={() => setAssinando(true)}
-            />
-          )}
-          {!readOnly && (
-            <Pressable style={styles.photoBtn} onPress={anexarFoto}>
-              <MaterialIcons name="photo-camera" size={18} color={colors.primary} />
-              <Text style={styles.photoText}>Anexar foto da execução</Text>
-            </Pressable>
-          )}
         </Section>
 
         {/* Cronograma */}
@@ -239,10 +110,6 @@ export function OsDetailScreen({ route, navigation }: Props) {
           </Section>
         )}
 
-        {/* Finalizar */}
-        {!readOnly && os.status !== 'executada' && (
-          <Button label="Marcar como executada" onPress={confirmarFinalizar} style={{ marginTop: 4, opacity: busy ? 0.7 : 1 }} />
-        )}
         {os.status === 'executada' && (
           <View style={styles.doneBanner}>
             <MaterialIcons name="verified" size={16} color={colors.primary} />
@@ -252,14 +119,6 @@ export function OsDetailScreen({ route, navigation }: Props) {
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      <AssinaturaSheet
-        visible={assinando}
-        onClose={() => setAssinando(false)}
-        onConfirm={async (base64) => {
-          await confirmarAssinatura(id, base64);
-          load();
-        }}
-      />
     </View>
   );
 }
@@ -283,14 +142,6 @@ function Row({ label, value, icon }: { label: string; value: string; icon?: keyo
     </View>
   );
 }
-function CheckState({ label, time, done }: { label: string; time: string; done: boolean }) {
-  return (
-    <View style={[styles.check, done && styles.checkDone]}>
-      <Text style={styles.checkLabel}>{label}</Text>
-      <Text style={[styles.checkTime, done && { color: colors.primary }]}>{done ? time : '—'}</Text>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
@@ -305,11 +156,6 @@ const styles = StyleSheet.create({
   rowVal: { fontFamily: fonts.regular, fontSize: 14, color: colors.ink, flex: 1 },
   lockBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#eef0f2', borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10 },
   lockText: { fontFamily: fonts.medium, fontSize: 13, color: colors.neutral500 },
-  checkRow: { flexDirection: 'row', gap: 12 },
-  check: { flex: 1, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border, padding: 12, gap: 3 },
-  checkDone: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
-  checkLabel: { fontFamily: fonts.medium, fontSize: 11, color: colors.neutral500, textTransform: 'uppercase' },
-  checkTime: { fontFamily: fonts.semibold, fontSize: 16, color: colors.neutral400 },
   hint: { fontFamily: fonts.regular, fontSize: 12, color: colors.neutral400 },
   empty: { fontFamily: fonts.regular, fontSize: 13, color: colors.neutral400 },
   prod: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -317,11 +163,6 @@ const styles = StyleSheet.create({
   prodName: { fontFamily: fonts.semibold, fontSize: 14, color: colors.ink },
   prodMeta: { fontFamily: fonts.regular, fontSize: 12, color: colors.neutral500 },
   prodVal: { fontFamily: fonts.semibold, fontSize: 14, color: colors.ink },
-  input: { width: 84, height: 44, borderRadius: radius.sm, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.bg, paddingHorizontal: 12, fontFamily: fonts.medium, fontSize: 15, color: colors.ink, textAlign: 'center' },
-  compRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  compText: { fontFamily: fonts.medium, fontSize: 14, color: colors.neutral800 },
-  photoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 48, borderRadius: radius.md, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary },
-  photoText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.primary },
   cronoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cronoDate: { fontFamily: fonts.medium, fontSize: 14, color: colors.neutral800 },
   doneBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.primaryTint, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 12 },
