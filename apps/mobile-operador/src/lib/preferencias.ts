@@ -11,7 +11,13 @@ import { msgErro } from '@/lib/erros';
  * `email` fica em `profiles.preferencias`: quem escolhe receber (ou não)
  * notificação por e-mail escolhe uma vez, não uma vez por aparelho. Trocar de
  * celular não pode reativar um e-mail que a pessoa desligou.
+ *
+ * A chave é `notif_email`, a mesma do Portal e a do comentário da coluna
+ * (`{"notif_portal": true, "notif_email": false}`). O App gravava
+ * `notificacoes_email`, e o envio por e-mail (PR 38) teria de ler duas chaves.
+ * Nenhum perfil tinha a chave antiga gravada quando ela foi trocada (07/10).
  */
+const CHAVE_EMAIL = 'notif_email';
 export interface Preferencias {
   /** Mostrar o número vermelho na aba Notificações. */
   badge: boolean;
@@ -52,7 +58,7 @@ export async function carregarPrefEmail(): Promise<boolean> {
   if (!id) return false;
   const { data: p } = await supabase.from('profiles').select('preferencias').eq('id', id).single();
   const prefs = (p?.preferencias ?? {}) as Record<string, unknown>;
-  return prefs.notificacoes_email === true;
+  return prefs[CHAVE_EMAIL] === true;
 }
 
 export async function definirPrefEmail(v: boolean): Promise<void> {
@@ -62,7 +68,7 @@ export async function definirPrefEmail(v: boolean): Promise<void> {
   // Mescla em vez de sobrescrever: o jsonb é compartilhado com outras
   // preferências, e um update cru apagaria as dos outros apps.
   const { data: p } = await supabase.from('profiles').select('preferencias').eq('id', id).single();
-  const prefs = { ...((p?.preferencias ?? {}) as Record<string, unknown>), notificacoes_email: v };
+  const prefs = { ...((p?.preferencias ?? {}) as Record<string, unknown>), [CHAVE_EMAIL]: v };
   const { error } = await supabase.from('profiles').update({ preferencias: prefs }).eq('id', id);
   if (error) throw new Error(msgErro(error));
 }
