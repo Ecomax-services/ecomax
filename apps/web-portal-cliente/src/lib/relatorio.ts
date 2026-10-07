@@ -21,7 +21,12 @@
  * Sem dependências: roda igual no React, no Deno e no teste.
  */
 
-import { codigoDoPonto } from './monitoramento';
+// Sem import: o módulo também roda na Edge Function (Deno exige a extensão no
+// import, e o App não aceita a extensão). O código do ponto é o mesmo de
+// `codigoDoPonto` em monitoramento.ts — "PI-03"; sem serviço, "Ponto 3".
+const SERVICOS_COM_CODIGO = ['DI', 'PI', 'PA', 'AL', 'PG', 'OC'];
+const codigoDoPonto = (servico: string | null | undefined, numero: number): string =>
+  servico && SERVICOS_COM_CODIGO.includes(servico) ? `${servico}-${String(numero).padStart(2, '0')}` : `Ponto ${numero}`;
 
 // ---------------------------------------------------------------------------
 // Dados crus (o que `relatorio_dados` devolve)
@@ -47,6 +52,7 @@ export interface DadosRelatorio {
   visitas: { os_id: string; codigo: string; data: string }[];
   planos: { id: string; servico: string | null; tipo_controle: string; frequencia: string | null }[];
   pontos: PontoLido[];
+  fotos: { id: string; nome: string; caminho: string; ponto_id: string | null }[];
   aplicacoes: { id: string; produto: string | null; lote: string | null; tecnica: string | null; quantidade: number | null; unidade: string | null; areas: string[] }[];
   placas: { id: string; area_id: string | null; fase: number | null; numero: number; local: string | null }[];
   capturas: { os_id: string; cliente_ponto_id: string; especie: string }[];

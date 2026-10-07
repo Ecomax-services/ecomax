@@ -211,6 +211,11 @@ jobs:
                 exit 1
               fi
             done
+            # A cópia das Edge Functions (o PDF do relatório usa a mesma montagem da tela).
+            if ! diff -q "$f" "supabase/functions/_shared/$nome" > /dev/null 2>&1; then
+              echo "::error::supabase/functions/_shared/$nome falta ou divergiu de $f. Rode ./scripts/sync-shared.sh."
+              exit 1
+            fi
           done
           echo "Módulos compartilhados em dia ✓"
 

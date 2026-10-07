@@ -54,6 +54,8 @@ begin
     if r.codigo = 'OS-RLS-RH-AGO2' then
       insert into t values ('os', v_os);
       insert into public.os_capturas_nao_alvo (os_id, cliente_ponto_id, especie) values (v_os, v_pa, 'Grilo');
+      insert into public.os_anexos (os_id, nome, tipo, arquivo_url) values (v_os, '[RLS] Foto', 'foto', 'os/' || v_os || '/foto/1.jpg');
+      insert into public.os_anexos (os_id, nome, tipo, arquivo_url) values (v_os, '[RLS] Autorização', 'autorizacao', 'os/' || v_os || '/anexo/2.pdf');
     end if;
   end loop;
 
@@ -111,6 +113,8 @@ begin
     (select (x ->> 'total')::numeric from jsonb_array_elements(h -> 'contagens') x
       where x ->> 'servico' = 'AL' and (x ->> 'mes')::int = 8 and (x ->> 'ano')::int = 2026) = 5, true);
 
+  perform pg_temp.esperar('as fotos da OS vêm para a galeria; outros anexos não',
+    (select string_agg(x ->> 'nome', ',') from jsonb_array_elements(pg_temp.dados() -> 'fotos') x) = '[RLS] Foto', true);
   perform pg_temp.esperar('capturas não-alvo por mês e espécie',
     (select (x ->> 'n')::int from jsonb_array_elements(h -> 'capturas') x where x ->> 'especie' = 'Grilo' and (x ->> 'mes')::int = 8) = 1, true);
 end $$;

@@ -88,3 +88,77 @@ export async function lancarCaptura(osId: string, clientePontoId: string, especi
     .upsert({ os_id: osId, cliente_ponto_id: clientePontoId, especie }, { onConflict: 'os_id,cliente_ponto_id' });
   if (error) throw new Error(msgErro(error));
 }
+
+// ---------------------------------------------------------------------------
+// PDF, versões, publicação e envio (Edge Function `relatorio`)
+// ---------------------------------------------------------------------------
+
+type PedidoPdf = { acao: 'previa'; conteudo: ConteudoVersao } | { acao: 'pdf'; numero?: number };
+
+/**
+ * O PDF do relatório, como arquivo. Chama a função direto (e não pelo
+ * `functions.invoke`), porque o invoke devolve resposta não-JSON como texto e
+ * o PDF chegaria corrompido.
+ */
+export async function pdfDoRelatorio(osId: string, pedido: PedidoPdf): Promise<Blob> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Sessão expirada. Entre de novo.');
+  const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/relatorio`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ os_id: osId, ...pedido }),
+  });
+  if (!r.ok) {
+    const erro = await r.json().catch(() => null) as { error?: string } | null;
+    throw new Error(erro?.error ?? 'Não foi possível gerar o PDF agora.');
+  }
+  return r.blob();
+}
+
+export interface Versao {
+  numero: number;
+  motivo: string;
+  autor: string;
+  criadoEm: string;
+  conteudo: ConteudoVersao;
+}
+
+export async function listarVersoes(osId: string): Promise<Versao[]> {
+  const { data, error } = await supabase.rpc('listar_versoes_relatorio', { _os_id: osId });
+  if (error) throw new Error(msgErro(error));
+  return (data ?? []).map((v) => ({
+    numero: v.numero, motivo: v.motivo, autor: v.autor, criadoEm: v.created_at,
+    conteudo: (v.conteudo as ConteudoVersao | null) ?? {},
+  }));
+}
+
+export interface ResultadoEnvio { numero: number; enviados: string[]; motivo: string | null }
+
+async function chamar(osId: string, acao: 'publicar' | 'enviar'): Promise<ResultadoEnvio> {
+  const { data, error } = await supabase.functions.invoke('relatorio', { body: { os_id: osId, acao } });
+  if (error) {
+    const ctx = (error as { context?: Response }).context;
+    const corpo = ctx ? await ctx.json().catch(() => null) as { error?: string } | null : null;
+    throw new Error(corpo?.error ?? 'Não foi possível concluir agora. Tente de novo em instantes.');
+  }
+  return data as ResultadoEnvio;
+}
+
+/** "Publicar no portal do cliente": sempre a última versão salva. */
+export const publicarRelatorio = (osId: string) => chamar(osId, 'publicar');
+
+/** "Enviar por e-mail" aos contatos do cliente, sem publicar. */
+export const enviarRelatorio = (osId: string) => chamar(osId, 'enviar');
+
+/** URLs temporárias das fotos da execução (galeria). */
+export async function urlsDasFotos(caminhos: string[]): Promise<Map<string, string>> {
+  if (caminhos.length === 0) return new Map();
+  const { data } = await supabase.storage.from('operacional-docs').createSignedUrls(caminhos, 60 * 30);
+  const mapa = new Map<string, string>();
+  for (const d of data ?? []) if (d.path && d.signedUrl) mapa.set(d.path, d.signedUrl);
+  return mapa;
+}

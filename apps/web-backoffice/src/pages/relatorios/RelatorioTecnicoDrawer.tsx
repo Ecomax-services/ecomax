@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Cloud, CloudOff, EyeOff, History, Lock, Save, TrendingDown, TrendingUp } from 'lucide-react';
+import { Cloud, CloudOff, CloudUpload, Download, Eye, EyeOff, GitCompare, History, Image as ImageIcon, Lock, Mail, Printer, RefreshCw, Save, TrendingDown, TrendingUp } from 'lucide-react';
 import { Drawer } from '@/components/ui/Drawer';
+import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { TextareaField } from '@/components/ui/Field';
@@ -14,9 +15,12 @@ import {
   type Bloco, type ConteudoVersao, type Frequencia, type GrupoDeBlocos, type Meses, type Tendencia,
 } from '@/lib/relatorio';
 import { CORES_GRAFICO, graficoDeBarras, type Serie } from '@/lib/graficos';
-import { abrirRelatorio, lancarCaptura, salvarVersao, type RelatorioAberto } from '@/lib/relatoriosTecnicos';
+import {
+  abrirRelatorio, enviarRelatorio, lancarCaptura, listarVersoes, pdfDoRelatorio, publicarRelatorio, salvarVersao, urlsDasFotos,
+  type RelatorioAberto, type Versao,
+} from '@/lib/relatoriosTecnicos';
 
-type Aba = 'blocos' | 'exec' | 'compl';
+type Aba = 'blocos' | 'exec' | 'compl' | 'pdf' | 'hist';
 type Selecao = 'capa' | 'descritivo' | string;
 
 const br = (iso: string | null | undefined) => (iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—');
@@ -36,9 +40,10 @@ const FREQS: { key: Frequencia; label: string }[] = [
 /**
  * Editor do relatório técnico — painel lateral do protótipo aprovado.
  *
- * Abas deste PR: Blocos do relatório, Dados da execução e Campos
- * complementares (onde se salva). Pré-visualização, Versões e as ações do
- * rodapé (imprimir, baixar, enviar, publicar) entram no PR 24.
+ * Abas: Blocos do relatório, Dados da execução, Campos complementares (onde
+ * se salva), Pré-visualização e Versões. Rodapé: Imprimir, Baixar PDF,
+ * Enviar por e-mail e Publicar no portal do cliente — todos pelo mesmo PDF
+ * (Edge Function `relatorio`).
  *
  * Tudo o que se edita aqui — textos, incluir/ocultar, frequência — fica num
  * rascunho local até "Salvar e gerar nova versão". A Captura Não-Alvo é dado
@@ -58,6 +63,8 @@ export function RelatorioTecnicoDrawer({ osId, onClose, onSalvo }: { osId: strin
   const [erros, setErros] = useState<{ observacoes?: string; parecer?: string }>({});
   const [salvando, setSalvando] = useState(false);
   const [confirmarFechar, setConfirmarFechar] = useState(false);
+  const [confirmar, setConfirmar] = useState<'publicar' | 'enviar' | null>(null);
+  const [ocupado, setOcupado] = useState(false);
 
   const carregar = useCallback(() => {
     abrirRelatorio(osId)
@@ -107,6 +114,50 @@ export function RelatorioTecnicoDrawer({ osId, onClose, onSalvo }: { osId: strin
     }
   };
 
+  /** PDF de uma versão (atual, se não disser qual), aberto numa aba nova ou baixado. */
+  const comPdf = async (numero: number | undefined, destino: 'abrir' | 'baixar' | 'imprimir') => {
+    if (!rel) return;
+    setOcupado(true);
+    try {
+      const blob = await pdfDoRelatorio(osId, { acao: 'pdf', numero });
+      const url = URL.createObjectURL(blob);
+      const nome = `relatorio-tecnico-${rel.dados.os.codigo.toLowerCase()}-v${numero ?? rel.versaoAtual}.pdf`;
+      if (destino === 'baixar') {
+        const a = document.createElement('a');
+        a.href = url; a.download = nome; a.click();
+      } else {
+        const janela = window.open(url, '_blank');
+        if (!janela) showToast('O navegador bloqueou a janela. Autorize os pop-ups deste site.');
+        else if (destino === 'imprimir') showToast(`Enviado para a impressora · relatório técnico ${rel.dados.os.codigo}`);
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      showToast((e as Error).message);
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  const executar = async (acao: 'publicar' | 'enviar') => {
+    if (!rel) return;
+    setConfirmar(null);
+    setOcupado(true);
+    try {
+      const r = acao === 'publicar' ? await publicarRelatorio(osId) : await enviarRelatorio(osId);
+      const para = r.enviados.join(', ');
+      showToast(acao === 'publicar'
+        ? `${rel.dados.os.codigo} · v${r.numero} publicada no portal${para ? ` · e-mail para ${para}` : ''}`
+        : `Relatório de ${rel.dados.os.codigo} enviado para ${para}`);
+      if (r.motivo) showToast(`Publicado, mas o e-mail não saiu para todos: ${r.motivo}`);
+      onSalvo();
+      carregar();
+    } catch (e) {
+      showToast((e as Error).message);
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   if (!rel) {
     return (
       <Drawer open onClose={onClose} title="Relatório técnico" width={1000}>
@@ -137,12 +188,26 @@ export function RelatorioTecnicoDrawer({ osId, onClose, onSalvo }: { osId: strin
           </span>
         }
         subtitle={`${os.cliente.nome} · ${os.tipos.join(', ') || '—'} · execução ${br(os.data_execucao)} · ${rotuloStatus(os.status)}`}
+        footer={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" onClick={() => comPdf(undefined, 'imprimir')} disabled={ocupado}><Printer className="h-4 w-4" />Imprimir</Button>
+            <Button variant="secondary" onClick={() => comPdf(undefined, 'baixar')} disabled={ocupado}><Download className="h-4 w-4" />Baixar PDF</Button>
+            {podeEditar && <Button variant="secondary" onClick={() => setConfirmar('enviar')} disabled={ocupado}><Mail className="h-4 w-4" />Enviar por e-mail</Button>}
+            {podeEditar && (
+              <Button className="ml-auto" onClick={() => setConfirmar('publicar')} disabled={ocupado}>
+                <CloudUpload className="h-4 w-4" />Publicar no portal do cliente
+              </Button>
+            )}
+          </div>
+        }
         headerExtra={
           <div className="flex gap-1.5 pb-3">
             {([
               ['blocos', `Blocos do relatório (${contagem.incluidos} de ${contagem.total})`],
               ['exec', 'Dados da execução'],
               ['compl', 'Campos complementares'],
+              ['pdf', 'Pré-visualização'],
+              ['hist', `Versões (${rel.versaoAtual})`],
             ] as [Aba, string][]).map(([k, l]) => (
               <button key={k} onClick={() => setAba(k)}
                 className={cn('rounded-full px-3.5 py-1.5 text-[13px] font-semibold', aba === k ? 'bg-forest-600 text-white' : 'bg-ink-50 text-ink-500 hover:text-ink-900')}>
@@ -185,12 +250,15 @@ export function RelatorioTecnicoDrawer({ osId, onClose, onSalvo }: { osId: strin
             </>
           )}
           {aba === 'exec' && <DadosExecucao rel={rel} grupos={grupos} />}
+          {aba === 'pdf' && <AbaPrevia osId={osId} rascunho={rascunho} sujo={sujo} versao={rel.versaoAtual} />}
+          {aba === 'hist' && <AbaVersoes osId={osId} codigo={os.codigo} versaoAtual={rel.versaoAtual} onAbrirPdf={(n) => comPdf(n, 'abrir')} />}
           {aba === 'compl' && (
             <div className="space-y-4">
               <p className="flex items-center gap-2 rounded-lg bg-[#eef8ee] px-4 py-2.5 text-[13px] text-[#2e6b31]">
                 <History className="h-4 w-4" />Toda edição salva gera automaticamente uma nova versão do relatório: as anteriores ficam preservadas no histórico.
               </p>
               <CamposTexto rascunho={rascunho} editar={(p) => { editar(p); setErros((e) => ({ ...e, ...Object.fromEntries(Object.keys(p).map((k) => [k, undefined])) })); }} erros={erros} podeEditar={podeEditar} />
+              <Galeria fotos={dados.fotos} codigo={os.codigo} cliente={os.cliente.nome} />
               <Notas notas={notas} setNotas={setNotas} podeEditar={podeEditar} />
               {podeEditar && (
                 <div className="flex items-center justify-end gap-3">
@@ -202,6 +270,20 @@ export function RelatorioTecnicoDrawer({ osId, onClose, onSalvo }: { osId: strin
           )}
         </div>
       </Drawer>
+
+      <ConfirmDialog
+        open={!!confirmar}
+        title={confirmar === 'publicar' ? `Publicar a v${rel.versaoAtual} no portal do cliente?` : `Enviar a v${rel.versaoAtual} por e-mail?`}
+        description={
+          (confirmar === 'publicar'
+            ? 'O cliente passa a ver o PDF no Portal, recebe um aviso e o PDF por e-mail (contatos marcados como "Rel. técnica"). Uma publicação anterior deste relatório sai do ar.'
+            : 'O PDF da última versão vai para os contatos do cliente marcados como "Rel. técnica", sem publicar no Portal.')
+          + (sujo ? ` Há alterações não salvas: vale a v${rel.versaoAtual} salva.` : '')
+        }
+        confirmLabel={confirmar === 'publicar' ? 'Publicar' : 'Enviar'}
+        onConfirm={() => confirmar && executar(confirmar)}
+        onClose={() => setConfirmar(null)}
+      />
 
       <ConfirmDialog
         open={confirmarFechar}
@@ -695,6 +777,150 @@ function DadosExecucao({ rel, grupos }: { rel: RelatorioAberto; grupos: GrupoDeB
           ['Técnico responsável', os.tecnico_executor || '—'],
         ]} />
       </Painel>
+    </div>
+  );
+}
+
+/** Pré-visualização: o PDF gerado pela mesma função da publicação, com o rascunho atual. */
+function AbaPrevia({ osId, rascunho, sujo, versao }: { osId: string; rascunho: ConteudoVersao; sujo: boolean; versao: number }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [gerando, setGerando] = useState(false);
+  const gerar = useCallback(async (conteudo: ConteudoVersao) => {
+    setGerando(true);
+    setErro(null);
+    try {
+      const blob = await pdfDoRelatorio(osId, { acao: 'previa', conteudo });
+      setUrl((antiga) => { if (antiga) URL.revokeObjectURL(antiga); return URL.createObjectURL(blob); });
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setGerando(false);
+    }
+  }, [osId]);
+  // Gera ao abrir a aba; depois, pelo botão — gerar a cada tecla custaria um PDF por letra.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { gerar(rascunho); }, [gerar]);
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="flex-1 text-[13px] text-ink-500">
+          É o mesmo PDF que o cliente recebe ao publicar, com o cabeçalho da v{versao}.
+          {sujo && ' Mostra as alterações ainda não salvas.'} Blocos ocultos e notas internas não entram.
+        </p>
+        <Button variant="secondary" size="sm" onClick={() => gerar(rascunho)} disabled={gerando}>
+          <RefreshCw className="h-4 w-4" />Atualizar pré-visualização
+        </Button>
+      </div>
+      {erro && <p className="text-[13px] text-danger-bright">{erro}</p>}
+      {gerando && !url && <p className="text-[13px] text-ink-500">Gerando o PDF…</p>}
+      {url && <iframe title="Pré-visualização do relatório" src={url} className="h-[70vh] w-full rounded-lg border border-ink-100" />}
+    </div>
+  );
+}
+
+const CAMPOS_COMPARADOS: [keyof ConteudoVersao, string][] = [
+  ['observacoes', 'Observações técnicas'], ['recomendacoes', 'Recomendações ao cliente'],
+  ['parecer', 'Parecer técnico'], ['sugestoes', 'Sugestões de melhoria'],
+];
+
+/** Aba Versões: histórico, visualizar o PDF de cada versão e comparar. */
+function AbaVersoes({ osId, codigo, versaoAtual, onAbrirPdf }: {
+  osId: string; codigo: string; versaoAtual: number; onAbrirPdf: (numero: number) => void;
+}) {
+  const { showToast } = useToast();
+  const [versoes, setVersoes] = useState<Versao[]>([]);
+  const [cmp, setCmp] = useState<[Versao, Versao] | null>(null);
+  useEffect(() => { listarVersoes(osId).then(setVersoes).catch((e) => showToast((e as Error).message)); }, [osId, versaoAtual, showToast]);
+  const porNumero = (n: number) => versoes.find((v) => v.numero === n);
+  const comparar = (n: number) => {
+    const b = porNumero(n);
+    const a = porNumero(Math.max(1, n - 1));
+    if (a && b) setCmp([a, b]);
+  };
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-bold text-ink-900">Histórico de versões</h3>
+        {versoes.length > 1 && (
+          <Button variant="secondary" size="sm" onClick={() => comparar(versoes[0].numero)}><GitCompare className="h-4 w-4" />Comparar duas últimas</Button>
+        )}
+      </div>
+      <ul className="divide-y divide-ink-100 rounded-lg border border-ink-100">
+        {versoes.map((v) => (
+          <li key={v.numero} className="flex flex-wrap items-center gap-3 px-4 py-3">
+            <Chip cls={v.numero === versaoAtual ? 'bg-[#eaf6ea] text-[#1a5c1a]' : 'bg-ink-100 text-ink-500'}>
+              v{v.numero}{v.numero === versaoAtual ? ' · atual' : ''}
+            </Chip>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-semibold text-ink-900">{v.motivo}</p>
+              <p className="text-[12.5px] text-ink-400">{v.autor} · {dataHora(v.criadoEm)}</p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => onAbrirPdf(v.numero)}><Eye className="h-4 w-4" />Visualizar</Button>
+            {v.numero > 1 && <Button variant="secondary" size="sm" onClick={() => comparar(v.numero)}><GitCompare className="h-4 w-4" />Comparar</Button>}
+          </li>
+        ))}
+      </ul>
+      <Modal open={!!cmp} onClose={() => setCmp(null)}>
+        {cmp && (
+          <div className="w-[860px] max-w-[94vw] p-6">
+            <h3 className="mb-4 text-lg font-bold text-ink-900">Comparar v{cmp[0].numero} com v{cmp[1].numero} · {codigo}</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {cmp.map((v) => (
+                <div key={v.numero} className="space-y-3 rounded-lg border border-ink-100 p-4">
+                  <div className="flex items-center gap-2"><Chip cls="bg-ink-100 text-ink-500">v{v.numero}</Chip><span className="text-[12.5px] text-ink-400">{v.autor} · {dataHora(v.criadoEm)}</span></div>
+                  {CAMPOS_COMPARADOS.map(([k, rotulo]) => {
+                    const mudou = (cmp[0].conteudo[k] ?? '') !== (cmp[1].conteudo[k] ?? '');
+                    return (
+                      <div key={k}>
+                        <p className="text-[12px] font-semibold text-ink-500">{rotulo}{mudou && <span className="ml-1.5 text-[#b45309]">· alterado</span>}</p>
+                        <p className={cn('whitespace-pre-wrap text-[13px]', mudou ? 'text-ink-900' : 'text-ink-500')}>{String(v.conteudo[k] ?? '').trim() || '—'}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex justify-end"><Button variant="secondary" onClick={() => setCmp(null)}>Fechar comparação</Button></div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/** Galeria de fotos da execução (Campos complementares). */
+function Galeria({ fotos, codigo, cliente }: { fotos: RelatorioAberto['dados']['fotos']; codigo: string; cliente: string }) {
+  const [urls, setUrls] = useState<Map<string, string>>(new Map());
+  const [aberta, setAberta] = useState<{ url: string; nome: string; n: number } | null>(null);
+  useEffect(() => { urlsDasFotos(fotos.map((f) => f.caminho)).then(setUrls).catch(() => setUrls(new Map())); }, [fotos]);
+  return (
+    <div className="rounded-lg border border-ink-100 p-4">
+      <h3 className="text-[14px] font-bold text-ink-900">Galeria de fotos da execução</h3>
+      <p className="mb-3 text-[12.5px] text-ink-400">{fotos.length} {fotos.length === 1 ? 'registro anexado' : 'registros anexados'} pelo técnico no app · todas as fotos da OS ficam aqui.</p>
+      {fotos.length === 0 ? <p className="text-[13px] text-ink-400">Nenhuma foto nesta execução.</p> : (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-2.5">
+          {fotos.map((f, i) => {
+            const url = urls.get(f.caminho);
+            return (
+              <button key={f.id} onClick={() => url && setAberta({ url, nome: f.nome, n: i + 1 })}
+                className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-ink-100 bg-ink-50">
+                {url ? <img src={url} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" /> : <ImageIcon className="h-6 w-6 text-ink-300" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <Modal open={!!aberta} onClose={() => setAberta(null)}>
+        {aberta && (
+          <div className="max-w-[90vw] p-4">
+            <p className="mb-2 text-[14px] font-bold text-ink-900">Foto {aberta.n} · {codigo}</p>
+            <p className="mb-3 text-[12.5px] text-ink-400">{cliente} · registro da execução · {aberta.nome}</p>
+            <img src={aberta.url} alt={aberta.nome} className="max-h-[70vh] rounded-lg" />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

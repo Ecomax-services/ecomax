@@ -98,3 +98,24 @@ export function emailPrimeiroAcesso(url: string, nome: string, ondeEntrar: strin
     texto: `Olá, ${nome}\n\nSua conta no ${ondeEntrar} da Ecomax foi criada. Defina sua senha:\n${url}${extra}`,
   };
 }
+
+/**
+ * Relatório técnico enviado ao cliente (publicação ou "Enviar por e-mail" no
+ * Backoffice). O PDF vai anexado; quem tem acesso ao Portal também o encontra
+ * lá, na OS.
+ */
+export function emailRelatorioTecnico(codigoOs: string, cliente: string, versao: number, publicado: boolean) {
+  const html = layout(`Relatório técnico ${codigoOs}`, `
+    <h1 style="font-size:20px;margin:16px 0 8px">Relatório técnico ${esc(codigoOs)}</h1>
+    <p style="margin:0;font-size:15px;line-height:1.6;color:#374151">
+      Segue em anexo o relatório técnico da ordem de serviço ${esc(codigoOs)} (${esc(cliente)}), versão ${versao}.
+    </p>
+    ${publicado ? `<p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:#374151">
+      Ele também está disponível no Portal do Cliente, na própria ordem de serviço.
+    </p>` : ''}`);
+  return {
+    assunto: `Relatório técnico ${codigoOs} · Ecomax`,
+    html,
+    texto: `Relatório técnico ${codigoOs}\n\nSegue em anexo o relatório técnico da ordem de serviço ${codigoOs} (${cliente}), versão ${versao}.${publicado ? '\nEle também está disponível no Portal do Cliente, na própria ordem de serviço.' : ''}`,
+  };
+}

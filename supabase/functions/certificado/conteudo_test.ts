@@ -2,8 +2,8 @@
 //   deno test supabase/functions/certificado/
 import { assert, assertEquals } from 'jsr:@std/assert@1';
 import { DadosCertificado, documento, documentoFormatado, faltas, montarSnapshot, validadeDias } from './conteudo.ts';
-import { gerarPdf } from './pdf.ts';
-import { LOGO_PADRAO } from './logo.ts';
+import { gerarPdf } from '../_shared/pdf.ts';
+import { LOGO_PADRAO } from '../_shared/logo.ts';
 
 function dados(): DadosCertificado {
   return {

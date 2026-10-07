@@ -15,8 +15,8 @@
 // cadastro que pode ter mudado.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { DadosCertificado, Snapshot, documento, faltas, montarSnapshot } from './conteudo.ts';
-import { gerarPdf, sha256 } from './pdf.ts';
-import { LOGO_PADRAO } from './logo.ts';
+import { gerarPdf, sha256 } from '../_shared/pdf.ts';
+import { LOGO_PADRAO } from '../_shared/logo.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
