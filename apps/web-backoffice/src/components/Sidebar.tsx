@@ -53,7 +53,7 @@ const items: NavItem[] = [
   { label: 'Operacional', icon: ClipboardList, to: '/operacional', module: 'operacional' },
   { label: 'Comercial', icon: Briefcase, to: '/comercial', module: 'comercial' },
   { label: 'Estoque e Produtos', icon: Package, to: '/estoque', module: 'estoque' },
-  { label: 'Relatórios', icon: BarChart3, to: '/relatorios', disabled: true, module: 'relatorios' },
+  { label: 'Relatórios', icon: BarChart3, to: '/relatorios', module: 'relatorios' },
   { label: 'Financeiro', icon: Wallet, to: '/financeiro', disabled: true, module: 'financeiro' },
   { label: 'Gestão de Usuários', icon: UserCog, to: '/usuarios', module: 'gestao_usuarios' },
   { label: 'Notificações', icon: Bell, to: '/notificacoes' },

@@ -19,6 +19,7 @@ APPS=(web-backoffice web-portal-cliente mobile-operador)
 MODULOS=(
   "statusOs.ts:src/lib/statusOs.ts"
   "monitoramento.ts:src/lib/monitoramento.ts"
+  "relatorio.ts:src/lib/relatorio.ts"
 )
 
 for par in "${MODULOS[@]}"; do
