@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { ItemAgenda } from '@/lib/agenda/dados';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -20,6 +21,12 @@ export type OsStackParamList = {
   OsDetail: { id: string; codigo: string };
   /** Execução em campo, em seis etapas (src/screens/execucao). */
   Execucao: { osId: string };
+  /** OS de colega, aberta da agenda da equipe: só leitura, só o que a agenda traz. */
+  OsEquipe: {
+    item: ItemAgenda;
+    operador: { nome: string; iniciais: string; cor: string; fundo: string };
+    responsaveis: string[];
+  };
 };
 
 /** As abas. Tipar isto é o que permite navegar de uma aba para uma tela de
