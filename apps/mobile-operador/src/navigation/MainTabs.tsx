@@ -15,6 +15,7 @@ import { OsListScreen } from '@/screens/os/OsListScreen';
 import { OsDetailScreen } from '@/screens/os/OsDetailScreen';
 import { ExecucaoScreen } from '@/screens/execucao/ExecucaoScreen';
 import { AgendaScreen } from '@/screens/AgendaScreen';
+import { OsEquipeScreen } from '@/screens/os/OsEquipeScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { PreferencesScreen } from '@/screens/PreferencesScreen';
@@ -31,6 +32,7 @@ function OsStack() {
       <OsStackNav.Screen name="OsList" component={OsListScreen} />
       <OsStackNav.Screen name="OsDetail" component={OsDetailScreen} />
       <OsStackNav.Screen name="Execucao" component={ExecucaoScreen} options={{ gestureEnabled: false }} />
+      <OsStackNav.Screen name="OsEquipe" component={OsEquipeScreen} />
     </OsStackNav.Navigator>
   );
 }

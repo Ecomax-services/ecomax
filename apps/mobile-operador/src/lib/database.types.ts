@@ -3691,6 +3691,23 @@ export type Database = {
           ultimo_login: string
         }[]
       }
+      agenda_da_equipe: {
+        Args: { _ate: string; _de: string }
+        Returns: {
+          cliente: string
+          codigo: string
+          cronograma_id: string
+          data: string
+          duracao: string
+          endereco: string
+          funcionarios: string[]
+          hora: string
+          os_id: string
+          pragas: string[]
+          status: string
+          tipos: string[]
+        }[]
+      }
       ajuste_estoque: {
         Args: {
           p_base_id: string
@@ -3772,6 +3789,14 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       minha_base_id: { Args: never; Returns: string }
+      minha_equipe: {
+        Args: never
+        Returns: {
+          funcionario_id: string
+          nome: string
+          sou_eu: boolean
+        }[]
+      }
       my_portal_cliente_ids: { Args: never; Returns: string[] }
       notificar_cliente: {
         Args: {
