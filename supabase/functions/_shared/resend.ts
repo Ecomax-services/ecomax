@@ -18,6 +18,8 @@ export interface Email {
   html: string;
   /** Alternativa em texto puro, para cliente de e-mail que não renderiza HTML. */
   texto?: string;
+  /** Anexos (ex.: o PDF do relatório técnico), com o conteúdo em base64. */
+  anexos?: { nome: string; base64: string }[];
 }
 
 export interface ResultadoEnvio {
@@ -26,7 +28,7 @@ export interface ResultadoEnvio {
   motivo?: string;
 }
 
-export async function enviarEmail({ para, assunto, html, texto }: Email): Promise<ResultadoEnvio> {
+export async function enviarEmail({ para, assunto, html, texto, anexos }: Email): Promise<ResultadoEnvio> {
   const chave = Deno.env.get('RESEND_API_KEY');
   if (!chave) {
     return { enviado: false, motivo: 'RESEND_API_KEY não configurada nas secrets da função' };
@@ -38,7 +40,10 @@ export async function enviarEmail({ para, assunto, html, texto }: Email): Promis
     r = await fetch(API, {
       method: 'POST',
       headers: { Authorization: `Bearer ${chave}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: remetente, to: [para], subject: assunto, html, text: texto }),
+      body: JSON.stringify({
+        from: remetente, to: [para], subject: assunto, html, text: texto,
+        ...(anexos?.length ? { attachments: anexos.map((a) => ({ filename: a.nome, content: a.base64 })) } : {}),
+      }),
     });
   } catch (e) {
     // Rede fora entre a função e o Resend. Vale distinguir de recusa do

@@ -20,6 +20,8 @@
 -- ponto) aparece vazio. [A DEFINIR — importar as planilhas antigas do
 -- cliente, ou aceitar a tendência vazia no primeiro ano.]
 --
+-- Também passa a devolver as fotos da execução, para a galeria do relatório.
+--
 -- O resto da função é o mesmo de 20261008090000_relatorio_dados.sql.
 -- ============================================================================
 
@@ -184,6 +186,11 @@ begin
         join visitas v on v.id = p.os_id
         left join cliente_pontos cp on cp.id = pt.cliente_ponto_id
        where p.servico_codigo in (select q.servico_codigo from os_planos_controle q where q.os_id = _os_id)), '[]'::jsonb),
+    -- Fotos da execução (galeria em Campos complementares). Pelo relatório,
+    -- e não por os_anexos: quem tem só o módulo Relatórios não lê os_anexos.
+    'fotos', coalesce((
+      select jsonb_agg(jsonb_build_object('id', f.id, 'nome', f.nome, 'caminho', f.arquivo_url, 'ponto_id', f.ponto_id) order by f.created_at)
+        from os_anexos f where f.os_id = _os_id and f.tipo = 'foto' and f.arquivo_url is not null), '[]'::jsonb),
     'aplicacoes', coalesce((
       select jsonb_agg(jsonb_build_object(
                'id', a.id, 'produto', pr.nome, 'lote', a.lote, 'tecnica', a.tecnica,

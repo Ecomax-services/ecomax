@@ -31,6 +31,10 @@ for par in "${MODULOS[@]}"; do
     cp "$RAIZ/shared/$origem" "$RAIZ/apps/$app/$destino"
     echo "  → apps/$app/$destino"
   done
+  # As Edge Functions (Deno) usam a mesma regra: o PDF do relatório técnico
+  # monta os blocos com o mesmo código da tela do Backoffice.
+  cp "$RAIZ/shared/$origem" "$RAIZ/supabase/functions/_shared/$origem"
+  echo "  → supabase/functions/_shared/$origem"
 done
 
 echo "Pronto. Confira o diff antes de commitar."

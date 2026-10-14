@@ -2959,6 +2959,7 @@ export type Database = {
           os_id: string
           publicado: boolean
           publicado_at: string | null
+          relatorio_versao: number | null
           titulo: string
         }
         Insert: {
@@ -2969,6 +2970,7 @@ export type Database = {
           os_id: string
           publicado?: boolean
           publicado_at?: string | null
+          relatorio_versao?: number | null
           titulo: string
         }
         Update: {
@@ -2979,6 +2981,7 @@ export type Database = {
           os_id?: string
           publicado?: boolean
           publicado_at?: string | null
+          relatorio_versao?: number | null
           titulo?: string
         }
         Relationships: [
@@ -3935,6 +3938,17 @@ export type Database = {
           versao_publicada: number
         }[]
       }
+      listar_versoes_relatorio: {
+        Args: { _os_id: string }
+        Returns: {
+          autor: string
+          conteudo: Json
+          created_at: string
+          motivo: string
+          notas_internas: string
+          numero: number
+        }[]
+      }
       minha_base_id: { Args: never; Returns: string }
       minha_equipe: {
         Args: never
@@ -4018,6 +4032,15 @@ export type Database = {
       registrar_execucao: {
         Args: { _dados: Json; _os_id: string }
         Returns: Json
+      }
+      registrar_publicacao_relatorio: {
+        Args: {
+          _caminho: string
+          _numero: number
+          _os_id: string
+          _usuario: string
+        }
+        Returns: undefined
       }
       relatorio_dados: { Args: { _os_id: string }; Returns: Json }
       salvar_versao_relatorio: {

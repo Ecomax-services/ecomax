@@ -86,6 +86,7 @@ function dados(): DadosRelatorio {
       ponto({ cliente_ponto_id: 'oc1', servico: 'OC', area_id: 'cd', local: 'Refeitório', situacao: 'nao_conforme', sem_ocorrencia: false, contagens: { Barata: 1 }, observacao: 'Ralo sem tela', acao_corretiva: 'Telamento', status_codigo: null }),
       ponto({ cliente_ponto_id: 'oc2', servico: 'OC', area_id: 'cd', local: 'Doca', situacao: 'conforme', sem_ocorrencia: true, status_codigo: null }),
     ],
+    fotos: [],
     aplicacoes: [{ id: 'a1', produto: 'Gel', lote: 'L1', tecnica: 'Aplicação de Gel', quantidade: 35, unidade: 'g', areas: ['Fábrica'] }],
     placas: [{ id: 'pa1', area_id: 'fab', fase: null, numero: 1, local: 'Expedição' }, { id: 'pa2', area_id: 'fab', fase: null, numero: 2, local: 'Vestiário' }],
     capturas: [{ os_id: OS, cliente_ponto_id: 'pa2', especie: 'Lagartixa' }],
