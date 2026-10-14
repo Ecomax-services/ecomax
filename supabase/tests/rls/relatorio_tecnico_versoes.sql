@@ -180,9 +180,13 @@ end $$;
 -- Versão salva não muda nem some.
 do $$
 begin
-  perform pg_temp.esperar('pela API, ninguém altera versão (sem policy)',
-    pg_temp.conta('gestor', format('with u as (update public.os_relatorio_versoes set motivo = %L where os_id = %L returning 1) select count(*) from u',
-      'x', (select v from t where k = 'os'))) = 0, true);
+  -- Pela API a tentativa é barrada: sem policy de UPDATE (0 linhas) ou, num banco
+  -- criado do zero, sem o privilégio (erro). Os dois são "não altera"; o que se
+  -- confere é que a versão continua igual.
+  perform pg_temp.erro('gestor', format('update public.os_relatorio_versoes set motivo = %L where os_id = %L',
+    'x', (select v from t where k = 'os')));
+  perform pg_temp.esperar('pela API, ninguém altera versão',
+    not exists (select 1 from public.os_relatorio_versoes where os_id = (select v from t where k = 'os') and motivo = 'x'), true);
   perform pg_temp.esperar('nem com a chave de serviço: o gatilho barra a alteração',
     pg_temp.erro_direto(format('update public.os_relatorio_versoes set motivo = %L where os_id = %L', 'x', (select v from t where k = 'os'))) = '42501', true);
   perform pg_temp.esperar('nem a exclusão',
